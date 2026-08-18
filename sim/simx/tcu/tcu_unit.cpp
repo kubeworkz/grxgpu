@@ -24,6 +24,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdio>
 #include <limits>
 #include <type_traits>
 
@@ -388,6 +389,8 @@ public:
     wgmma_desc_.fill({0, 0});
     cta_owner_a_.fill(-1);
     cta_owner_b_ = -1;
+    wgmma_cta_owner_ = -1;
+    wgmma_admitted_warps_ = 0;
     cur_block_ = 0;
   #ifdef TCU_META_ENABLE
     agu_.fill(agu_state_t{});
@@ -557,9 +560,11 @@ public:
 
       wgmma_active |= (1u << b);
 
-      // CTA-overlap fence — defer this block's WGMMA if any other block
-      // is mid-flight with a different CTA. The shared B buffer assumes
-      // single-CTA occupancy across all blocks.
+      // CTA-overlap fence — defer this block's WGMMA if any other block is
+      // mid-flight with a different CTA. The shared B buffer assumes
+      // single-CTA occupancy across all blocks. Issue-time admission control
+      // (Core::issue) normally guarantees only one CTA is ever in flight, so
+      // this fence is a safety net.
       bool block_other_cta_inflight = false;
       for (uint32_t k = 0; k < VX_CFG_NUM_TCU_BLOCKS; ++k) {
         if (k == b) continue;
@@ -767,6 +772,14 @@ public:
           if (wgmma_planned_warps_.at(b) == 0) {
             in_wgmma_.at(b) = false;
             cta_owner_a_.at(b) = -1;
+          }
+          // Release the WGMMA admission slot once every admitted warp has
+          // retired its final uop.
+          if (wgmma_admitted_warps_ > 0) {
+            --wgmma_admitted_warps_;
+            if (wgmma_admitted_warps_ == 0) {
+              wgmma_cta_owner_ = -1;
+            }
           }
         }
       #endif
@@ -1091,6 +1104,21 @@ public:
     return perf_stats_;
   }
 
+  // ---- WGMMA CTA admission control (queried by Core::issue) ----
+
+  bool wgmma_cta_blocked(uint32_t wid) const {
+    int32_t cta = (int32_t)core_->scheduler().warp(wid).cta_csrs.cta_id;
+    return (wgmma_cta_owner_ != -1 && wgmma_cta_owner_ != cta);
+  }
+
+  void wgmma_cta_admit(uint32_t wid) {
+    int32_t cta = (int32_t)core_->scheduler().warp(wid).cta_csrs.cta_id;
+    if (wgmma_cta_owner_ == -1) {
+      wgmma_cta_owner_ = cta;
+    }
+    ++wgmma_admitted_warps_;
+  }
+
 private:
   uint32_t elem_bits(uint32_t fmt_s) const {
     switch (fmt_s) {
@@ -1371,6 +1399,16 @@ private:
   // CTA owner per block's A buffer and the shared B buffer (-1 = unowned).
   std::array<int32_t, VX_CFG_NUM_TCU_BLOCKS> cta_owner_a_{};
   int32_t cta_owner_b_ = -1;
+
+  // Issue-time WGMMA CTA admission slot. `wgmma_cta_owner_` is the CTA whose
+  // lockstep group currently owns the WGMMA path (-1 = vacant); a different
+  // CTA's head uop is fenced out in Core::issue before it acquires the
+  // per-lane FU lock. `wgmma_admitted_warps_` counts head uops issued but not
+  // yet drained, so the slot is released only once every admitted warp has
+  // retired its fu_unlock uop (the issue→TCU pipeline can otherwise make an
+  // early "all blocks idle" check drop the slot too soon).
+  int32_t wgmma_cta_owner_ = -1;
+  uint32_t wgmma_admitted_warps_ = 0;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1652,6 +1690,14 @@ void TcuUnit::on_tick() {
 
 const TcuUnit::PerfStats &TcuUnit::perf_stats() const {
 	return impl_->perf_stats();
+}
+
+bool TcuUnit::wgmma_cta_blocked(uint32_t wid) const {
+	return impl_->wgmma_cta_blocked(wid);
+}
+
+void TcuUnit::wgmma_cta_admit(uint32_t wid) {
+	impl_->wgmma_cta_admit(wid);
 }
 
 void TcuUnit::wmma(uint32_t wid,

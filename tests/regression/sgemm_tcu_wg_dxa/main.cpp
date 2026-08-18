@@ -335,11 +335,13 @@ int main(int argc, char *argv[]) {
   uint32_t grid_dim[2]  = {N / cfg::xtileN, M / cta_M};
   uint32_t block_dim[2] = {warps * (uint32_t)NT, 1};
 
-  // SMEM: A tile [cta_M x tileK] + B tile [tileK x tileN]
+  // SMEM: A tile [cta_M x tileK] + B tile [tileK x tileN].
+  // Double-buffered stages are bank-shifted (see wgmma_dbuf_stride_elems).
+  uint32_t stage_elems = cta_M * cfg::tileK + cfg::tileK * cfg::xtileN;
 #ifdef WGMMA_DXA_DOUBLE_BUFFER
-  uint32_t smem_size = 2 * (cta_M * cfg::tileK + cfg::tileK * cfg::xtileN) * sizeof(itype_t);
+  uint32_t smem_size = 2 * wgmma_dbuf_stride_elems(stage_elems, sizeof(itype_t)) * sizeof(itype_t);
 #else
-  uint32_t smem_size = (cta_M * cfg::tileK + cfg::tileK * cfg::xtileN) * sizeof(itype_t);
+  uint32_t smem_size = stage_elems * sizeof(itype_t);
 #endif
 
   std::cout << "input type: " << vt::ITYPE::name << ", output type: " << vt::OTYPE::name << std::endl;

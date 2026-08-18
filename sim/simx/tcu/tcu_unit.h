@@ -119,6 +119,16 @@ public:
 
 	const PerfStats& perf_stats() const;
 
+	// WGMMA CTA admission control. `wgmma_cta_blocked(wid)` reports whether the
+	// warp's CTA is fenced out by a different CTA that owns the current WGMMA
+	// lockstep slot; `wgmma_cta_admit(wid)` records the owning CTA when a head
+	// uop issues. Core::issue uses these to serialize WGMMA lockstep groups
+	// BEFORE a warp acquires the per-lane FU lock, so a deferred CTA can never
+	// hold that lock against the CTA it is waiting for (which otherwise
+	// deadlocks the TCU).
+	bool wgmma_cta_blocked(uint32_t wid) const;
+	void wgmma_cta_admit(uint32_t wid);
+
 protected:
   void on_reset() override;
   void on_tick() override;

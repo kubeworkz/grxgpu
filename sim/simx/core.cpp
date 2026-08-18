@@ -553,6 +553,16 @@ public:
           if (fu_locked_.at(iw).test(fu) && uop_fu_lock) {
             continue; // blocked by FU lock
           }
+        #ifdef VX_CFG_EXT_TCU_ENABLE
+          // WGMMA CTA admission: fence out a WGMMA head uop when a different
+          // CTA owns the current lockstep slot. Doing this before the warp
+          // acquires the per-lane FU lock prevents a deferred CTA from holding
+          // that lock against the CTA it is waiting for (TCU deadlock).
+          if (fu == (int)FUType::TCU && uop_fu_lock &&
+              tcu_unit_->wgmma_cta_blocked(wid)) {
+            continue;
+          }
+        #endif
         #ifdef VX_CFG_EXT_RTU_ENABLE
           // A TRACE2 macro must hold a ray-pool slot before its head uop enters
           // the SFU, or it stalls at the head of that unit's queue and starves
@@ -614,6 +624,12 @@ public:
               fu_locked_.at(iw).reset(fui);
             }
           }
+        #ifdef VX_CFG_EXT_TCU_ENABLE
+          // Admit the CTA once its WGMMA head uop actually issues.
+          if (uop_trace->fu_type == FUType::TCU && uop_trace->instr_ptr->get_fu_lock()) {
+            tcu_unit_->wgmma_cta_admit(uop_trace->wid);
+          }
+        #endif
           // Advance sequencer; pop ibuffer only when all micro-ops issued
           if (seq->advance()) {
             // Resume warp for macro instructions that stalled fetch at decode
