@@ -105,6 +105,11 @@ public:
     return bufs_.at(source).ready();
   }
 
+  uint64_t pending(uint32_t source) const {
+    const auto& buf = bufs_.at(source);
+    return buf.pending_q_.size() + buf.inflight_.size();
+  }
+
   std::shared_ptr<mem_block_t> read(uint32_t source, uint64_t line_addr) const {
     return bufs_.at(source).read(line_addr);
   }
@@ -185,6 +190,9 @@ void TcuTbuf::plan_b(const std::vector<uint64_t>& line_addrs) {
 
 bool TcuTbuf::ready_a(uint32_t b) const { return impl_->ready(kAOffset + b); }
 bool TcuTbuf::ready_b() const           { return impl_->ready(kBOffset); }
+
+uint64_t TcuTbuf::pending_a(uint32_t b) const { return impl_->pending(kAOffset + b); }
+uint64_t TcuTbuf::pending_b() const           { return impl_->pending(kBOffset); }
 
 std::shared_ptr<mem_block_t> TcuTbuf::read_a(uint32_t b, uint64_t line_addr) const {
   return impl_->read(kAOffset + b, line_addr);

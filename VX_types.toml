@@ -769,6 +769,18 @@ VX_CSR_MPM_TCU_TBUF_CACHE_HITS= 0xB04  # B tile reuse hits from tile buffer cach
 VX_CSR_MPM_TCU_TBUF_CACHE_HITS_H = 0xB84
 VX_CSR_MPM_TCU_LMEM_READS     = 0xB05  # tile buffer local memory reads
 VX_CSR_MPM_TCU_LMEM_READS_H   = 0xB85
+VX_CSR_MPM_TCU_TBUF_STALL_A   = 0xB06  # gate stall cycles: A operand (abuf) pending only
+VX_CSR_MPM_TCU_TBUF_STALL_A_H = 0xB86
+VX_CSR_MPM_TCU_TBUF_STALL_B   = 0xB07  # gate stall cycles: B operand (bbuf) pending only
+VX_CSR_MPM_TCU_TBUF_STALL_B_H = 0xB87
+VX_CSR_MPM_TCU_TBUF_STALL_AB  = 0xB08  # gate stall cycles: both A and B pending
+VX_CSR_MPM_TCU_TBUF_STALL_AB_H = 0xB88
+VX_CSR_MPM_TCU_TBUF_PEND_A    = 0xB09  # summed sampled pending A lines during gate stalls
+VX_CSR_MPM_TCU_TBUF_PEND_A_H  = 0xB89
+VX_CSR_MPM_TCU_TBUF_PEND_B    = 0xB0A  # summed sampled pending B lines during gate stalls
+VX_CSR_MPM_TCU_TBUF_PEND_B_H  = 0xB8A
+VX_CSR_MPM_TCU_TBUF_STALL_SAMPLES = 0xB0B  # gate-stall ticks sampled for pending-depth averages
+VX_CSR_MPM_TCU_TBUF_STALL_SAMPLES_H = 0xB8B
 
 [csr_mpm_tex]
 # PERF: texture unit (per-core; summed across blocks)
