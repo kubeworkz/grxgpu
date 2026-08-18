@@ -1,0 +1,116 @@
+name: Apptainer CI
+
+# Container-environment smoke: validates the build + a representative test run
+# work INSIDE vortex.sif. Deliberately separate from ci.yml (different intent —
+# environment validation, not functional coverage) and minimal (a pytest smoke,
+# not the full matrix). See docs/designs/continuous_integration.md §4.3.
+#
+# Weekly, OFFSET from ci.yml's Monday so a failure is attributable to the
+# container rather than the code; also on container-definition changes.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * 3'        # Wednesdays 06:00 UTC
+  push:
+    paths: [miscs/apptainer/**, ci/install_dependencies.sh, VERSION]
+  pull_request:
+    paths: [miscs/apptainer/**]
+
+env:
+  CCACHE_DISABLE: 1
+  APPTAINER_VERSION: "1.4.3"
+
+jobs:
+  container:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Apptainer
+        uses: eWaterCycle/setup-apptainer@v2
+        with:
+          apptainer-version: ${{ env.APPTAINER_VERSION }}
+      - name: Check .sif cache
+        id: cache-sif
+        uses: actions/cache@v4
+        with:
+          path: miscs/apptainer/vortex.sif
+          key: vortex-sif-${{ runner.os }}-${{ env.APPTAINER_VERSION }}-${{ hashFiles('miscs/apptainer/vortex.def', 'miscs/apptainer/install_boost_openssl.sh', 'miscs/apptainer/*.deb') }}
+      - name: Build container on miss
+        if: steps.cache-sif.outputs.cache-hit != 'true'
+        run: |
+          rm -f miscs/apptainer/vortex.sif
+          cd miscs/apptainer && apptainer build vortex.sif vortex.def
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vortex-sif
+          path: miscs/apptainer/vortex.sif
+
+  setup:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Setup Vortex
+        id: setup
+        uses: ./.github/actions/setup-vortex
+        with:
+          profile: lite
+      - name: Build toolchain on cache miss
+        if: steps.setup.outputs.toolchain-hit != 'true'
+        run: |
+          TOOLDIR=$PWD/tools
+          mkdir -p tc && cd tc
+          ../configure --tooldir=$TOOLDIR
+          ci/toolchain_install.sh
+      - name: Setup third party
+        run: make -C third_party > /dev/null
+
+  # Build + a representative pytest smoke (regression on simx, xlen 32) inside
+  # the container.
+  smoke:
+    needs: [container, setup]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Apptainer
+        uses: eWaterCycle/setup-apptainer@v2
+        with:
+          apptainer-version: ${{ env.APPTAINER_VERSION }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: vortex-sif
+          path: miscs/apptainer/
+      - name: Setup Vortex
+        uses: ./.github/actions/setup-vortex
+        with:
+          profile: lite
+      - name: Build + smoke inside container
+        run: |
+          apptainer exec --writable-tmpfs \
+            --bind ${{ github.workspace }}:${{ github.workspace }} \
+            --bind ${{ github.workspace }}/tools:/tools \
+            --bind ${{ github.workspace }}/third_party:${{ github.workspace }}/third_party \
+            --pwd ${{ github.workspace }} \
+            --env APPTAINER_TOOLDIR=/tools \
+            --env CCACHE_DISABLE=1 \
+            miscs/apptainer/vortex.sif bash <<'EOF'
+              set -e
+              mkdir -p build32 && cd build32
+              ../configure --tooldir=$APPTAINER_TOOLDIR --xlen=32
+              make software -s
+              # Build only the regression category the smoke actually runs.
+              # `make tests` also builds the opencl category, which links
+              # -lOpenCL from the (ICD-less prebuilt pocl) toolchain and fails
+              # in the container -- and the smoke never runs those tests.
+              make -C tests regression -s
+              chmod -R +x .
+              VX_XLEN=32 python3 -m pytest ci -m "regression and simx" --strict-markers -v
+          EOF
+
+  complete:
+    runs-on: ubuntu-22.04
+    needs: [smoke]
+    steps:
+      - run: echo "Apptainer environment smoke passed"
