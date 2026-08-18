@@ -2,3 +2,6 @@
 /.*
 # Archived/superseded docs — kept on disk, never tracked
 docs/archives/
+
+# Source export artifact (never tracked)
+grxgpu-src.tar.gz
