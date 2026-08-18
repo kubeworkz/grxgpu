@@ -63,12 +63,25 @@ public:
 		uint64_t tbuf_stalls = 0;      // cycles stalled on TcuTbufA/TcuSharedB readiness
 		uint64_t tbuf_cache_hits = 0;  // WGMMA entries with all lines already resident (cross-WGMMA reuse)
 		uint64_t lmem_reads = 0;       // sum of TcuTbufA + TcuSharedB LmemReqs issued
+		// Gate breakdown: which operand(s) the WGMMA gate is waiting on.
+		uint64_t tbuf_stall_a_only = 0;  // A pending, B ready
+		uint64_t tbuf_stall_b_only = 0;  // B pending, A ready
+		uint64_t tbuf_stall_ab     = 0;  // both pending
+		uint64_t tbuf_pend_a_sum   = 0;  // summed sampled outstanding A lines during stalls
+		uint64_t tbuf_pend_b_sum   = 0;  // summed sampled outstanding B lines during stalls
+		uint64_t tbuf_stall_samples = 0; // number of stall ticks sampled
 
 		PerfStats& operator+=(const PerfStats& rhs) {
-			this->latency          += rhs.latency;
-			this->tbuf_stalls      += rhs.tbuf_stalls;
-			this->tbuf_cache_hits  += rhs.tbuf_cache_hits;
-			this->lmem_reads       += rhs.lmem_reads;
+			this->latency               += rhs.latency;
+			this->tbuf_stalls           += rhs.tbuf_stalls;
+			this->tbuf_cache_hits       += rhs.tbuf_cache_hits;
+			this->lmem_reads            += rhs.lmem_reads;
+			this->tbuf_stall_a_only     += rhs.tbuf_stall_a_only;
+			this->tbuf_stall_b_only     += rhs.tbuf_stall_b_only;
+			this->tbuf_stall_ab         += rhs.tbuf_stall_ab;
+			this->tbuf_pend_a_sum       += rhs.tbuf_pend_a_sum;
+			this->tbuf_pend_b_sum       += rhs.tbuf_pend_b_sum;
+			this->tbuf_stall_samples    += rhs.tbuf_stall_samples;
 			return *this;
 		}
 	};

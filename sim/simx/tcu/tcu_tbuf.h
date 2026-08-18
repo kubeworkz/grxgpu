@@ -52,6 +52,11 @@ public:
   bool ready_a(uint32_t b) const;
   bool ready_b() const;
 
+  // Outstanding (pending + in-flight) line counts per role — profiler probes
+  // for the WGMMA operand-gate diagnosis.
+  uint64_t pending_a(uint32_t b) const;
+  uint64_t pending_b() const;
+
   std::shared_ptr<mem_block_t> read_a(uint32_t b, uint64_t line_addr) const;
   std::shared_ptr<mem_block_t> read_b(uint64_t line_addr) const;
 

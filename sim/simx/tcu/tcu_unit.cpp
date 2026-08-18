@@ -626,16 +626,30 @@ public:
     if (wgmma_active != 0) {
       uint32_t ready_mask = 0;
       auto& tbuf = simobject_->tbuf();
+      bool any_a_pending = false, any_b_pending = false;
       for (uint32_t b = 0; b < VX_CFG_NUM_TCU_BLOCKS; ++b) {
         if (!((wgmma_active >> b) & 1u)) continue;
         auto trace = simobject_->Inputs.at(b).peek();
         auto tpuArgs = std::get<IntrTcuArgs>(trace->instr_ptr->get_args());
         bool a_ok = !tpuArgs.is_a_smem || tbuf->ready_a(b);
         bool b_ok = tbuf->ready_b();
+        if (!a_ok) any_a_pending = true;
+        if (!b_ok) any_b_pending = true;
         if (a_ok && b_ok) ready_mask |= (1u << b);
       }
       if (ready_mask != wgmma_active) {
         ++perf_stats_.tbuf_stalls;
+        // Classify which operand(s) hold the gate, and sample the outstanding
+        // line counts on the single shared LMEM port.
+        if (any_a_pending && any_b_pending) ++perf_stats_.tbuf_stall_ab;
+        else if (any_a_pending)             ++perf_stats_.tbuf_stall_a_only;
+        else                                ++perf_stats_.tbuf_stall_b_only;
+        for (uint32_t b = 0; b < VX_CFG_NUM_TCU_BLOCKS; ++b) {
+          if (!((wgmma_active >> b) & 1u)) continue;
+          perf_stats_.tbuf_pend_a_sum += tbuf->pending_a(b);
+        }
+        perf_stats_.tbuf_pend_b_sum += tbuf->pending_b();
+        ++perf_stats_.tbuf_stall_samples;
         return; // hold all blocks; per-block dispatch deferred to next tick
       }
     }

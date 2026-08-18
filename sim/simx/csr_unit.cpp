@@ -230,6 +230,12 @@ Word CsrUnit::get_csr(uint32_t addr, uint32_t wid, uint32_t tid) {
         CSR_READ_64(VX_CSR_MPM_TCU_TBUF_STALLS,     tcu_perf.tbuf_stalls);
         CSR_READ_64(VX_CSR_MPM_TCU_TBUF_CACHE_HITS, tcu_perf.tbuf_cache_hits);
         CSR_READ_64(VX_CSR_MPM_TCU_LMEM_READS,    tcu_perf.lmem_reads);
+        CSR_READ_64(VX_CSR_MPM_TCU_TBUF_STALL_A,   tcu_perf.tbuf_stall_a_only);
+        CSR_READ_64(VX_CSR_MPM_TCU_TBUF_STALL_B,   tcu_perf.tbuf_stall_b_only);
+        CSR_READ_64(VX_CSR_MPM_TCU_TBUF_STALL_AB,  tcu_perf.tbuf_stall_ab);
+        CSR_READ_64(VX_CSR_MPM_TCU_TBUF_PEND_A,    tcu_perf.tbuf_pend_a_sum);
+        CSR_READ_64(VX_CSR_MPM_TCU_TBUF_PEND_B,    tcu_perf.tbuf_pend_b_sum);
+        CSR_READ_64(VX_CSR_MPM_TCU_TBUF_STALL_SAMPLES, tcu_perf.tbuf_stall_samples);
         }
       } break;
     #endif
