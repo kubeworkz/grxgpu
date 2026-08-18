@@ -35,6 +35,8 @@
 Detailed architectural specifications for Vortex subsystems live under
 [designs/](designs/):
 
+- **Chip-level architecture**
+  - [GPU Chip Design (NVIDIA-Style, CUDA Integration)](designs/gpu_chip_design.md)
 - **Core pipeline**
   - [Microarchitecture Overview](designs/microarchitecture.md)
   - [Kernel Entry and Dispatch](designs/kernel_entry_and_dispatch.md)

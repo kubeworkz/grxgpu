@@ -1,5 +1,36 @@
 # Each `VX_CFG_X_ENABLE` boolean auto-generates its integer mirror `VX_CFG_X_ENABLED` (0/1); author only the boolean.
 
+# -----------------------------------------------------------------------------
+# G100 FLAGSHIP PRESET — design target, see docs/designs/gpu_chip_design.md.
+# The defaults below are the small FPGA/simulation baseline; the flagship is a
+# build-time override (never the repo default). Apply it with:
+#
+#   CONFIGS="\
+#     -DVX_CFG_NUM_CLUSTERS=8  \
+#     -DVX_CFG_NUM_CORES=16    \
+#     -DVX_CFG_SOCKET_SIZE=4   \
+#     -DVX_CFG_NUM_WARPS=64    \
+#     -DVX_CFG_NUM_THREADS=32  \
+#     -DVX_CFG_L2_ENABLE       \
+#     -DVX_CFG_L2_SIZE=8388608 \
+#     -DVX_CFG_EXT_TCU_ENABLE  \
+#     -DVX_CFG_TCU_TF32_ENABLE \
+#     -DVX_CFG_TCU_FP8_ENABLE  \
+#     -DVX_CFG_TCU_INT8_ENABLE \
+#     -DVX_CFG_TCU_MX_ENABLE   \
+#     -DVX_CFG_TCU_SPARSE_ENABLE \
+#     -DVX_CFG_TCU_WGMMA_ENABLE"
+#   ./ci/blackbox.sh --driver=simx --clusters=8 --cores=16 --warps=64 \
+#                    --threads=32 --l2cache --app=vecadd
+#
+# Resolves to (verified via ci/gen_config.py --cflags): 128 SMs
+# (8 clusters x 16 cores), ISSUE_WIDTH=4, SIMD_WIDTH=32, 32 lanes per
+# ALU/FPU/LSU/SFU, 4 TCU blocks, 8 MB L2 per cluster (64 MB total).
+#
+# Still "new" RTL for the full spec: unified 256 KB L1/shared carve-out
+# (228 KB smem; LMEM is a separate 16 KB scratchpad today), HBM3e, NVLink/PCIe 6.
+# -----------------------------------------------------------------------------
+
 [platform]
 VX_CFG_NUM_CLUSTERS = 1
 VX_CFG_NUM_CORES = 1

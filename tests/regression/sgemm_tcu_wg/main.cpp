@@ -748,7 +748,12 @@ int main(int argc, char *argv[]) {
   auto time_start = std::chrono::high_resolution_clock::now();
 
   std::cout << "start device" << std::endl;
+#ifdef WGMMA_DOUBLE_BUFFER
+  // Double-buffered kernel: two pipeline stages, each holding one A + B tile.
+  uint32_t smem_size = 2 * (cta_M * wg_cfg::tileK + wg_cfg::tileK * per_warp_N) * sizeof(itype_t);
+#else
   uint32_t smem_size = (cta_M * wg_cfg::tileK + wg_cfg::tileK * per_warp_N) * sizeof(itype_t);
+#endif
   vx_event_h launch_ev = nullptr;
   {
     vx_launch_info_t li = {};
