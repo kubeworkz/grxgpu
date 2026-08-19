@@ -302,8 +302,14 @@ private:
       uint32_t word_off = (k_blk * n_steps + n_blk) * blk_words + (kw_in * tcN + n_in);
       return word_off * ratio + elem;
     }
-    // BlockMajor (dense): within-block N-outer, K-inner.
+    // BlockMajor (dense): within-block N-outer, K-inner. The K-block span
+    // is fedpK * i_ratio (2*tcK under FEDP2K), matching vx_tensor.h
+    // b_blockmajor_idx and tcu_unit gather_word.
+#ifdef VX_CFG_TCU_FEDP2K
+    uint32_t kw          = 2 * tcN * ratio;    // fedpK * i_ratio (FEDP2K)
+#else
     uint32_t kw          = tcN * ratio;        // tcK * i_ratio
+#endif
     uint32_t b_blk_elems = kw * tcN;
     uint32_t k_blk = k / kw;
     uint32_t r_in  = k % kw;
