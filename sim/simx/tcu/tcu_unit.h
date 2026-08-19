@@ -142,6 +142,17 @@ public:
 	bool wgmma_cta_blocked(uint32_t wid) const;
 	void wgmma_cta_admit(uint32_t wid);
 
+	// Group-atomic issue-side release: the WGMMA lockstep slot frees only
+	// when every admitted head of the owning CTA has issued its fu_unlock.
+	// Called from Core::issue on fu_unlock uops (per-warp release drains the
+	// admission counter mid-admission and livelocks overlapped CTAs).
+	void wgmma_cta_release(uint32_t wid);
+
+	// Issue-side lookahead: while the target TCU block is mid-WGMMA, plan the
+	// next group's A/B operand lines so the LMEM fetch overlaps the current
+	// FEDP execution instead of stalling the next gate.
+	void wgmma_prefetch(const instr_trace_t* trace);
+
 protected:
   void on_reset() override;
   void on_tick() override;

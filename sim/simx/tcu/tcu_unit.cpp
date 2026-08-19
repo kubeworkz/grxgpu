@@ -391,6 +391,9 @@ public:
     cta_owner_b_ = -1;
     wgmma_cta_owner_ = -1;
     wgmma_admitted_warps_ = 0;
+    wgmma_unlock_issued_ = 0;
+    for (auto& v : exec_a_lines_) v.clear();
+    for (auto& v : exec_b_lines_) v.clear();
     cur_block_ = 0;
   #ifdef TCU_META_ENABLE
     agu_.fill(agu_state_t{});
@@ -597,21 +600,30 @@ public:
         wgmma_desc_[wid][1] = b_desc;
       }
 
+      // Compute this group's operand lines FIRST (pure, no descriptor
+      // side effects beyond recording), so the conditional invalidation
+      // below can preserve lines the issue-side prefetch already planned.
+      bool is_sparse = std::get<TcuType>(trace->op_type) == TcuType::WGMMA_SP;
+      auto lines = this->compute_wgmma_lines(wid, a_desc, b_desc, tpuArgs,
+                                             is_sparse, true);
       // Drop the shared B buffer only when no other block is mid-WGMMA —
-      // otherwise we'd evict their resident bytes mid-flight.
+      // otherwise we'd evict their resident bytes mid-flight. Keep the
+      // next group's lines so a lookahead prefetch survives.
       bool any_in_wgmma = false;
       for (auto v : in_wgmma_) any_in_wgmma = any_in_wgmma || v;
       auto& tbuf = simobject_->tbuf();
       if (!any_in_wgmma) {
-        tbuf->invalidate_b();
+        tbuf->invalidate_b_except(lines.b_lines);
         cta_owner_b_ = -1;
       }
       // Only drop the per-block A buffer when no warp is currently in flight.
       if (!in_wgmma_.at(b)) {
-        tbuf->invalidate_a(b);
+        tbuf->invalidate_a_except(b, lines.a_lines);
       }
-      this->plan_wgmma_lines(b, wid, a_desc, b_desc, tpuArgs,
-                             std::get<TcuType>(trace->op_type) == TcuType::WGMMA_SP);
+      if (tpuArgs.is_a_smem) tbuf->plan_a(b, lines.a_lines);
+      tbuf->plan_b(lines.b_lines);
+      exec_a_lines_.at(b) = lines.a_lines;
+      exec_b_lines_.at(b) = lines.b_lines;
       if (tbuf->ready_a(b) && tbuf->ready_b()) {
         ++perf_stats_.tbuf_cache_hits;
       }
@@ -631,8 +643,11 @@ public:
         if (!((wgmma_active >> b) & 1u)) continue;
         auto trace = simobject_->Inputs.at(b).peek();
         auto tpuArgs = std::get<IntrTcuArgs>(trace->instr_ptr->get_args());
-        bool a_ok = !tpuArgs.is_a_smem || tbuf->ready_a(b);
-        bool b_ok = tbuf->ready_b();
+        // Per-address gate: only this group's own operand lines count, so
+        // lines prefetched for later groups (pending in the same caches)
+        // never hold the executing group at the gate.
+        bool a_ok = !tpuArgs.is_a_smem || lines_resident_a(b, exec_a_lines_.at(b));
+        bool b_ok = lines_resident_b(exec_b_lines_.at(b));
         if (!a_ok) any_a_pending = true;
         if (!b_ok) any_b_pending = true;
         if (a_ok && b_ok) ready_mask |= (1u << b);
@@ -787,14 +802,8 @@ public:
             in_wgmma_.at(b) = false;
             cta_owner_a_.at(b) = -1;
           }
-          // Release the WGMMA admission slot once every admitted warp has
-          // retired its final uop.
-          if (wgmma_admitted_warps_ > 0) {
-            --wgmma_admitted_warps_;
-            if (wgmma_admitted_warps_ == 0) {
-              wgmma_cta_owner_ = -1;
-            }
-          }
+          // NOTE: the WGMMA admission slot is released at fu_unlock ISSUE
+          // (Core::issue → wgmma_cta_release, group-atomic), not at retire.
         }
       #endif
       #ifdef TCU_META_ENABLE
@@ -809,12 +818,19 @@ public:
     }
   }
 
-  // Plan all line addresses required for the current WGMMA's A, B and
-  // sparse-metadata tiles into the per-role caches inside TcuTbuf.
-  // Lines already resident or in-flight are skipped (additive plan).
-  void plan_wgmma_lines(uint32_t b, uint32_t wid,
-                        uint32_t a_desc, uint32_t b_desc,
-                        const IntrTcuArgs& args, bool is_sparse) {
+  struct WgmmaLinePlan {
+    std::vector<uint64_t> a_lines; // empty unless is_a_smem (SS mode)
+    std::vector<uint64_t> b_lines;
+  };
+
+  // Pure operand-line computation for a WGMMA group. `record_lmem_desc`
+  // controls the lmem_desc_[wid] side effect: the execute path must see the
+  // descriptors (pass 1), but the issue-side prefetch must NOT clobber them
+  // while the executing group's uops still read A/B from lmem_desc_[wid].
+  WgmmaLinePlan compute_wgmma_lines(uint32_t wid,
+                                    uint32_t a_desc, uint32_t b_desc,
+                                    const IntrTcuArgs& args, bool is_sparse,
+                                    bool record_lmem_desc) {
     uint32_t fmt_s = args.fmt_s;
     bool is_a_smem = args.is_a_smem;
     uint32_t e_bits = elem_bits(fmt_s);
@@ -825,10 +841,10 @@ public:
     lmem_desc_t sd_a{}, sd_b{};
     if (is_a_smem) {
       sd_a = {uint64_t(VX_MEM_LMEM_BASE_ADDR) + (a_desc & 0xFFFF), (a_desc >> 16) * 8 / e_bits, false};
-      lmem_desc_[wid][0] = sd_a;
+      if (record_lmem_desc) lmem_desc_[wid][0] = sd_a;
     }
     sd_b = {uint64_t(VX_MEM_LMEM_BASE_ADDR) + (b_desc & 0xFFFF), (b_desc >> 16) * 8 / e_bits, false};
-    lmem_desc_[wid][1] = sd_b;
+    if (record_lmem_desc) lmem_desc_[wid][1] = sd_b;
 
     // tileK = xtileK × ratio (ratio = 32/e_bits); sparse compresses K on A only.
     uint32_t ratio  = 32 / e_bits;
@@ -843,13 +859,12 @@ public:
     uint32_t b_blk_elems = b_k_blk_dim * cfg::tcN;
     uint32_t n_steps     = xtile_n / cfg::tcN;
 
-    auto& tbuf = simobject_->tbuf();
+    WgmmaLinePlan plan;
 
-    // Plan A lines (SS mode only): xtileM rows × a_k columns.
+    // A lines (SS mode only): xtileM rows × a_k columns.
     if (is_a_smem) {
       bool a_block_major = (sd_a.ldm == 0);
-      std::vector<uint64_t> a_lines;
-      a_lines.reserve(uint32_t(wg_cfg::xtileM) * a_k);
+      plan.a_lines.reserve(uint32_t(wg_cfg::xtileM) * a_k);
       for (uint32_t r = 0; r < wg_cfg::xtileM; ++r) {
         for (uint32_t c = 0; c < a_k; ++c) {
           uint64_t elem_off;
@@ -864,19 +879,17 @@ public:
             elem_off = uint64_t(r) * sd_a.ldm + c;
           }
           uint64_t addr = sd_a.base + elem_off * e_bits / 8;
-          a_lines.push_back(addr & ~uint64_t(VX_CFG_MEM_BLOCK_SIZE - 1));
+          plan.a_lines.push_back(addr & ~uint64_t(VX_CFG_MEM_BLOCK_SIZE - 1));
         }
       }
-      tbuf->plan_a(b, a_lines);
       // Sparse metadata is preloaded into sparse_meta_ via TCU_LD;
       // no metadata lines are planned through tbuf here.
     }
 
-    // Plan B lines: always dense in K, tileK rows × xtileN columns.
+    // B lines: always dense in K, tileK rows × xtileN columns.
     //   ldm == 0 → block-major; ldm != 0 → K-major (smem[n*ldm + k]).
     bool b_block_major = (sd_b.ldm == 0);
-    std::vector<uint64_t> b_lines;
-    b_lines.reserve(tile_k * xtile_n);
+    plan.b_lines.reserve(tile_k * xtile_n);
     for (uint32_t r = 0; r < tile_k; ++r) {
       for (uint32_t c = 0; c < xtile_n; ++c) {
         uint64_t elem_off;
@@ -892,10 +905,10 @@ public:
           elem_off = uint64_t(c) * sd_b.ldm + r;
         }
         uint64_t addr = sd_b.base + elem_off * e_bits / 8;
-        b_lines.push_back(addr & ~uint64_t(VX_CFG_MEM_BLOCK_SIZE - 1));
+        plan.b_lines.push_back(addr & ~uint64_t(VX_CFG_MEM_BLOCK_SIZE - 1));
       }
     }
-    tbuf->plan_b(b_lines);
+    return plan;
   }
 
 
@@ -1130,7 +1143,75 @@ public:
     if (wgmma_cta_owner_ == -1) {
       wgmma_cta_owner_ = cta;
     }
-    ++wgmma_admitted_warps_;
+    if (wgmma_cta_owner_ == cta) {
+      ++wgmma_admitted_warps_;
+    }
+  }
+
+  // Issue-side, group-atomic release. Unlike a shared admit/release counter
+  // (which a partially-admitted second CTA can drain to 0 mid-admission,
+  // ping-ponging the owner and fencing both CTAs forever), only the owning
+  // CTA's fu_unlock issues count, and the slot frees only when every
+  // admitted head's unlock has issued.
+  void wgmma_cta_release(uint32_t wid) {
+    int32_t cta = (int32_t)core_->scheduler().warp(wid).cta_csrs.cta_id;
+    if (wgmma_cta_owner_ != cta) return;
+    ++wgmma_unlock_issued_;
+    if (wgmma_unlock_issued_ >= wgmma_admitted_warps_ && wgmma_admitted_warps_ > 0) {
+      wgmma_cta_owner_ = -1;
+      wgmma_admitted_warps_ = 0;
+      wgmma_unlock_issued_ = 0;
+    }
+  }
+
+  // Issue-side lookahead prefetch. Fires from Core::issue when a WGMMA head
+  // issues while its TCU block is mid-WGMMA: the next group's A/B lines are
+  // planned additively right away so the LMEM fetch overlaps the current
+  // FEDP execution instead of stalling the next gate.
+  void wgmma_prefetch(const instr_trace_t* trace) {
+    uint32_t wid = trace->wid;
+    uint32_t b = block_of(wid);
+    if (!in_wgmma_.at(b)) return; // nothing to overlap; pass-1 path handles it
+    auto tpuArgs = std::get<IntrTcuArgs>(trace->instr_ptr->get_args());
+    if (tpuArgs.is_setup_uop) return;
+    // Head uop only — mid-uops carry no descriptors.
+    if (!(tpuArgs.step_m == 0 && tpuArgs.step_n == 0 && tpuArgs.step_k == 0)) return;
+    if (!tpuArgs.is_first_uop) return;
+    // SS path only: the head uop carries the A/B descriptors in src_data.
+    // The RS path decodes from a setup uop (no stale decode here).
+    if (!tpuArgs.is_a_smem) return;
+    uint32_t a_desc = trace->src_data.at(0).at(0).u32;
+    uint32_t b_desc = trace->src_data.at(1).at(0).u32;
+    bool is_sparse = tcu_is_sparse(std::get<TcuType>(trace->op_type));
+    // Pure line computation — never touch lmem_desc_[wid], which the
+    // executing group's uops still read mid-flight.
+    auto lines = this->compute_wgmma_lines(wid, a_desc, b_desc, tpuArgs,
+                                           is_sparse, false);
+    auto& tbuf = simobject_->tbuf();
+    tbuf->plan_a(b, lines.a_lines);
+    tbuf->plan_b(lines.b_lines);
+  }
+
+  // TCU block index for a warp: the dispatcher aggregates issue ports
+  // iw = wid % ISSUE_WIDTH onto blocks in batches of NUM_TCU_BLOCKS.
+  uint32_t block_of(uint32_t wid) const {
+    return (wid % VX_CFG_ISSUE_WIDTH) % VX_CFG_NUM_TCU_BLOCKS;
+  }
+
+  bool lines_resident_a(uint32_t b, const std::vector<uint64_t>& lines) const {
+    auto& tbuf = simobject_->tbuf();
+    for (auto l : lines) {
+      if (!tbuf->resident_a(b, l)) return false;
+    }
+    return true;
+  }
+
+  bool lines_resident_b(const std::vector<uint64_t>& lines) const {
+    auto& tbuf = simobject_->tbuf();
+    for (auto l : lines) {
+      if (!tbuf->resident_b(l)) return false;
+    }
+    return true;
   }
 
 private:
@@ -1423,6 +1504,15 @@ private:
   // early "all blocks idle" check drop the slot too soon).
   int32_t wgmma_cta_owner_ = -1;
   uint32_t wgmma_admitted_warps_ = 0;
+  // fu_unlock uops issued by the owning CTA since it was admitted; the slot
+  // frees only when this reaches wgmma_admitted_warps_ (group-atomic
+  // issue-side release). Non-owner unlocks never touch it.
+  uint32_t wgmma_unlock_issued_ = 0;
+  // Operand lines of the currently-gated WGMMA group per block (recorded in
+  // pass 1). The pass-2 gate checks these per address, so lines prefetched
+  // for later groups never stall the executing one.
+  std::array<std::vector<uint64_t>, VX_CFG_NUM_TCU_BLOCKS> exec_a_lines_;
+  std::array<std::vector<uint64_t>, VX_CFG_NUM_TCU_BLOCKS> exec_b_lines_;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1712,6 +1802,14 @@ bool TcuUnit::wgmma_cta_blocked(uint32_t wid) const {
 
 void TcuUnit::wgmma_cta_admit(uint32_t wid) {
 	impl_->wgmma_cta_admit(wid);
+}
+
+void TcuUnit::wgmma_cta_release(uint32_t wid) {
+	impl_->wgmma_cta_release(wid);
+}
+
+void TcuUnit::wgmma_prefetch(const instr_trace_t* trace) {
+	impl_->wgmma_prefetch(trace);
 }
 
 void TcuUnit::wmma(uint32_t wid,
