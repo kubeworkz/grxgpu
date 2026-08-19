@@ -1294,14 +1294,17 @@ class Resolver:
       self.cache[key] = v
       return v
 
+    if key in self.overrides:
+      # An explicit -D override wins over a [[param]] type default and over
+      # any TOML value (e.g. -DVX_CFG_L2_NUM_REQS=4 sweeps the L2 request
+      # pipe). [[builtin]] symbols are handled above and stay env-sourced.
+      self.cache[key] = self.overrides[key]
+      return self.cache[key]
+
     if key in self.params:
       v = _var_default(self.params[key])
       self.cache[key] = v
       return v
-
-    if key in self.overrides:
-      self.cache[key] = self.overrides[key]
-      return self.cache[key]
 
     if "_" in key:
       base, suffix = key.rsplit("_", 1)
@@ -1505,7 +1508,8 @@ def main(argv: List[str]) -> int:
   defs += _parse_defines_from_cflags(args.cflags)
   defs += _parse_defines(unknown)
   overrides, _explicit = _apply_overrides(defs, enums)
-  # - A name declared under [[param]] / [[builtin]] is a read-only symbol used only for expression evaluation.
+  # - A name declared under [[param]] / [[builtin]] must not appear as a
+  #   regular config key (they are declared in their own tables).
   ro = params_set | set(builtins.keys())
   assigned = set(toml_defs.keys()) & ro
   if assigned:
@@ -1515,12 +1519,16 @@ def main(argv: List[str]) -> int:
       "Names declared in [[param]]/[[builtin]] must not appear as regular config keys."
     )
 
-  illegal = set(overrides.keys()) & ro
+  # [[builtin]] values are sourced from the environment and stay read-only,
+  # but [[param]] symbols may be overridden via -D: the TOML declares their
+  # type for expression evaluation, and an explicit -D supplies the value
+  # (e.g. -DVX_CFG_L2_NUM_REQS=4 sweeps the L2 request-pipe count).
+  illegal = set(overrides.keys()) & set(builtins.keys())
   if illegal:
     names = ", ".join(sorted(illegal))
     raise ValueError(
-      f"Illegal -D override(s) for read-only symbol(s): {names}. "
-      "Remove these -D flags; [[param]]/[[builtin]] values are read-only."
+      f"Illegal -D override(s) for environment-sourced [[builtin]] symbol(s): {names}. "
+      "Remove these -D flags; [[builtin]] values come from the environment."
     )
 
   resolved = True if args.format == "cflags" else args.resolved

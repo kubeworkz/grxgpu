@@ -65,8 +65,15 @@ inline constexpr uint32_t VX_CFG_DCACHE_NUM_REQS	= (VX_CFG_NUM_LSU_BLOCKS * DCAC
 
 inline constexpr uint32_t NUM_SOCKETS     = __UP(VX_CFG_NUM_CORES / VX_CFG_SOCKET_SIZE);
 
+// L2/L3 request-pipe counts default to the socket/cluster fan-in, but can be
+// overridden via -DVX_CFG_L2_NUM_REQS=N / -DVX_CFG_L3_NUM_REQS=N to sweep
+// parallel memory-pipe concurrency (matches the TOML [[param]] declaration).
+#ifndef VX_CFG_L2_NUM_REQS
 inline constexpr uint32_t VX_CFG_L2_NUM_REQS     = NUM_SOCKETS * VX_CFG_L1_MEM_PORTS;
+#endif
+#ifndef VX_CFG_L3_NUM_REQS
 inline constexpr uint32_t VX_CFG_L3_NUM_REQS     = VX_CFG_NUM_CLUSTERS * VX_CFG_L2_MEM_PORTS;
+#endif
 
 inline constexpr uint32_t PER_ISSUE_WARPS = VX_CFG_NUM_WARPS / VX_CFG_ISSUE_WIDTH;
 inline constexpr uint32_t ISSUE_WIS_BITS  = log2ceil(PER_ISSUE_WARPS);
