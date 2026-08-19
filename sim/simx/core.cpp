@@ -628,19 +628,6 @@ public:
           // Admit the CTA once its WGMMA head uop actually issues.
           if (uop_trace->fu_type == FUType::TCU && uop_trace->instr_ptr->get_fu_lock()) {
             tcu_unit_->wgmma_cta_admit(uop_trace->wid);
-            // Lookahead: while the target block is mid-WGMMA, plan the next
-            // group's A/B operand lines so the LMEM fetch overlaps the
-            // current FEDP execution (out-of-order operand prefetch).
-            tcu_unit_->wgmma_prefetch(uop_trace);
-          }
-          // Group-atomic issue-side release: the WGMMA lockstep slot frees
-          // only when every admitted head of the owning CTA has issued its
-          // fu_unlock. Releasing at issue (not retire) lets the next CTA's
-          // head + prefetch start while this group's tail still executes;
-          // the ownership-checked counter keeps overlapped CTAs from
-          // draining it mid-admission (which livelocked the DB pipeline).
-          if (uop_trace->fu_type == FUType::TCU && uop_trace->instr_ptr->get_fu_unlock()) {
-            tcu_unit_->wgmma_cta_release(uop_trace->wid);
           }
         #endif
           // Advance sequencer; pop ibuffer only when all micro-ops issued

@@ -63,17 +63,6 @@ public:
   void invalidate_a(uint32_t b);
   void invalidate_b();
 
-  // Per-address residency probes — used by the WGMMA per-address gate so a
-  // group only waits for its own operand lines (prefetched lines for the
-  // next group never stall the executing one).
-  bool resident_a(uint32_t b, uint64_t line_addr) const;
-  bool resident_b(uint64_t line_addr) const;
-
-  // Conditional invalidation: drop resident lines NOT in `keep` so lines the
-  // issue-side prefetch already planned survive the next group's plan.
-  void invalidate_a_except(uint32_t b, const std::vector<uint64_t>& keep);
-  void invalidate_b_except(const std::vector<uint64_t>& keep);
-
   // Total LMEM port-cycles issued since last reset (perf counter).
   uint64_t reads() const;
 

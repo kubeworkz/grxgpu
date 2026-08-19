@@ -42,19 +42,14 @@ struct LineBuf {
   uint64_t reads_ = 0;
 
   void plan(const std::vector<uint64_t>& line_addrs) {
-    // Dedup against resident, in-flight AND still-pending lines: the issue-
-    // side prefetch plans the next WGMMA's lines before pass-1 re-plans
-    // them, and without the pending check the same line would be fetched
-    // twice.
-    std::unordered_set<uint64_t> in_set;
-    for (auto& kv : inflight_) in_set.insert(kv.second);
-    for (auto a : pending_q_) in_set.insert(a);
+    std::unordered_set<uint64_t> inflight_set;
+    for (auto& kv : inflight_) inflight_set.insert(kv.second);
     for (auto a : line_addrs) {
       uint64_t line = a & kLineMask;
       if (resident_.count(line)) continue;
-      if (in_set.count(line)) continue;
+      if (inflight_set.count(line)) continue;
       pending_q_.push_back(line);
-      in_set.insert(line);
+      inflight_set.insert(line);
     }
   }
 
@@ -121,23 +116,6 @@ public:
 
   void invalidate(uint32_t source) {
     bufs_.at(source).invalidate();
-  }
-
-  bool resident(uint32_t source, uint64_t line_addr) const {
-    return bufs_.at(source).resident_.count(line_addr & kLineMask) != 0;
-  }
-
-  void invalidate_except(uint32_t source, const std::vector<uint64_t>& keep) {
-    auto& buf = bufs_.at(source);
-    std::unordered_set<uint64_t> keep_set;
-    for (auto a : keep) keep_set.insert(a & kLineMask);
-    for (auto it = buf.resident_.begin(); it != buf.resident_.end();) {
-      if (!keep_set.count(it->first)) {
-        it = buf.resident_.erase(it);
-      } else {
-        ++it;
-      }
-    }
   }
 
   uint64_t reads() const {
@@ -225,19 +203,5 @@ std::shared_ptr<mem_block_t> TcuTbuf::read_b(uint64_t line_addr) const {
 
 void TcuTbuf::invalidate_a(uint32_t b) { impl_->invalidate(kAOffset + b); }
 void TcuTbuf::invalidate_b()           { impl_->invalidate(kBOffset); }
-
-bool TcuTbuf::resident_a(uint32_t b, uint64_t line_addr) const {
-  return impl_->resident(kAOffset + b, line_addr);
-}
-bool TcuTbuf::resident_b(uint64_t line_addr) const {
-  return impl_->resident(kBOffset, line_addr);
-}
-
-void TcuTbuf::invalidate_a_except(uint32_t b, const std::vector<uint64_t>& keep) {
-  impl_->invalidate_except(kAOffset + b, keep);
-}
-void TcuTbuf::invalidate_b_except(const std::vector<uint64_t>& keep) {
-  impl_->invalidate_except(kBOffset, keep);
-}
 
 uint64_t TcuTbuf::reads() const { return impl_->reads(); }
