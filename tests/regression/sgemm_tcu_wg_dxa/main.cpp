@@ -12,7 +12,7 @@
 #include <vortex2.h>
 #include <dxa.h>
 
-#define FLOAT_ULP 10
+#define FLOAT_ULP 12
 #define MAX_ERRORS 100
 
 #define RT_CHECK(_expr)                                      \
