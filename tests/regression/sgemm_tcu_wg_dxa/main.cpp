@@ -219,6 +219,7 @@ vx_device_h device = nullptr;
 vx_buffer_h A_buffer = nullptr;
 vx_buffer_h B_buffer = nullptr;
 vx_buffer_h C_buffer = nullptr;
+
 vx_queue_h  queue   = nullptr;
 vx_module_h module_ = nullptr;
 vx_kernel_h kernel  = nullptr;
@@ -249,6 +250,7 @@ void cleanup() {
     if (A_buffer) vx_buffer_release(A_buffer);
     if (B_buffer) vx_buffer_release(B_buffer);
     if (C_buffer) vx_buffer_release(C_buffer);
+
     if (kernel)  vx_kernel_release(kernel);
     if (module_) vx_module_release(module_);
     if (queue)   vx_queue_release(queue);
@@ -364,7 +366,6 @@ int main(int argc, char *argv[]) {
   RT_CHECK(vx_buffer_address(B_buffer, &kernel_arg.B_addr));
   RT_CHECK(vx_buffer_create(device, sizeC * sizeof(otype_t), VX_MEM_WRITE, &C_buffer));
   RT_CHECK(vx_buffer_address(C_buffer, &kernel_arg.C_addr));
-
   std::cout << "A_addr=0x" << std::hex << kernel_arg.A_addr << std::dec << std::endl;
   std::cout << "B_addr=0x" << std::hex << kernel_arg.B_addr << std::dec << std::endl;
   std::cout << "C_addr=0x" << std::hex << kernel_arg.C_addr << std::dec << std::endl;
