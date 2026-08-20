@@ -177,6 +177,35 @@ public:
     }
 #endif
 
+#ifdef VX_CFG_EXT_DSMEM_ENABLE
+    // ── DSMEM: cross-core local memory reads ──────────────────────────
+    // Any core can read any other core's local memory.  Modeled as a
+    // cluster-scoped bus: one read request per cycle, arbitrated round-
+    // robin.  The issuing core puts a MemReq on dsmem_req_in_[cid];
+    // the arbiter routes it to the target core's LMEM port_dsmem and
+    // returns the MemRsp on dsmem_rsp_out_[cid].
+    {
+      uint32_t port_dsmem = LSU_NUM_REQS;
+    #ifdef VX_CFG_EXT_TCU_ENABLE
+      port_dsmem += 1;
+    #endif
+    #ifdef VX_CFG_EXT_DXA_ENABLE
+      port_dsmem += 1;
+    #endif
+      uint32_t cores_per_cluster = sockets_per_cluster * cores_per_socket_;
+      port_dsmem_ = port_dsmem;
+      cores_per_cluster_ = cores_per_cluster;
+
+      // Per-core DSMEM read request + response channels.
+      dsmem_req_in_.reserve(cores_per_cluster);
+      dsmem_rsp_out_.reserve(cores_per_cluster);
+      for (uint32_t i = 0; i < cores_per_cluster; ++i) {
+        dsmem_req_in_.emplace_back(simobject_);
+        dsmem_rsp_out_.emplace_back(simobject_);
+      }
+    }
+#endif
+
 #ifdef VX_CFG_EXT_TEX_ENABLE
     // ── Cluster-shared TEX engine + tcache ──────────────────────────────
     snprintf(sname, 100, "%s-tex-core", name.c_str());
@@ -528,6 +557,44 @@ public:
     return perf_stats;
   }
 
+#ifdef VX_CFG_EXT_DSMEM_ENABLE
+  void dsmem_tick() {
+    // Round-robin arbiter: process one DSMEM read per cycle.
+    for (uint32_t n = 0; n < cores_per_cluster_; ++n) {
+      uint32_t idx = (dsmem_arb_idx_ + n) % cores_per_cluster_;
+      auto& req_ch = dsmem_req_in_.at(idx);
+      if (req_ch.empty()) continue;
+
+      auto req = req_ch.peek();
+      uint32_t target_cid = req.flags.dsmem_target_core;
+
+      // Route read to target core's LocalMem port_dsmem.
+      uint32_t target_socket = target_cid / cores_per_socket_;
+      uint32_t target_core_idx = target_cid % cores_per_socket_;
+      Core* target_core = sockets_.at(target_socket)->core(target_core_idx).get();
+      auto& lmem_in = target_core->local_mem()->Inputs.at(port_dsmem_);
+      auto& lmem_out = target_core->local_mem()->Outputs.at(port_dsmem_);
+
+      if (lmem_in.full()) continue;
+      if (dsmem_rsp_out_.at(idx).full()) continue;
+
+      // Forward read request to target core's LMEM.
+      lmem_in.send(req, 1);
+
+      // Check for response (LMEM responds same cycle for reads).
+      if (!lmem_out.empty()) {
+        auto rsp = lmem_out.peek();
+        lmem_out.pop();
+        dsmem_rsp_out_.at(idx).send(rsp, 1);
+      }
+
+      req_ch.pop();
+      dsmem_arb_idx_ = (idx + 1) % cores_per_cluster_;
+      break;
+    }
+  }
+#endif
+
   int dcr_write(uint32_t addr, uint32_t value) {
 #ifdef VX_CFG_EXT_DXA_ENABLE
     if (addr >= VX_DCR_DXA_STATE_BEGIN && addr < VX_DCR_DXA_STATE_END) {
@@ -677,6 +744,13 @@ private:
 #ifdef VX_CFG_EXT_DXA_ENABLE
   DxaCore::Ptr                dxa_core_;
 #endif
+#ifdef VX_CFG_EXT_DSMEM_ENABLE
+  std::vector<SimChannel<MemReq>> dsmem_req_in_;
+  std::vector<SimChannel<MemRsp>> dsmem_rsp_out_;
+  uint32_t                    port_dsmem_ = 0;
+  uint32_t                    cores_per_cluster_ = 0;
+  uint32_t                    dsmem_arb_idx_ = 0;
+#endif
 #ifdef VX_CFG_EXT_TEX_ENABLE
   TexCore::Ptr                tex_core_;
   Cache::Ptr                  tcache_;
@@ -724,6 +798,9 @@ void Cluster::on_reset() {
 }
 
 void Cluster::on_tick() {
+#ifdef VX_CFG_EXT_DSMEM_ENABLE
+  impl_->dsmem_tick();
+#endif
   //--
 }
 

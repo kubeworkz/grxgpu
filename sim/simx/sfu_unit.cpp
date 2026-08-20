@@ -15,6 +15,7 @@
 #include "core.h"
 #include "socket.h"
 #include "cluster.h"
+#include "constants.h"
 #include "scheduler.h"
 #include "mem/local_mem.h"
 #include "debug.h"
@@ -570,6 +571,10 @@ void SfuUnit::on_tick() {
 				continue;
 			}
 #endif
+#ifdef VX_CFG_EXT_DSMEM_ENABLE
+		} else if (std::get_if<DsmemType>(&trace->op_type)) {
+			dsmem_process(trace);
+#endif
 		}
 
 		uint32_t delay = this->latency_of(trace);
@@ -583,3 +588,28 @@ void SfuUnit::on_tick() {
 		input.pop();
 	}
 }
+
+#ifdef VX_CFG_EXT_DSMEM_ENABLE
+void SfuUnit::dsmem_process(instr_trace_t* trace) {
+  // Synchronous cross-core LMEM read.
+  // rs1 = target core ID (cluster-local), rs2 = target LMEM byte address.
+  uint32_t target_cid = static_cast<uint32_t>(trace->src_data[0].at(0).u);  // rs1
+  uint64_t lmem_addr  = static_cast<uint64_t>(trace->src_data[1].at(0).u);  // rs2
+
+  // Read a single word from the target core's LocalMem.
+  Cluster* cluster = core_->socket()->cluster();
+  
+  uint32_t target_core_id = target_cid % (NUM_SOCKETS * VX_CFG_SOCKET_SIZE);
+  Core* target_core = cluster->get_core(target_core_id);
+
+  // Perform the read from target core's LMEM.
+  uint32_t value = 0;
+  if (target_core) {
+    value = target_core->local_mem()->read_word(lmem_addr);
+  }
+
+  // Writeback result to rd.
+  trace->dst_data.assign(VX_CFG_NUM_THREADS, reg_data_t{});
+  trace->dst_data[0].u = value;
+}
+#endif

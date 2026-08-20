@@ -396,6 +396,11 @@ static op_string_t op_string(const Instr &instr) {
       return {"DXA.ISSUE", ""};
     }
 #endif
+#ifdef VX_CFG_EXT_DSMEM_ENABLE
+    ,[&](DsmemType /*dsmem_type*/)-> op_string_t {
+      return {"DSMEM.READ", ""};
+    }
+#endif
   #ifdef VX_CFG_EXT_TCU_ENABLE
     ,[&](TcuType tcu_type)-> op_string_t {
       auto tpuArgs = std::get<IntrTcuArgs>(instrArgs);
@@ -949,6 +954,18 @@ Instr::Ptr Decoder::decode(uint32_t code, uint64_t uuid) {
       instr->set_macro_op();
       instr->set_wstall(true);   // pause fetch while sequencer expands the N uops
     } break;
+#ifdef VX_CFG_EXT_DSMEM_ENABLE
+    case 5: { // DSMEM.READ — cross-core local memory read
+      instr->set_fu_type(FUType::SFU);
+      instr->set_op_type(DsmemType::READ);
+      instr->set_dest_reg(rd, RegType::Integer);
+      instr->set_src_reg(0, rs1, RegType::Integer);  // target core ID
+      instr->set_src_reg(1, rs2, RegType::Integer);  // target local addr
+      IntrDsmemArgs dsmemArgs{};
+      instr->set_args(dsmemArgs);
+      instr->set_wstall(true);
+    } break;
+#endif
     default:
       std::abort();
     }
