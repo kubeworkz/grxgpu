@@ -183,6 +183,9 @@ private:
 	// traceRay) must complete normally or the dispatcher deadlocks.
 	std::vector<uint32_t>       rtu_trap_slot_;
 #endif
+#ifdef VX_CFG_EXT_DSMEM_ENABLE
+	void dsmem_process(instr_trace_t* trace);
+#endif
 };
 
 }

@@ -441,6 +441,9 @@ struct MemFlags {
       uint32_t dxa_notify_done   : 1;   // bit 4
       uint32_t dxa_notify_bar_id : 16;  // bits 5..20
     #endif
+    #ifdef VX_CFG_EXT_DSMEM_ENABLE
+      uint32_t dsmem_target_core : 4;   // bits 21..24: target core for cross-core LMEM read
+    #endif
     };
   };
 
@@ -626,6 +629,25 @@ inline std::ostream &operator<<(std::ostream &os, const DxaType& type) {
 
 #endif
 
+#ifdef VX_CFG_EXT_DSMEM_ENABLE
+enum class DsmemType {
+  READ
+};
+
+struct IntrDsmemArgs {
+  uint32_t target_core;  // rs1: target core ID
+  uint32_t local_addr;  // rs2: target local memory address
+};
+
+inline std::ostream &operator<<(std::ostream &os, const DsmemType& type) {
+  switch (type) {
+  case DsmemType::READ: os << "DSMEM.READ"; break;
+  default: os << "?"; break;
+  }
+  return os;
+}
+#endif
+
 ///////////////////////////////////////////////////////////////////////////////
 
 #ifdef VX_CFG_EXT_TEX_ENABLE
@@ -807,6 +829,9 @@ using OpType = std::variant<
 #ifdef VX_CFG_EXT_DXA_ENABLE
 , DxaType
 #endif
+#ifdef VX_CFG_EXT_DSMEM_ENABLE
+, DsmemType
+#endif
 #ifdef VX_CFG_EXT_TCU_ENABLE
 , TcuType
 #endif
@@ -833,6 +858,9 @@ using IntrArgs = std::variant<
 , IntrWctlArgs
 #ifdef VX_CFG_EXT_DXA_ENABLE
 , IntrDxaArgs
+#endif
+#ifdef VX_CFG_EXT_DSMEM_ENABLE
+, IntrDsmemArgs
 #endif
 #ifdef VX_CFG_EXT_TCU_ENABLE
 , IntrTcuArgs

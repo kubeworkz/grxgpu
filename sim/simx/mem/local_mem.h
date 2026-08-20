@@ -49,6 +49,9 @@ public:
 
   const PerfStats& perf_stats() const;
 
+  // Direct word read for DSMEM cross-core access.
+  uint32_t read_word(uint64_t addr);
+
 protected:
 
   void on_reset();

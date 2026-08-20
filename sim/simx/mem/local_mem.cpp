@@ -21,6 +21,14 @@
 using namespace vortex;
 
 class LocalMem::Impl {
+public:
+	uint32_t read_word(uint64_t addr) {
+		uint64_t word;
+		ram_.read(&word, addr & ~uint64_t(3), sizeof(uint64_t));
+		uint32_t shift = (addr & 3) * 8;
+		return static_cast<uint32_t>((word >> shift) & 0xFFFFFFFF);
+	}
+
 protected:
 	LocalMem* simobject_;
 	Config    config_;
@@ -138,4 +146,8 @@ void LocalMem::on_tick() {
 
 const LocalMem::PerfStats& LocalMem::perf_stats() const {
   return impl_->perf_stats();
+}
+
+uint32_t LocalMem::read_word(uint64_t addr) {
+  return impl_->read_word(addr);
 }
