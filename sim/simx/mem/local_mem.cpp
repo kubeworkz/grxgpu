@@ -23,9 +23,10 @@ using namespace vortex;
 class LocalMem::Impl {
 public:
 	uint32_t read_word(uint64_t addr) {
+		uint64_t local = to_local_addr(addr);
 		uint64_t word;
-		ram_.read(&word, addr & ~uint64_t(3), sizeof(uint64_t));
-		uint32_t shift = (addr & 3) * 8;
+		ram_.read(&word, local & ~uint64_t(3), sizeof(uint64_t));
+		uint32_t shift = (local & 3) * 8;
 		return static_cast<uint32_t>((word >> shift) & 0xFFFFFFFF);
 	}
 

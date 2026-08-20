@@ -592,18 +592,16 @@ void SfuUnit::on_tick() {
 #ifdef VX_CFG_EXT_DSMEM_ENABLE
 void SfuUnit::dsmem_process(instr_trace_t* trace) {
   // Synchronous cross-core LMEM read.
-  // rs1 = target core ID (cluster-local), rs2 = target LMEM byte address.
+  // rs1 = target core ID (global), rs2 = target LMEM byte address.
   uint32_t target_cid = static_cast<uint32_t>(trace->src_data[0].at(0).u);  // rs1
   uint64_t lmem_addr  = static_cast<uint64_t>(trace->src_data[1].at(0).u);  // rs2
 
-  // Read a single word from the target core's LocalMem.
   Cluster* cluster = core_->socket()->cluster();
-  
-  uint32_t target_core_id = target_cid % (NUM_SOCKETS * VX_CFG_SOCKET_SIZE);
-  Core* target_core = cluster->get_core(target_core_id);
 
-  // Perform the read from target core's LMEM.
+  // target_cid is a cluster-local core ID.
+  // Same cluster: use get_core directly.
   uint32_t value = 0;
+  Core* target_core = cluster->get_core(target_cid);
   if (target_core) {
     value = target_core->local_mem()->read_word(lmem_addr);
   }
