@@ -49,32 +49,34 @@ __kernel void kernel_main(kernel_arg_t* __UNIFORM__ arg) {
   // DXA copy is issued (async, on bar[nxt]) before the current tile computes,
   // so the DMA overlaps the WGMMA.
   //
-  // The CTA warp count is fixed at VX_CFG_ISSUE_WIDTH (the WGMMA lockstep
-  // group size), so the A/B tile footprint and the bank-shifted stage stride
-  // are compile-time constants. Keeping them constant lets the compiler emit
-  // immediate smem offsets instead of carrying a live pointer set, which
-  // previously spilled to local memory and dominated the load latency. Stage
-  // 1 is bank-shifted by half a LMEM sweep (wgmma_dbuf_stride_elems) so its
-  // DXA writes use banks disjoint from the compute stage's reads.
+  // IMPORTANT: Use the barrier class which embeds get_local_group_id() into
+  // the barrier ID via (id << 8) + cta_id.  Raw arithmetic like
+  //   bar_base = get_local_group_id();  bar_base + (n << 8)
+  // causes cross-CTA collisions at high CTA counts (CTA 0's bar1 = CTA 256's
+  // bar0 = 256).  The barrier class isolates each CTA's barriers.
   // ---------------------------------------------------------------------
-  constexpr uint32_t a_size      = VX_CFG_ISSUE_WIDTH * ctx::xtileM * ctx::tileK;
-  constexpr uint32_t b_size      = ctx::tileK * ctx::xtileN;
-  constexpr uint32_t stage_stride = wgmma_dbuf_stride_elems(a_size + b_size, sizeof(ctx::input_t));
+  // a_size must match the HOST's cta_M * tileK, not the compile-time
+  // VX_CFG_ISSUE_WIDTH, because the host may launch fewer warps than
+  // ISSUE_WIDTH (e.g. when VX_CAPS_ISSUE_WIDTH < VX_CFG_ISSUE_WIDTH).
+  // Using the wrong value overflows smem and corrupts stack data.
+  const uint32_t a_size      = cta_M * ctx::tileK;
+  const uint32_t b_size      = ctx::tileK * ctx::xtileN;
+  const uint32_t stage_stride = wgmma_dbuf_stride_elems(a_size + b_size, sizeof(ctx::input_t));
 
   auto smem = reinterpret_cast<ctx::input_t *>(__local_mem());
   const uint32_t a_warp_off = warp_rank * ctx::xtileM * ctx::tileK;
 
-  // One shared barrier base: bar n = bar_base + (n << 8). Keeping this as a
-  // single derived value (instead of a bar[2] array of runtime ids) avoids
-  // spilling the barrier state to local memory each iteration.
-  const uint32_t bar_base = get_local_group_id();
-  const uint32_t nwarps   = get_num_sub_groups();
+  // Two barriers, one per pipeline stage.  The barrier class computes
+  //   bar_id = (logical_id << 8) + get_local_group_id()
+  // ensuring every CTA gets unique hardware barrier slots.
+  vortex::barrier bar0(0);
+  vortex::barrier bar1(1);
 
-  // Prologue: issue the first K-tile into stage 0 (barrier 0).
+  // Prologue: issue the first K-tile into stage 0 (bar0).
   if (is_dxa_warp) {
-    vx_barrier_expect_tx(bar_base, 2);
-    vx_dxa_issue_2d_wg(kDescA, bar_base, smem, 0, tile_row);
-    vx_dxa_issue_2d_wg(kDescB, bar_base, smem + a_size, tile_col, 0);
+    bar0.expect_tx(2);
+    vx_dxa_issue_2d_wg(kDescA, bar0.id(), smem, 0, tile_row);
+    vx_dxa_issue_2d_wg(kDescB, bar0.id(), smem + a_size, tile_col, 0);
   }
 
   uint32_t cur = 0;
@@ -85,14 +87,15 @@ __kernel void kernel_main(kernel_arg_t* __UNIFORM__ arg) {
     // Prefetch the next K-tile into the other stage while the WGMMA below
     // consumes the current stage.
     if (next_k < K && is_dxa_warp) {
-      uint32_t bar_nxt = bar_base + (nxt << 8);
-      vx_barrier_expect_tx(bar_nxt, 2);
-      vx_dxa_issue_2d_wg(kDescA, bar_nxt, smem + nxt * stage_stride, next_k, tile_row);
-      vx_dxa_issue_2d_wg(kDescB, bar_nxt, smem + nxt * stage_stride + a_size, tile_col, next_k);
+      vortex::barrier& bar_nxt = (nxt == 0) ? bar0 : bar1;
+      bar_nxt.expect_tx(2);
+      vx_dxa_issue_2d_wg(kDescA, bar_nxt.id(), smem + nxt * stage_stride, next_k, tile_row);
+      vx_dxa_issue_2d_wg(kDescB, bar_nxt.id(), smem + nxt * stage_stride + a_size, tile_col, next_k);
     }
 
     // Wait for the current stage's DXA (all warps participate).
-    vx_barrier(bar_base + (cur << 8), nwarps);
+    vortex::barrier& bar_cur = (cur == 0) ? bar0 : bar1;
+    bar_cur.arrive_and_wait();
 
     // Compute on the current stage.
     auto A_warp = smem + cur * stage_stride + a_warp_off;
@@ -108,7 +111,7 @@ __kernel void kernel_main(kernel_arg_t* __UNIFORM__ arg) {
 #endif
 
     // Sync after WGMMA before this stage is reused by a later prefetch.
-    vx_barrier(bar_base + (cur << 8), nwarps);
+    bar_cur.arrive_and_wait();
 
     cur = nxt;
   }
