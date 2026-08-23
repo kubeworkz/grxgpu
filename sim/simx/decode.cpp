@@ -955,6 +955,15 @@ Instr::Ptr Decoder::decode(uint32_t code, uint64_t uuid) {
       instr->set_wstall(true);   // pause fetch while sequencer expands the N uops
     } break;
 #ifdef VX_CFG_EXT_DSMEM_ENABLE
+    case 6: { // DSMEM.MAILBOX_READ — cross-core mailbox read (non-stalling)
+      instr->set_fu_type(FUType::SFU);
+      instr->set_op_type(DsmemType::MAILBOX_READ);
+      instr->set_dest_reg(rd, RegType::Integer);
+      instr->set_src_reg(0, rs1, RegType::Integer);  // target core ID
+      IntrDsmemArgs dsmemArgs{};
+      instr->set_args(dsmemArgs);
+      instr->set_wstall(true);
+    } break;
     case 5: { // DSMEM.READ — cross-core local memory read
       instr->set_fu_type(FUType::SFU);
       instr->set_op_type(DsmemType::READ);

@@ -631,6 +631,7 @@ inline std::ostream &operator<<(std::ostream &os, const DxaType& type) {
 
 #ifdef VX_CFG_EXT_DSMEM_ENABLE
 enum class DsmemType {
+  MAILBOX_READ,
   READ
 };
 
@@ -641,6 +642,7 @@ struct IntrDsmemArgs {
 
 inline std::ostream &operator<<(std::ostream &os, const DsmemType& type) {
   switch (type) {
+  case DsmemType::MAILBOX_READ: os << "DSMEM.MBOX"; break;
   case DsmemType::READ: os << "DSMEM.READ"; break;
   default: os << "?"; break;
   }
