@@ -32,8 +32,8 @@
 # -----------------------------------------------------------------------------
 
 [platform]
-VX_CFG_NUM_CLUSTERS = 1
-VX_CFG_NUM_CORES = 1
+VX_CFG_NUM_CLUSTERS = 8
+VX_CFG_NUM_CORES = 16
 VX_CFG_SOCKET_SIZE = 1
 
 VX_CFG_RESET_DELAY = 8
@@ -61,10 +61,10 @@ VX_CFG_EXT_C_ENABLE = false
 VX_CFG_EXT_A_ENABLE = false
 
 VX_CFG_EXT_ZICOND_ENABLE = true
-VX_CFG_EXT_TCU_ENABLE = false
+VX_CFG_EXT_TCU_ENABLE = true
 VX_CFG_EXT_DMA_ENABLE = false
-VX_CFG_EXT_DXA_ENABLE = false
-VX_CFG_EXT_DSMEM_ENABLE = false
+VX_CFG_EXT_DXA_ENABLE = true
+VX_CFG_EXT_DSMEM_ENABLE = true
 VX_CFG_EXT_TEX_ENABLE = false
 VX_CFG_EXT_RASTER_ENABLE = false
 VX_CFG_EXT_OM_ENABLE = false
