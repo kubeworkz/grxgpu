@@ -113,6 +113,7 @@ public:
     return socket_;
   }
 
+  uint32_t& mailbox();
   const std::shared_ptr<LocalMem>& local_mem() const;
 
   const std::shared_ptr<MemCoalescer>& mem_coalescer(uint32_t idx) const;

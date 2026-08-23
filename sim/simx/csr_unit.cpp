@@ -88,6 +88,7 @@ Word CsrUnit::get_csr(uint32_t addr, uint32_t wid, uint32_t tid) {
   case VX_CSR_LOCAL_MEM_BASE: return VX_MEM_LMEM_BASE_ADDR;
   case VX_CSR_NUM_BARRIERS: return VX_CFG_NUM_BARRIERS;
   case VX_CSR_MSCRATCH:   return warp.mscratch;
+  case VX_CSR_MAILBOX:    return core_->mailbox();
 
   case VX_CSR_CTA_ID:       return warp.cta_csrs.cta_id;
   case VX_CSR_CTA_RANK:     return warp.cta_csrs.cta_rank;
@@ -324,6 +325,9 @@ void CsrUnit::set_csr(uint32_t addr, Word value, uint32_t wid, uint32_t tid) {
     break;
   case VX_CSR_MSCRATCH:
     warp.mscratch = value;
+    break;
+  case VX_CSR_MAILBOX:
+    core_->mailbox() = value;
     break;
   case VX_CSR_SATP:
 #ifdef VX_CFG_VM_ENABLE
