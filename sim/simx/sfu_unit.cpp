@@ -591,22 +591,26 @@ void SfuUnit::on_tick() {
 
 #ifdef VX_CFG_EXT_DSMEM_ENABLE
 void SfuUnit::dsmem_process(instr_trace_t* trace) {
-  // Synchronous cross-core LMEM read.
-  // rs1 = target core ID (global), rs2 = target LMEM byte address.
-  uint32_t target_cid = static_cast<uint32_t>(trace->src_data[0].at(0).u);  // rs1
-  uint64_t lmem_addr  = static_cast<uint64_t>(trace->src_data[1].at(0).u);  // rs2
+  auto dsmem_type = std::get<DsmemType>(trace->op_type);
+  uint32_t target_cid = static_cast<uint32_t>(trace->src_data[0].at(0).u);
 
   Cluster* cluster = core_->socket()->cluster();
-
-  // target_cid is a cluster-local core ID.
-  // Same cluster: use get_core directly.
-  uint32_t value = 0;
   Core* target_core = cluster->get_core(target_cid);
-  if (target_core) {
-    value = target_core->local_mem()->read_word(lmem_addr);
+
+  uint32_t value = 0;
+  if (dsmem_type == DsmemType::MAILBOX_READ) {
+    // Non-stalling cross-core mailbox read.
+    if (target_core) {
+      value = target_core->mailbox();
+    }
+  } else {
+    // Synchronous cross-core LMEM read (stalling).
+    uint64_t lmem_addr = static_cast<uint64_t>(trace->src_data[1].at(0).u);
+    if (target_core) {
+      value = target_core->local_mem()->read_word(lmem_addr);
+    }
   }
 
-  // Writeback result to rd.
   trace->dst_data.assign(VX_CFG_NUM_THREADS, reg_data_t{});
   trace->dst_data[0].u = value;
 }

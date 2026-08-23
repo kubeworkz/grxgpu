@@ -918,6 +918,7 @@ public:
   }
 #endif
 
+  uint32_t& mailbox() { return mailbox_; }
   const std::shared_ptr<LocalMem>& local_mem() const { return local_mem_; }
   const std::shared_ptr<MemCoalescer>& mem_coalescer(uint32_t idx) const { return mem_coalescers_.at(idx); }
   const std::shared_ptr<LocalMemSwitch>& lmem_switch(uint32_t idx) const { return lmem_switch_.at(idx); }
@@ -953,6 +954,7 @@ private:
   std::vector<Dispatcher::Ptr> dispatchers_;
   std::vector<std::shared_ptr<FuncUnitBase>> func_units_;
   LocalMem::Ptr local_mem_;
+  uint32_t mailbox_ = 0;  // per-core mailbox for cross-core sync
   std::vector<LocalMemSwitch::Ptr> lmem_switch_;
   std::vector<MemCoalescer::Ptr> mem_coalescers_;
 
@@ -1124,6 +1126,9 @@ PoolAllocator<instr_trace_t, 64>& Core::trace_pool() {
   return impl_->trace_pool();
 }
 
+uint32_t& Core::mailbox() {
+  return impl_->mailbox();
+}
 Word Core::flush_warp_pipeline(uint32_t wid) {
   return impl_->flush_warp_pipeline(wid);
 }
