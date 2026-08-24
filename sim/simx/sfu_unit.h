@@ -63,6 +63,7 @@ public:
 	// DxaCore::dxa_req_in[cid]. Owned here (SfuUnit is the SimObject;
 	// DxaUnit is a plain helper sub-class).
 	SimChannel<DxaReq> dxa_req_out;
+	SimChannel<DxaReq> dxa_req_out_b;  // B-tile fetch channel (routed to second DXA core)
 #endif
 
 #ifdef VX_CFG_EXT_TEX_ENABLE
