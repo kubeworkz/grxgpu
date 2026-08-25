@@ -1,5 +1,4 @@
 // Copyright © 2019-2023
-#include <iostream>
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -109,7 +108,7 @@ public:
     // contention, matching the RTL `VX_mem_arb` priority ordering.
 #if defined(VX_CFG_EXT_DXA_ENABLE) || defined(VX_CFG_EXT_TEX_ENABLE) || defined(VX_CFG_EXT_OM_ENABLE) || defined(VX_CFG_EXT_RASTER_ENABLE) || defined(VX_CFG_EXT_RTU_ENABLE)
     constexpr uint32_t kL2Rows = 1
-        + 2 * VX_CFG_EXT_DXA_ENABLED + VX_CFG_EXT_TEX_ENABLED + VX_CFG_EXT_OM_ENABLED + VX_CFG_EXT_RASTER_ENABLED + VX_CFG_EXT_RTU_ENABLED;
+        + VX_CFG_EXT_DXA_ENABLED + VX_CFG_EXT_TEX_ENABLED + VX_CFG_EXT_OM_ENABLED + VX_CFG_EXT_RASTER_ENABLED + VX_CFG_EXT_RTU_ENABLED;
     snprintf(sname, 100, "%s-l2arb", name.c_str());
     auto l2arb = MemArbiter::Create(sname, ArbiterType::Priority,
                                     kL2Rows * VX_CFG_L2_NUM_REQS, VX_CFG_L2_NUM_REQS);
@@ -136,9 +135,6 @@ public:
     snprintf(sname, 100, "%s-dxa-core", name.c_str());
     dxa_core_ = DxaCore::Create(sname, simobject_);
 
-    snprintf(sname, 100, "%s-dxa-core-b", name.c_str());
-    dxa_core_b_ = DxaCore::Create(sname, simobject_);
-
     // DXA gmem → row 1 of l2arb.
     constexpr uint32_t kDxaRow = 1;
     uint32_t kDxaMemPorts = dxa_core_->gmem_req_out.size();
@@ -147,20 +143,12 @@ public:
       l2arb->RspOut.at(kL2Rows * i + kDxaRow).bind(&dxa_core_->gmem_rsp_in.at(i));
     }
 
-    // DXA-B gmem -> row 2 of l2arb (second DXA core).
-    constexpr uint32_t kDxaRow_b = kDxaRow + 1;
-    for (uint32_t i = 0; i < kDxaMemPorts; ++i) {
-      dxa_core_b_->gmem_req_out.at(i).bind(&l2arb->ReqIn.at(kL2Rows * i + kDxaRow_b));
-      l2arb->RspOut.at(kL2Rows * i + kDxaRow_b).bind(&dxa_core_b_->gmem_rsp_in.at(i));
-    }
-
     // Per-core SFU.dxa_req_out (DxaUnit decodes onto it) → DxaCore::dxa_req_in[cid].
     for (uint32_t s = 0; s < sockets_per_cluster; ++s) {
       for (uint32_t c = 0; c < cores_per_socket_; ++c) {
         uint32_t cid = s * cores_per_socket_ + c;
         auto sfu = sockets_.at(s)->core(c)->sfu_unit();
         sfu->dxa_req_out.bind(&dxa_core_->dxa_req_in.at(cid));
-        sfu->dxa_req_out_b.bind(&dxa_core_b_->dxa_req_in.at(cid));
       }
     }
 
@@ -171,7 +159,6 @@ public:
   #ifdef VX_CFG_EXT_TCU_ENABLE
     port_dxa += 1;
   #endif
-    uint32_t port_dxa_b = port_dxa + 1;  // second LMEM port for DXA-B writes
     for (uint32_t s = 0; s < sockets_per_cluster; ++s) {
       for (uint32_t c = 0; c < cores_per_socket_; ++c) {
         uint32_t cid = s * cores_per_socket_ + c;
@@ -180,14 +167,8 @@ public:
         ch.bind(&core->local_mem()->Inputs.at(port_dxa));
         ch.tx_callback([core](const MemReq& req, uint64_t /*cycles*/) {
           if (req.is_write() && req.flags.dxa_notify_done) {
-            uint32_t decoded = bar_decode_id(req.flags.dxa_notify_bar_id, VX_CFG_NUM_BARRIERS);
-            core->barrier_event_release(decoded);
-          }
-        });
-        auto& ch_b = dxa_core_b_->lmem_req_out.at(cid);
-        ch_b.bind(&core->local_mem()->Inputs.at(port_dxa_b));
-        ch_b.tx_callback([core](const MemReq& req, uint64_t /*cycles*/) {
-          if (req.is_write() && req.flags.dxa_notify_done) {
+            // notify_bar_id arrives in raw (encoded) form: low byte = cta_no,
+            // bits[30:8] = bar_no. Decode to flat barrier index before release.
             uint32_t decoded = bar_decode_id(req.flags.dxa_notify_bar_id, VX_CFG_NUM_BARRIERS);
             core->barrier_event_release(decoded);
           }
@@ -209,7 +190,7 @@ public:
       port_dsmem += 1;
     #endif
     #ifdef VX_CFG_EXT_DXA_ENABLE
-      port_dsmem += 2;
+      port_dsmem += 1;
     #endif
       uint32_t cores_per_cluster = sockets_per_cluster * cores_per_socket_;
       port_dsmem_ = port_dsmem;
@@ -335,7 +316,7 @@ public:
     }
 
     // ocache memory side → l2arb. Row index is sockets + DXA + TEX (if those are present).
-    constexpr uint32_t kOmRow = 1 + 2 * VX_CFG_EXT_DXA_ENABLED + VX_CFG_EXT_TEX_ENABLED;
+    constexpr uint32_t kOmRow = 1 + VX_CFG_EXT_DXA_ENABLED + VX_CFG_EXT_TEX_ENABLED;
     for (uint32_t i = 0; i < kOcacheMemPorts; ++i) {
       ocache->mem_req_out.at(i).bind(&l2arb->ReqIn.at(kL2Rows * i + kOmRow));
       l2arb->RspOut.at(kL2Rows * i + kOmRow).bind(&ocache->mem_rsp_in.at(i));
@@ -556,7 +537,6 @@ public:
     perf_stats.l2cache = l2cache_->perf_stats();
 #ifdef VX_CFG_EXT_DXA_ENABLE
     perf_stats.dxa = dxa_core_->perf_stats();
-    perf_stats.dxa += dxa_core_b_->perf_stats();
 #endif
 #ifdef VX_CFG_EXT_TEX_ENABLE
     perf_stats.tex    = tex_core_->perf_stats();
@@ -618,9 +598,7 @@ public:
   int dcr_write(uint32_t addr, uint32_t value) {
 #ifdef VX_CFG_EXT_DXA_ENABLE
     if (addr >= VX_DCR_DXA_STATE_BEGIN && addr < VX_DCR_DXA_STATE_END) {
-      dxa_core_->dcr_write(addr, value);
-      dxa_core_b_->dcr_write(addr, value);
-      return 0;
+      return dxa_core_->dcr_write(addr, value);
     }
 #endif
 #ifdef VX_CFG_EXT_TEX_ENABLE
@@ -747,7 +725,6 @@ public:
 
 #ifdef VX_CFG_EXT_DXA_ENABLE
   DxaCore::Ptr& dxa_core() { return dxa_core_; }
-  DxaCore::Ptr& dxa_core_b() { return dxa_core_b_; }
 #endif
 
 #ifdef VX_CFG_EXT_RASTER_ENABLE
@@ -766,7 +743,6 @@ private:
   uint32_t                    cores_per_socket_;
 #ifdef VX_CFG_EXT_DXA_ENABLE
   DxaCore::Ptr                dxa_core_;
-  DxaCore::Ptr                dxa_core_b_;  // B-tile fetch DXA core
 #endif
 #ifdef VX_CFG_EXT_DSMEM_ENABLE
   std::vector<SimChannel<MemReq>> dsmem_req_in_;
