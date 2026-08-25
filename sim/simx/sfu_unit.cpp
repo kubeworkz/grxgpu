@@ -36,7 +36,6 @@ SfuUnit::SfuUnit(const SimContext& ctx, const char* name, Core* core)
 	: FuncUnit<VX_CFG_NUM_SFU_BLOCKS>(ctx, name, core)
 #ifdef VX_CFG_EXT_DXA_ENABLE
 	, dxa_req_out(this)
-	, dxa_req_out_b(this)
 #endif
 #ifdef VX_CFG_EXT_TEX_ENABLE
 	, tex_req_out(this)
@@ -56,7 +55,7 @@ SfuUnit::SfuUnit(const SimContext& ctx, const char* name, Core* core)
 	, wctl_unit_(new WctlUnit(core))
 	, csr_unit_(new CsrUnit(core))
 #ifdef VX_CFG_EXT_DXA_ENABLE
-	, dxa_unit_(new DxaUnit(core, dxa_req_out, dxa_req_out_b))
+	, dxa_unit_(new DxaUnit(core, dxa_req_out))
 #endif
 #ifdef VX_CFG_EXT_TEX_ENABLE
 	, tex_unit_(new TexUnit(core, tex_req_out))

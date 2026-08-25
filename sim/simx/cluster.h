@@ -119,7 +119,6 @@ public:
 
 #ifdef VX_CFG_EXT_DXA_ENABLE
   DxaCore::Ptr& dxa_core();
-  DxaCore::Ptr& dxa_core_b();
 #endif
 
 #ifdef VX_CFG_EXT_RASTER_ENABLE

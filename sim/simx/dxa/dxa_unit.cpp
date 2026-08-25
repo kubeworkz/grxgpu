@@ -19,11 +19,7 @@
 using namespace vortex;
 
 instr_trace_t* DxaUnit::process(instr_trace_t* trace) {
-  // Route based on desc_slot: slot 0 (A) -> req_out_, slot 1 (B) -> req_out_b_
-  uint32_t meta = trace->src_data[0].at(1).u;
-  uint32_t desc_slot = meta & 0x0fu;
-  auto& out_ch = (desc_slot == 1) ? req_out_b_ : req_out_;
-  if (out_ch.full()) {
+  if (req_out_.full()) {
     return nullptr;
   }
 
@@ -36,7 +32,7 @@ instr_trace_t* DxaUnit::process(instr_trace_t* trace) {
   auto& rs2 = trace->src_data[1];
 
   uint64_t smem_addr = static_cast<uint64_t>(rs1.at(0).u);
-  // meta and desc_slot already extracted above for routing
+  uint32_t meta      = rs1.at(1).u;
   uint32_t coords[5] = {
     static_cast<uint32_t>(rs1.at(2).u),
     static_cast<uint32_t>(rs1.at(3).u),
@@ -45,6 +41,7 @@ instr_trace_t* DxaUnit::process(instr_trace_t* trace) {
     static_cast<uint32_t>(rs2.at(2).u),
   };
   uint32_t cta_mask  = rs2.at(3).u;
+  uint32_t desc_slot = meta & 0x0fu;
   uint32_t raw_bar   = (meta >> 4) & 0x07ffffffu;
 
   DxaReq req;
@@ -65,7 +62,7 @@ instr_trace_t* DxaUnit::process(instr_trace_t* trace) {
   // completion; pre-registration happens explicitly per-CTA so multicast
   // destinations correctly wait.
 
-  out_ch.send(req);
+  req_out_.send(req);
   DT(4, "dxa-unit submit: core=" << core_->id() << ", wid=" << trace->wid
      << ", slot=" << desc_slot << ", bar=" << raw_bar
      << ", cta_mask=0x" << std::hex << cta_mask << std::dec);

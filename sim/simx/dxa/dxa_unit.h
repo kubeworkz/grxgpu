@@ -43,21 +43,19 @@ struct DxaReq {
 // DxaReq channel.
 class DxaUnit {
 public:
-  // The outbound channels live on SfuUnit (which is the SimObject).
-  // req_out_ carries A-tile fetches, req_out_b_ carries B-tile fetches
-  // (routed to a second DxaCore for parallel GMEM access).
-  DxaUnit(Core* core, SimChannel<DxaReq>& req_out, SimChannel<DxaReq>& req_out_b)
-    : core_(core), req_out_(req_out), req_out_b_(req_out_b) {}
+  // The outbound channel lives on SfuUnit (which is the SimObject).
+  DxaUnit(Core* core, SimChannel<DxaReq>& req_out)
+    : core_(core), req_out_(req_out) {}
 
   // Decode lanes 0..3 from the trace's source operands and try to push a
-  // DxaReq on the appropriate SFU outbound channel (A or B based on
-  // desc_slot). Returns the trace on success or nullptr on backpressure.
+  // DxaReq on the SFU's outbound channel. Returns the trace on success
+  // (caller falls through to writeback) or nullptr on backpressure
+  // (caller retries next cycle without side effects).
   instr_trace_t* process(instr_trace_t* trace);
 
 private:
   Core*               core_;
   SimChannel<DxaReq>& req_out_;
-  SimChannel<DxaReq>& req_out_b_;
 };
 
 } // namespace vortex
