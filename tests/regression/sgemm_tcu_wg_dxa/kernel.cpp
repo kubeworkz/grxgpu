@@ -44,21 +44,13 @@ __kernel void kernel_main(kernel_arg_t* __UNIFORM__ arg) {
   // A is fetched row-major (ldm = tileK); B is fetched block-major (bbuf-native).
 
 #ifdef WGMMA_DXA_DOUBLE_BUFFER
-  // ---------------------------------------------------------------------
-  // Double-buffered: two pipeline stages, two barriers. The next K-tile's
-  // DXA copy is issued (async, on bar[nxt]) before the current tile computes,
-  // so the DMA overlaps the WGMMA.
-  //
-  // IMPORTANT: Use the barrier class which embeds get_local_group_id() into
-  // the barrier ID via (id << 8) + cta_id.  Raw arithmetic like
-  //   bar_base = get_local_group_id();  bar_base + (n << 8)
-  // causes cross-CTA collisions at high CTA counts (CTA 0's bar1 = CTA 256's
-  // bar0 = 256).  The barrier class isolates each CTA's barriers.
-  // ---------------------------------------------------------------------
-  // a_size must match the HOST's cta_M * tileK, not the compile-time
-  // VX_CFG_ISSUE_WIDTH, because the host may launch fewer warps than
-  // ISSUE_WIDTH (e.g. when VX_CAPS_ISSUE_WIDTH < VX_CFG_ISSUE_WIDTH).
-  // Using the wrong value overflows smem and corrupts stack data.
+  // -----------------------------------------------------------------
+  // Double-buffered: precompute BOTH stage base pointers outside the
+  // loop, then just swap two pointers each iteration.  This eliminates:
+  //   - the multiply (nxt * stage_stride) each iteration
+  //   - the ternary (nxt == 0) ? bar0 : bar1 each iteration
+  //   - the pointer arithmetic for smem + cur*stride + a_size
+  // -----------------------------------------------------------------
   const uint32_t a_size      = cta_M * ctx::tileK;
   const uint32_t b_size      = ctx::tileK * ctx::xtileN;
   const uint32_t stage_stride = wgmma_dbuf_stride_elems(a_size + b_size, sizeof(ctx::input_t));
@@ -66,40 +58,47 @@ __kernel void kernel_main(kernel_arg_t* __UNIFORM__ arg) {
   auto smem = reinterpret_cast<ctx::input_t *>(__local_mem());
   const uint32_t a_warp_off = warp_rank * ctx::xtileM * ctx::tileK;
 
-  // Two barriers, one per pipeline stage.  The barrier class computes
-  //   bar_id = (logical_id << 8) + get_local_group_id()
-  // ensuring every CTA gets unique hardware barrier slots.
+  // Precompute BOTH stage bases — A start and B start for each stage.
+  auto stage_a0 = smem;                         // stage 0 A
+  auto stage_a1 = smem + stage_stride;          // stage 1 A
+  auto stage_b0 = smem + a_size;                // stage 0 B
+  auto stage_b1 = smem + stage_stride + a_size; // stage 1 B
+
+  // Two barriers, one per pipeline stage.
   vortex::barrier bar0(0);
   vortex::barrier bar1(1);
 
   // Prologue: issue the first K-tile into stage 0 (bar0).
   if (is_dxa_warp) {
     bar0.expect_tx(2);
-    vx_dxa_issue_2d_wg(kDescA, bar0.id(), smem, 0, tile_row);
-    vx_dxa_issue_2d_wg(kDescB, bar0.id(), smem + a_size, tile_col, 0);
+    vx_dxa_issue_2d_wg(kDescA, bar0.id(), stage_a0, 0, tile_row);
+    vx_dxa_issue_2d_wg(kDescB, bar0.id(), stage_b0, tile_col, 0);
   }
+
+  // Running pointers — swapped each iteration, no multiply needed.
+  auto cur_a = stage_a0;  auto nxt_a = stage_a1;
+  auto cur_b = stage_b0;  auto nxt_b = stage_b1;
 
   uint32_t cur = 0;
   for (uint32_t k = 0; k < K; k += ctx::tileK) {
     uint32_t nxt = cur ^ 1u;
-    uint32_t next_k = k + ctx::tileK;
 
     // Prefetch the next K-tile into the other stage while the WGMMA below
-    // consumes the current stage.
-    if (next_k < K && is_dxa_warp) {
+    // consumes the current stage.  Uses precomputed base pointers — no multiply.
+    if (k + ctx::tileK < K && is_dxa_warp) {
       vortex::barrier& bar_nxt = (nxt == 0) ? bar0 : bar1;
       bar_nxt.expect_tx(2);
-      vx_dxa_issue_2d_wg(kDescA, bar_nxt.id(), smem + nxt * stage_stride, next_k, tile_row);
-      vx_dxa_issue_2d_wg(kDescB, bar_nxt.id(), smem + nxt * stage_stride + a_size, tile_col, next_k);
+      vx_dxa_issue_2d_wg(kDescA, bar_nxt.id(), nxt_a, k + ctx::tileK, tile_row);
+      vx_dxa_issue_2d_wg(kDescB, bar_nxt.id(), nxt_b, tile_col, k + ctx::tileK);
     }
 
     // Wait for the current stage's DXA (all warps participate).
     vortex::barrier& bar_cur = (cur == 0) ? bar0 : bar1;
     bar_cur.arrive_and_wait();
 
-    // Compute on the current stage.
-    auto A_warp = smem + cur * stage_stride + a_warp_off;
-    auto desc_b = vt::vx_make_smem_desc(smem + cur * stage_stride + a_size, 0);
+    // Compute on the current stage — uses precomputed base pointers.
+    auto A_warp = cur_a + a_warp_off;
+    auto desc_b = vt::vx_make_smem_desc(cur_b, 0);
 
 #if defined(WGMMA_RS) && (WGMMA_NRC <= 16)
     ctx::fragment_a fragA;
@@ -114,11 +113,14 @@ __kernel void kernel_main(kernel_arg_t* __UNIFORM__ arg) {
     bar_cur.arrive_and_wait();
 
     cur = nxt;
+    // Swap stage pointers: the just-consumed stage becomes the next prefetch target.
+    { auto tmp_a = cur_a; cur_a = nxt_a; nxt_a = tmp_a; }
+    { auto tmp_b = cur_b; cur_b = nxt_b; nxt_b = tmp_b; }
   }
 #else
-  // ---------------------------------------------------------------------
+  // -----------------------------------------------------------------
   // Single-buffered (default): DXA load, sync, compute, sync.
-  // ---------------------------------------------------------------------
+  // -----------------------------------------------------------------
   auto smem   = reinterpret_cast<ctx::input_t *>(__local_mem());
   auto A_smem = smem;
   auto B_smem = smem + cta_M * ctx::tileK;
