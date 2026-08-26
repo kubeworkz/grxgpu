@@ -86,6 +86,7 @@ public:
     uint8_t  dest_layout;      // DestLayout (Flat/BlockMajor use tiled_dest_elem)
     uint32_t tile_k_row;       // tiled scatter: K-row (dim1 index) for this span
     uint32_t tile_n_base;      // tiled scatter: N (dim0) index where the span starts
+    uint8_t  desc_idx;         // fused pair: 0 = A descriptor, 1 = B descriptor
   };
 
   // ── Inflight slot for a GMEM read ──────────────────────────────────
@@ -122,6 +123,12 @@ public:
     uint32_t                mc_cta_idx = 0;      // 0..cta_indices.size()
     uint32_t                km_elem_idx = 0;     // 0..km_num_elems (K-major scatter)
     uint32_t                writes_emitted = 0;  // count for perf
+
+    // Fused A+B pair: B's descriptor + LMEM base for the second half.
+    // (A's descriptor lives in `desc`; B's smem base differs from req.smem_addr.)
+    bool                    is_pair = false;
+    Descriptor              desc_b;
+    uint64_t                smem_addr_b = 0;
   };
 
   // ── Constructor ──────────────────────────────────────────────────────
@@ -149,6 +156,7 @@ public:
       w.mc_cta_idx = 0;
       w.km_elem_idx = 0;
       w.writes_emitted = 0;
+      w.is_pair = false;
     }
   }
 
@@ -344,6 +352,7 @@ private:
     w.mc_cta_idx = 0;
     w.km_elem_idx = 0;
     w.writes_emitted = 0;
+    w.is_pair = false;
 
     // Multicast setup.
     w.is_multicast = (__builtin_popcount(req.cta_mask) > 1);
@@ -364,7 +373,22 @@ private:
     w.desc = descriptors_.at(req.desc_slot);
     w.smem_stride = w.desc.smem_stride;
 
-    enumerate_work_list(w);
+    // Fused A+B pair: enumerate A then B into ONE combined work list, so
+    // both tiles' GMEM reads interleave through the shared inflight window
+    // and the barrier releases once when both are resident.
+    enumerate_work_list(w, w.desc, req.smem_addr, req.coords, /*desc_idx=*/0);
+    if (req.pair) {
+      if (req.desc_slot_b >= VX_DCR_DXA_DESC_COUNT) {
+        // Invalid B descriptor — release directly without any LMEM write.
+        release_all_barriers(w);
+        finish_worker(w);
+        return;
+      }
+      w.is_pair     = true;
+      w.desc_b      = descriptors_.at(req.desc_slot_b);
+      w.smem_addr_b = req.smem_addr_b;
+      enumerate_work_list(w, w.desc_b, req.smem_addr_b, req.coords_b, /*desc_idx=*/1);
+    }
     if (w.work_list.empty()) {
       // No work — same edge case as above.
       release_all_barriers(w);
@@ -373,7 +397,8 @@ private:
     }
 
     // Mark the *last* work item — its multicast replay's last write carries
-    // notify_done.
+    // notify_done. For a fused pair this is B's final line, so the barrier
+    // releases exactly once after both tiles are resident.
     w.work_list.back().last = true;
 
     w.state = WState::RUNNING;
@@ -382,6 +407,7 @@ private:
     DT(3, simobject_->name() << "[" << w.worker_id << "] start: core="
        << req.core->id() << ", wid=" << req.wid
        << ", slot=" << req.desc_slot
+       << (req.pair ? ("+pair=" + std::to_string(req.desc_slot_b)) : "")
        << ", lines=" << w.work_list.size()
        << ", multicast=" << w.is_multicast
        << ", num_ctas=" << w.cta_indices.size());
@@ -390,8 +416,9 @@ private:
   // Enumerate (CL, smem-word, byte-offset, length, oob) tuples — one per
   // GMEM CL the transfer needs to read. Row-major iteration over outer
   // dims, contiguous span over dim-0, dedup of consecutive same-CL.
-  void enumerate_work_list(Worker& w) {
-    const auto& desc = w.desc;
+  void enumerate_work_list(Worker& w, const Descriptor& desc,
+                           uint64_t smem_addr, const uint32_t coords[5],
+                           uint8_t desc_idx) {
     uint32_t rank = desc_rank(desc.meta);
     if (rank < 1 || rank > 5) return;
 
@@ -441,21 +468,21 @@ private:
       // OOB check on outer dims.
       bool row_in_bounds = true;
       for (uint32_t d = 1; d < rank; ++d) {
-        if (w.req.coords[d] + outer[d - 1] >= desc.sizes[d]) { row_in_bounds = false; break; }
+        if (coords[d] + outer[d - 1] >= desc.sizes[d]) { row_in_bounds = false; break; }
       }
 
       // First element GMEM addr in this row.
-      uint64_t row_gbase = desc.base_addr + uint64_t(w.req.coords[0]) * elem_bytes;
+      uint64_t row_gbase = desc.base_addr + uint64_t(coords[0]) * elem_bytes;
       for (uint32_t d = 1; d < rank; ++d)
-        row_gbase += uint64_t(w.req.coords[d] + outer[d - 1]) * uint64_t(desc.strides[d - 1]);
+        row_gbase += uint64_t(coords[d] + outer[d - 1]) * uint64_t(desc.strides[d - 1]);
 
       // SMEM destination base for this row:
       //   Row-major:  base + row_idx * row_elems * elem_bytes  (i1 outer × i0 inner).
       //   K-major:    base + outer[0] * elem_bytes              (lane stride applies per e0 below).
       //   Tiled:      computed per-element below (smem_wr recomputes the permuted dest).
       uint64_t row_smem_base = dest_kmajor
-          ? (w.req.smem_addr + uint64_t(outer[0]) * elem_bytes)
-          : (w.req.smem_addr + uint64_t(row * row_elems) * elem_bytes);
+          ? (smem_addr + uint64_t(outer[0]) * elem_bytes)
+          : (smem_addr + uint64_t(row * row_elems) * elem_bytes);
 
       // Walk dim-0 elements; each LineWork carries one MemReq write of at
       // most one LMEM word AND at most one GMEM CL (so byteen fits in the
@@ -466,7 +493,7 @@ private:
         uint64_t saddr_e;
         if (dest_tiled) {
           uint32_t de = tiled_dest_elem(layout, outer[0], e0, geo_ratio, geo_tcN, geo_nsteps);
-          saddr_e = w.req.smem_addr + uint64_t(de) * elem_bytes;
+          saddr_e = smem_addr + uint64_t(de) * elem_bytes;
         } else if (dest_kmajor) {
           saddr_e = row_smem_base + uint64_t(e0) * uint64_t(per_lane_stride_bytes);
         } else {
@@ -494,7 +521,7 @@ private:
         if (gspan == 0) break;
         uint32_t num_elems = gspan / elem_bytes;
 
-        bool elem_oob = !row_in_bounds || (w.req.coords[0] + e0 >= desc.sizes[0]);
+        bool elem_oob = !row_in_bounds || (coords[0] + e0 >= desc.sizes[0]);
         // OOB is determined per-element at the start of the span; tile widths
         // are typically aligned to dim-0 size, so this is exact for the common case.
 
@@ -515,6 +542,7 @@ private:
         lw.dest_layout      = uint8_t(layout);
         lw.tile_k_row       = outer[0];   // tiled scatter: K-row (dim1)
         lw.tile_n_base      = e0;          // tiled scatter: N (dim0) span start
+        lw.desc_idx         = desc_idx;    // fused pair: 0=A, 1=B
 
         // Dedup consecutive same-CL (non-OOB only).
         if (!elem_oob && cl_addr == global_prev_cl) {
@@ -622,16 +650,19 @@ private:
     // Per-element SMEM byte destination. K-major: uniform lane stride from a
     // span base. Tiled (Flat/BlockMajor): permuted index from the WGMMA
     // B-buffer layout formula (idx = within-span dim-0 offset → N = base+idx).
-    const bool     tiled    = desc_dest_tiled(w.desc.meta);
-    const uint32_t t_eb     = desc_elem_bytes(w.desc.meta);
+    // For a fused pair, pick the descriptor + LMEM base by the item's half.
+    const Descriptor& desc   = (lw.desc_idx == 1) ? w.desc_b : w.desc;
+    const uint64_t    smem_a = (lw.desc_idx == 1) ? w.smem_addr_b : w.req.smem_addr;
+    const bool     tiled    = desc_dest_tiled(desc.meta);
+    const uint32_t t_eb     = desc_elem_bytes(desc.meta);
     const uint32_t t_ratio  = tiled ? std::max<uint32_t>(1u, 4u / t_eb) : 1u;
-    const uint32_t t_tcN    = tiled ? desc_geo_tcn(w.desc) : 1u;
-    const uint32_t t_nsteps = tiled ? std::max<uint32_t>(1u, uint32_t(w.desc.tile_sizes[0]) / t_tcN) : 1u;
+    const uint32_t t_tcN    = tiled ? desc_geo_tcn(desc) : 1u;
+    const uint32_t t_nsteps = tiled ? std::max<uint32_t>(1u, uint32_t(desc.tile_sizes[0]) / t_tcN) : 1u;
     auto dest_byte_of = [&](uint32_t idx) -> uint64_t {
       if (tiled) {
         uint32_t de = tiled_dest_elem(DestLayout(lw.dest_layout), lw.tile_k_row,
                                       lw.tile_n_base + idx, t_ratio, t_tcN, t_nsteps);
-        return w.req.smem_addr + uint64_t(de) * t_eb + cta_off;
+        return smem_a + uint64_t(de) * t_eb + cta_off;
       }
       return lw.smem_word_addr + lw.smem_byte_offset
            + uint64_t(idx) * lw.km_lane_stride + cta_off;

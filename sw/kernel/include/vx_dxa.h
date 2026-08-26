@@ -84,6 +84,37 @@ inline void vx_dxa_issue_2d_wg(uint32_t desc_slot,
       : "memory");
 }
 
+// Fused A+B pair (2D): one issue fetches BOTH WGMMA operands as a single
+// atomic transfer. rs1 lanes carry A (smem, meta|PAIR, coord0, coord1);
+// rs2 lanes carry B (smem, meta, coord0, coord1). meta_a[31] = pair flag.
+// The DXA core enumerates both tiles into one work list, interleaves their
+// GMEM reads, and releases the barrier once when both are resident.
+inline void vx_dxa_issue_2d_wg_pair(uint32_t desc_slot_a,
+                                    uint32_t desc_slot_b,
+                                    uint32_t barrier_id,
+                                    const void* smem_addr_a,
+                                    const void* smem_addr_b,
+                                    uint32_t coord_a0,
+                                    uint32_t coord_a1,
+                                    uint32_t coord_b0,
+                                    uint32_t coord_b1) {
+  const uint32_t meta_a = vx_dxa_pack_meta(desc_slot_a, barrier_id) | 0x80000000u;
+  const uint32_t meta_b = vx_dxa_pack_meta(desc_slot_b, barrier_id);
+  const uint32_t a0 = (uint32_t)vx_wgather((size_t)(uintptr_t)smem_addr_a,
+                                            (size_t)meta_a,
+                                            (size_t)coord_a0,
+                                            (size_t)coord_a1);
+  const uint32_t a1 = (uint32_t)vx_wgather((size_t)(uintptr_t)smem_addr_b,
+                                            (size_t)meta_b,
+                                            (size_t)coord_b0,
+                                            (size_t)coord_b1);
+  __asm__ volatile (
+      ".insn r %0, 0, %1, x0, %2, %3\n\t"
+      :
+      : "i"(VX_DXA_EXT_OPCODE), "i"(VX_DXA_FUNCT7), "r"(a0), "r"(a1)
+      : "memory");
+}
+
 // 3D–5D: rs2 = wgather(coord2, coord3, coord4, 0)
 inline void vx_dxa_issue_3d_wg(uint32_t desc_slot,
                                 uint32_t barrier_id,
