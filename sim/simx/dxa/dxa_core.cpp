@@ -17,6 +17,7 @@
 #include <array>
 #include <cstring>
 #include <deque>
+#include <unordered_map>
 #include <vector>
 #include "core.h"
 #include "cluster.h"
@@ -124,9 +125,11 @@ public:
     uint32_t                km_elem_idx = 0;     // 0..km_num_elems (K-major scatter)
     uint32_t                writes_emitted = 0;  // count for perf
 
-    // Fused A+B pair: B's descriptor + LMEM base for the second half.
-    // (A's descriptor lives in `desc`; B's smem base differs from req.smem_addr.)
+    // Fused A+B pair: this worker handles ONE half (0 = A, 1 = B). B's
+    // descriptor + LMEM base live in desc_b / smem_addr_b; smem_wr picks
+    // per-item by lw.desc_idx.
     bool                    is_pair = false;
+    uint8_t                 pair_half = 0;
     Descriptor              desc_b;
     uint64_t                smem_addr_b = 0;
   };
@@ -157,7 +160,9 @@ public:
       w.km_elem_idx = 0;
       w.writes_emitted = 0;
       w.is_pair = false;
+      w.pair_half = 0;
     }
+    pair_pending_.clear();
   }
 
   int dcr_write(uint32_t addr, uint32_t value) {
@@ -240,10 +245,33 @@ public:
       }
     }
 
-    // 3) Dispatch from queue to idle workers.
-    for (auto& w : workers_) {
-      if (w.state == WState::IDLE && !queue_.empty())
-        start_worker(w, queue_.front()), queue_.pop_front();
+    // 3) Dispatch from queue to idle workers. A fused pair needs TWO idle
+    // workers (one per tile half) so A and B fetch through independent
+    // GMEM pipes; a single (non-pair) request takes one worker.
+    if (!queue_.empty()) {
+      const DxaReq& req = queue_.front();
+      if (req.pair) {
+        uint32_t a = UINT32_MAX, b = UINT32_MAX;
+        for (uint32_t i = 0; i < workers_.size(); ++i) {
+          if (workers_[i].state != WState::IDLE) continue;
+          if (a == UINT32_MAX) a = i;
+          else { b = i; break; }
+        }
+        if (b != UINT32_MAX) {
+          queue_.pop_front();
+          start_worker_half(workers_[a], req, 0);
+          start_worker_half(workers_[b], req, 1);
+          pair_pending_[req.uuid] = 2;
+        }
+        // else: wait until two workers are free (in-order dispatch).
+      } else {
+        for (uint32_t i = 0; i < workers_.size(); ++i) {
+          if (workers_[i].state != WState::IDLE) continue;
+          start_worker(workers_[i], queue_.front());
+          queue_.pop_front();
+          if (queue_.empty()) break;
+        }
+      }
     }
 
     // 4) Drain DxaUnit channels → req queue (round-robin).
@@ -353,6 +381,7 @@ private:
     w.km_elem_idx = 0;
     w.writes_emitted = 0;
     w.is_pair = false;
+    w.pair_half = 0;
 
     // Multicast setup.
     w.is_multicast = (__builtin_popcount(req.cta_mask) > 1);
@@ -373,22 +402,7 @@ private:
     w.desc = descriptors_.at(req.desc_slot);
     w.smem_stride = w.desc.smem_stride;
 
-    // Fused A+B pair: enumerate A then B into ONE combined work list, so
-    // both tiles' GMEM reads interleave through the shared inflight window
-    // and the barrier releases once when both are resident.
     enumerate_work_list(w, w.desc, req.smem_addr, req.coords, /*desc_idx=*/0);
-    if (req.pair) {
-      if (req.desc_slot_b >= VX_DCR_DXA_DESC_COUNT) {
-        // Invalid B descriptor — release directly without any LMEM write.
-        release_all_barriers(w);
-        finish_worker(w);
-        return;
-      }
-      w.is_pair     = true;
-      w.desc_b      = descriptors_.at(req.desc_slot_b);
-      w.smem_addr_b = req.smem_addr_b;
-      enumerate_work_list(w, w.desc_b, req.smem_addr_b, req.coords_b, /*desc_idx=*/1);
-    }
     if (w.work_list.empty()) {
       // No work — same edge case as above.
       release_all_barriers(w);
@@ -397,8 +411,7 @@ private:
     }
 
     // Mark the *last* work item — its multicast replay's last write carries
-    // notify_done. For a fused pair this is B's final line, so the barrier
-    // releases exactly once after both tiles are resident.
+    // notify_done.
     w.work_list.back().last = true;
 
     w.state = WState::RUNNING;
@@ -407,10 +420,92 @@ private:
     DT(3, simobject_->name() << "[" << w.worker_id << "] start: core="
        << req.core->id() << ", wid=" << req.wid
        << ", slot=" << req.desc_slot
-       << (req.pair ? ("+pair=" + std::to_string(req.desc_slot_b)) : "")
        << ", lines=" << w.work_list.size()
        << ", multicast=" << w.is_multicast
        << ", num_ctas=" << w.cta_indices.size());
+  }
+
+  // Start ONE half of a fused pair on this worker (half 0 = A, half 1 = B).
+  // The two halves run on independent workers → independent GMEM pipes, so
+  // A and B fetch in parallel. Barrier release is coordinated via
+  // pair_pending_: only the half that finishes last emits notify_done.
+  void start_worker_half(Worker& w, const DxaReq& req, uint8_t half) {
+    w.req = req;
+    w.issue_cycle = cycle_;
+    w.work_list.clear();
+    w.ag_idx = 0;
+    w.issued_order.clear();
+    for (auto& s : w.inflight) { s.allocated = false; s.rsp_arrived = false; s.rsp_data.reset(); }
+    w.mc_cta_idx = 0;
+    w.km_elem_idx = 0;
+    w.writes_emitted = 0;
+    w.is_pair = true;
+    w.pair_half = half;
+
+    // Pairs are forced non-multicast by the DxaUnit decode, but keep the
+    // general multicast path for safety.
+    w.is_multicast = (__builtin_popcount(req.cta_mask) > 1);
+    w.cta_indices.clear();
+    if (w.is_multicast) {
+      for (uint32_t i = 0; i < 32; ++i) {
+        if (req.cta_mask & (1u << i)) w.cta_indices.push_back(i);
+      }
+    }
+
+    const uint32_t slot   = (half == 1) ? req.desc_slot_b : req.desc_slot;
+    const uint64_t smem   = (half == 1) ? req.smem_addr_b : req.smem_addr;
+    const uint32_t* coords = (half == 1) ? req.coords_b : req.coords;
+    const uint8_t  didx   = (half == 1) ? 1 : 0;
+
+    if (slot >= VX_DCR_DXA_DESC_COUNT) {
+      // Invalid descriptor for this half — note completion; the peer half
+      // (or this one if it's last) releases.
+      if (pair_note_half_done(w))
+        release_all_barriers(w);
+      finish_worker(w);
+      return;
+    }
+
+    w.desc = descriptors_.at(slot);
+    w.smem_stride = w.desc.smem_stride;
+    if (half == 1) {
+      w.desc_b      = w.desc;
+      w.smem_addr_b = smem;
+    }
+
+    enumerate_work_list(w, w.desc, smem, coords, didx);
+    if (w.work_list.empty()) {
+      if (pair_note_half_done(w))
+        release_all_barriers(w);
+      finish_worker(w);
+      return;
+    }
+
+    // Last item of THIS half — its final write may carry notify_done if it
+    // is the pair's last finisher (see pair_note_half_done in smem_wr).
+    w.work_list.back().last = true;
+
+    w.state = WState::RUNNING;
+    perf_stats_.gmem_reads += w.work_list.size();
+
+    DT(3, simobject_->name() << "[" << w.worker_id << "] start-half " << unsigned(half)
+       << ": core=" << req.core->id() << ", wid=" << req.wid
+       << ", slot=" << slot << ", lines=" << w.work_list.size()
+       << ", multicast=" << w.is_multicast);
+  }
+
+  // Pair completion: decrement the shared pending counter for this pair's
+  // uuid. Returns true when THIS worker's half is the last to finish, i.e.
+  // it must carry the barrier release.
+  bool pair_note_half_done(Worker& w) {
+    auto it = pair_pending_.find(w.req.uuid);
+    if (it == pair_pending_.end())
+      return true; // not tracked — release normally
+    if (--it->second == 0) {
+      pair_pending_.erase(it);
+      return true;
+    }
+    return false;
   }
 
   // Enumerate (CL, smem-word, byte-offset, length, oob) tuples — one per
@@ -705,12 +800,17 @@ private:
 
     // notify_done on the LAST block write of the transfer — when the gather
     // reached the last scatter element of the last work item, per receiver.
+    // For a fused pair, only the last-finishing half carries it (the other
+    // half's writes are already in the same FIFO LMEM port ahead of this
+    // write, so both tiles are resident when the release fires).
     bool is_last_elem   = (ee == num_elems);
     bool is_last_work   = lw.last;
     bool is_last_replay = !w.is_multicast || (w.mc_cta_idx + 1 == w.cta_indices.size());
     if (is_last_work && is_last_elem && (w.is_multicast || is_last_replay)) {
-      req.flags.dxa_notify_done   = 1;
-      req.flags.dxa_notify_bar_id = w.req.bar_id + (w.is_multicast ? cta_warp_idx : 0u);
+      if (!w.is_pair || pair_note_half_done(w)) {
+        req.flags.dxa_notify_done   = 1;
+        req.flags.dxa_notify_bar_id = w.req.bar_id + (w.is_multicast ? cta_warp_idx : 0u);
+      }
     }
 
     lmem_ch.send(req);
@@ -752,7 +852,9 @@ private:
   void finish_worker(Worker& w) {
     if (w.state == WState::RUNNING || w.state == WState::IDLE) {
       uint64_t latency = cycle_ - w.issue_cycle;
-      ++perf_stats_.transfers;
+      // A fused pair is one logical transfer; count it on the A half only.
+      if (!w.is_pair || w.pair_half == 0)
+        ++perf_stats_.transfers;
       perf_stats_.total_latency += latency;
       DT(3, simobject_->name() << "[" << w.worker_id << "] complete: core="
          << w.req.core->id() << ", bar=" << w.req.bar_id
@@ -774,6 +876,9 @@ private:
   std::array<Descriptor, VX_DCR_DXA_DESC_COUNT> descriptors_;
   std::deque<DxaReq>     queue_;
   std::vector<Worker>    workers_;
+  // Fused-pair completion: uuid → number of halves still in flight (starts
+  // at 2). The half that decrements it to 0 carries the barrier release.
+  std::unordered_map<uint64_t, uint32_t> pair_pending_;
   uint32_t               rr_req_ = 0;
   uint64_t               cycle_;
   DxaCore::PerfStats     perf_stats_;
