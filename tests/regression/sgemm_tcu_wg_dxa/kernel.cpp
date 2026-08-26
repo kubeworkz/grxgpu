@@ -68,11 +68,12 @@ __kernel void kernel_main(kernel_arg_t* __UNIFORM__ arg) {
   vortex::barrier bar0(0);
   vortex::barrier bar1(1);
 
-  // Prologue: issue the first K-tile into stage 0 (bar0).
+  // Prologue: issue the first K-tile into stage 0 (bar0) as one fused
+  // A+B transfer — one expect_tx, one barrier release when both are resident.
   if (is_dxa_warp) {
-    bar0.expect_tx(2);
-    vx_dxa_issue_2d_wg(kDescA, bar0.id(), stage_a0, 0, tile_row);
-    vx_dxa_issue_2d_wg(kDescB, bar0.id(), stage_b0, tile_col, 0);
+    bar0.expect_tx(1);
+    vx_dxa_issue_2d_wg_pair(kDescA, kDescB, bar0.id(),
+                            stage_a0, stage_b0, 0, tile_row, tile_col, 0);
   }
 
   // Running pointers — swapped each iteration, no multiply needed.
@@ -83,13 +84,13 @@ __kernel void kernel_main(kernel_arg_t* __UNIFORM__ arg) {
   for (uint32_t k = 0; k < K; k += ctx::tileK) {
     uint32_t nxt = cur ^ 1u;
 
-    // Prefetch the next K-tile into the other stage while the WGMMA below
-    // consumes the current stage.  Uses precomputed base pointers — no multiply.
+    // Prefetch the next K-tile into the other stage as one fused A+B
+    // transfer while the WGMMA below consumes the current stage.
     if (k + ctx::tileK < K && is_dxa_warp) {
       vortex::barrier& bar_nxt = (nxt == 0) ? bar0 : bar1;
-      bar_nxt.expect_tx(2);
-      vx_dxa_issue_2d_wg(kDescA, bar_nxt.id(), nxt_a, k + ctx::tileK, tile_row);
-      vx_dxa_issue_2d_wg(kDescB, bar_nxt.id(), nxt_b, tile_col, k + ctx::tileK);
+      bar_nxt.expect_tx(1);
+      vx_dxa_issue_2d_wg_pair(kDescA, kDescB, bar_nxt.id(),
+                              nxt_a, nxt_b, k + ctx::tileK, tile_row, tile_col, k + ctx::tileK);
     }
 
     // Wait for the current stage's DXA (all warps participate).

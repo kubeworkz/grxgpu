@@ -36,6 +36,15 @@ struct DxaReq {
   uint32_t cta_mask;      // multicast warp mask (>1 bit ⇒ multicast)
   uint64_t smem_addr;
   uint32_t coords[5];
+
+  // Fused A+B pair: one request fetches BOTH WGMMA operands as a single
+  // atomic transfer (meta_a[31] pair flag). The DXA core enumerates both
+  // tiles into one work list and releases the barrier once both are
+  // resident. coords[2..4] are unused in pair mode (2D only).
+  bool     pair = false;
+  uint32_t desc_slot_b;   // B descriptor table index
+  uint64_t smem_addr_b;   // B LMEM destination
+  uint32_t coords_b[5];   // B tile offsets (2D: coords_b[0..1])
 };
 
 // DXA sub-unit of the SFU. Plain (non-SimObject) class owned by SfuUnit;

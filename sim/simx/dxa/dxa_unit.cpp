@@ -43,6 +43,9 @@ instr_trace_t* DxaUnit::process(instr_trace_t* trace) {
   uint32_t cta_mask  = rs2.at(3).u;
   uint32_t desc_slot = meta & 0x0fu;
   uint32_t raw_bar   = (meta >> 4) & 0x07ffffffu;
+  // meta[31] = fused A+B pair flag. In pair mode the rs2 lanes carry B's
+  // fields (smem_b, meta_b, coord_b0, coord_b1) instead of coords[2..4].
+  bool pair = (meta & 0x80000000u) != 0;
 
   DxaReq req;
   req.core      = core_;
@@ -56,6 +59,27 @@ instr_trace_t* DxaUnit::process(instr_trace_t* trace) {
   req.cta_mask  = cta_mask;
   req.smem_addr = smem_addr;
   for (int i = 0; i < 5; ++i) req.coords[i] = coords[i];
+
+  req.pair = pair;
+  if (pair) {
+    // rs2 lanes: lane0 = smem_addr_b, lane1 = meta_b,
+    //            lane2 = coord_b0,    lane3 = coord_b1.
+    // NOTE: lane3 rs2 is the multicast cta_mask slot in the non-pair 2D
+    // encoding; in pair mode it carries B's coord1, so we MUST zero the
+    // multicast mask here — otherwise a nonzero B K-offset (e.g. 16) is
+    // decoded as a multicast mask and the worker releases bar_id + cta_idx
+    // for garbage CTA indices, overflowing the barrier table.
+    uint32_t meta_b = rs2.at(1).u;
+    req.desc_slot_b = meta_b & 0x0fu;
+    req.smem_addr_b = static_cast<uint64_t>(rs2.at(0).u);
+    req.coords_b[0] = static_cast<uint32_t>(rs2.at(2).u);
+    req.coords_b[1] = static_cast<uint32_t>(rs2.at(3).u);
+    for (int i = 2; i < 5; ++i) req.coords_b[i] = 0;
+    // Pair mode is 2D-only: A's coords[2..4] are unused, and multicast is
+    // not supported (single-destination pair only).
+    req.coords[2] = req.coords[3] = req.coords[4] = 0;
+    req.cta_mask = 0;
+  }
 
   // Barrier pre-registration is the kernel's responsibility via
   // vx_barrier_expect_tx(). The DXA pipeline only emits release events on
