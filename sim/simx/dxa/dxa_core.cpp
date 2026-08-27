@@ -130,6 +130,7 @@ public:
     // per-item by lw.desc_idx.
     bool                    is_pair = false;
     uint8_t                 pair_half = 0;
+    uint64_t                pair_id = 0;   // DXA-internal pair key (uuid is 0 in release)
     Descriptor              desc_b;
     uint64_t                smem_addr_b = 0;
   };
@@ -161,8 +162,10 @@ public:
       w.writes_emitted = 0;
       w.is_pair = false;
       w.pair_half = 0;
+      w.pair_id = 0;
     }
     pair_pending_.clear();
+    pair_id_ = 0;
   }
 
   int dcr_write(uint32_t addr, uint32_t value) {
@@ -259,9 +262,14 @@ public:
         }
         if (b != UINT32_MAX) {
           queue_.pop_front();
+          uint64_t pid = pair_id_++;
+          // Set the key BEFORE starting the halves so the empty-work-list
+          // early-exit path in start_worker_half sees the tracked entry.
+          workers_[a].pair_id = pid;
+          workers_[b].pair_id = pid;
+          pair_pending_[pid] = 2;
           start_worker_half(workers_[a], req, 0);
           start_worker_half(workers_[b], req, 1);
-          pair_pending_[req.uuid] = 2;
         }
         // else: wait until two workers are free (in-order dispatch).
       } else {
@@ -498,7 +506,10 @@ private:
   // uuid. Returns true when THIS worker's half is the last to finish, i.e.
   // it must carry the barrier release.
   bool pair_note_half_done(Worker& w) {
-    auto it = pair_pending_.find(w.req.uuid);
+    // Key on the DXA-internal pair id, NOT req.uuid: in release builds
+    // (NDEBUG) the scheduler sets uuid=0 for every trace, so two concurrent
+    // pairs would collide in the map and clobber each other's pending count.
+    auto it = pair_pending_.find(w.pair_id);
     if (it == pair_pending_.end())
       return true; // not tracked — release normally
     if (--it->second == 0) {
@@ -879,6 +890,7 @@ private:
   // Fused-pair completion: uuid → number of halves still in flight (starts
   // at 2). The half that decrements it to 0 carries the barrier release.
   std::unordered_map<uint64_t, uint32_t> pair_pending_;
+  uint64_t               pair_id_ = 0;  // monotonically increasing pair key
   uint32_t               rr_req_ = 0;
   uint64_t               cycle_;
   DxaCore::PerfStats     perf_stats_;
