@@ -260,3 +260,46 @@ the fused descriptor (Phase 1) is the enabling contract for everything after.
    descriptor-table slots (A row-major, B block-major layouts differ). A
    Phase 2 "wide" descriptor could merge them; keeping two slots preserves
    the existing `program_2d` API.
+
+---
+
+## 8. Measured results (SimX, G100 config, 512×512×512 fp16)
+
+### 8.1 Fused A+B dual-pipe (current HEAD on main)
+
+| Config | Cycles | IPC | Δ vs original |
+|--------|--------|-----|---------------|
+| Original double-buffer | 28,203,780 | 1.304 | — |
+| Fused A+B single-worker | 28,203,780 | 1.304 | 0% |
+| **Fused A+B dual-pipe (2 workers)** | **27,747,759** | **1.325** | **−1.62%** |
+| 4-worker (no benefit) | 28,430,761 | 1.293 | +0.8% |
+
+Instruction count is identical across all configs (36,767,744). The win is
+purely in the memory path — A and B issue through two independent arbiter
+ports instead of one serialized interleaved list.
+
+### 8.2 CORE profile (VORTEX_PROFILING=1)
+
+| Stall | % | Interpretation |
+|-------|---|----------------|
+| **scrb** | **92%** | Cores stalled waiting for DXA results |
+| **sfu** | **96%** | DXA pipeline nearly saturated |
+| tcu | 0% | Tensor unit never stalls — always operand-starved |
+| fetch/ibuf/opds/alu/lsu | 0% | Not the bottleneck |
+
+Instruction mix: alu=62% (setup-uop overhead), tcu=22% (WGMMA), sfu=10%
+(DXA loads), lsu=6%. Load latency: 13.68 cycles avg.
+
+**Key finding:** scrb=92% + sfu=96% confirms the DXA tile fetch latency is
+the binding constraint. No further DXA worker parallelism (2→4) helps
+because the single shared L2 arbiter pipe serializes all GMEM reads. The
+bottleneck has moved from DXA workers to the **memory subsystem**.
+
+### 8.3 Bugs fixed
+
+- **multicast mask in pair mode:** `cta_mask = coord_b1` (nonzero) triggered
+  multicast release; fixed by forcing `cta_mask=0` in pair mode.
+- **release-build livelock:** `scheduler.cpp` sets `uuid=0` for all traces when
+  `NDEBUG` is defined; `pair_pending_[uuid]` collided across concurrent pairs.
+  Fixed by replacing uuid-keyed map with a DXA-internal monotonically-increasing
+  `pair_id_` counter.
