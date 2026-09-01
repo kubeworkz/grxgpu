@@ -376,3 +376,211 @@ when complete.
   `NDEBUG` is defined; `pair_pending_[uuid]` collided across concurrent pairs.
   Fixed by replacing uuid-keyed map with a DXA-internal monotonically-increasing
   `pair_id_` counter.
+
+---
+
+## 9. Persistent CTA scheduling with DSMEM B-tile sharing
+
+### 9.1 Motivation
+
+The 100% b_only gate stall (Section 1.1) is irreducible at the current DXA
+pipeline level — no kernel-level or dispatch-level change moves it. But
+there is a **bandwidth** lever we haven't tried: **eliminating redundant
+GMEM reads across CTAs that share B tiles.**
+
+In the current kernel, the grid is `N/xtileN × M/cta_M` CTAs. CTAs with
+the same `blockIdx.x` read the **identical B tile** from global memory —
+independently, through the DXA, every iteration. For a 512×512 GEMM with
+xtileN=8, there are 64 N-columns, each read by 128 CTAs (M/4 rows). That's
+128 independent GMEM reads of the same 128-byte B tile per K-iteration.
+
+The DSMEM infrastructure (Section 2.4) already provides cross-core LMEM reads
+within a cluster. A non-stalling `vx_mailbox_read` returns the target core's
+`VX_CSR_MAILBOX` value without pipeline stall. A `vx_dsmem_read` reads an
+arbitrary LMEM word from a peer core with ~2-tick latency through the cluster
+DSMEM arbiter.
+
+**Persistent CTAs + DSMEM B-tile sharing** inverts this: one CTA per
+row-group fetches B via DXA; peers read it from the master's LMEM. This
+reduces B GMEM traffic by **16×** (for 16-CTA row-groups).
+
+### 9.2 Architecture
+
+#### CTA-to-core mapping
+
+G100 config: 8 clusters × 16 cores = 128 cores. The CTA scheduler maps
+CTAs to cores round-robin. For a `grid_x=64` (N-columns) grid:
+
+```
+Core 0:  CTA (0,0), CTA (0,16), CTA (0,32), ...   (persistent loop)
+Core 1:  CTA (1,0), CTA (1,16), CTA (1,32), ...
+...
+Core 15: CTA (15,0), CTA (15,16), ...
+Core 16: CTA (0,1), CTA (0,17), ...                 (next cluster)
+```
+
+**Key constraint:** DSMEM reads are cluster-scoped. Two cores in different
+cannot read each other's LMEM. The persistent CTA model must ensure that
+row-group peers (CTAs with the same `blockIdx.x`) land on cores within the
+same cluster.
+
+#### B-tile sharing model
+
+For a row-group of `P` CTAs sharing B tile at `blockIdx.x = bx`:
+
+1. **B-master** (CTA with lowest `blockIdx.y` in the row-group): fetches B
+   via DXA, writes to LMEM, sets mailbox = B_READY (1), then computes.
+2. **B-peers** (remaining P−1 CTAs): skip DXA B-fetch, poll mailbox until
+   B_READY, then read B from master's LMEM via `vx_dsmem_read`.
+3. **Synchronization:** master writes mailbox after B is resident in LMEM;
+   peers spin on `vx_mailbox_read(master_core)` (non-stalling, 0-cycle
+   pipeline stall).
+
+#### Memory layout
+
+The B tile is `tileK × xtileN` = 8×8 = 64 elements = 128 bytes (fp16).
+Placed at a fixed LMEM offset (e.g., `DSMEM_B_OFFSET = 0x1000`) so peers
+can derive the address without a pointer exchange.
+
+#### Persistent CTA loop
+
+Each CTA processes multiple B tiles in a persistent loop:
+
+```c
+for (uint32_t bx = cta_id_x; bx < grid_x; bx += cluster_cores) {
+  uint32_t tile_col = bx * xtileN;
+  bool is_b_master = (cta_id_y == 0);  // or: lowest y in row-group
+
+  if (is_b_master) {
+    // Fetch B via DXA into LMEM at DSMEM_B_OFFSET
+    vx_dxa_issue_2d_wg(kDescB, bar.id(), DSMEM_B_ADDR, tile_col, k);
+    bar.arrive_and_wait();
+    // Signal B ready to peers
+    vx_mailbox_write(1);  // or: vx_csr_write(VX_CSR_MAILBOX, 1)
+  } else {
+    // Poll master's mailbox (non-stalling)
+    while (vx_mailbox_read(master_core_id) != 1) { /* spin */ }
+    // Read B from master's LMEM via DSMEM
+    for (uint32_t i = 0; i < b_elems; ++i) {
+      B_smem[i] = vx_dsmem_read(master_core_id, DSMEM_B_OFFSET + i*4);
+    }
+  }
+
+  // Fetch A via DXA (each CTA still fetches its own A)
+  // Compute WGMMA on A × B
+  // Accumulate into C
+}
+```
+
+### 9.3 GMEM traffic analysis
+
+| Metric | Current (per K-iter) | Persistent CTA (per K-iter) |
+|--------|---------------------|----------------------------|
+| B fetches | P CTAs × 128 B = P×128 B | 1 master × 128 B = 128 B |
+| A fetches | P CTAs × 64 B = P×64 B | P CTAs × 64 B (unchanged) |
+| DSMEM reads | 0 | (P−1) × 64 × 4 B = (P−1)×256 B |
+| Total GMEM | P×192 B | P×64 + 128 B |
+| **GMEM reduction** | — | **P×192 → 64P+128** |
+
+For P=16 (16 CTAs per row-group in G100):
+- Current: 16×192 = 3,072 B per K-iteration
+- Persistent: 16×64 + 128 = 1,152 B per K-iteration
+- **Reduction: 62.5%**
+
+But wait — the DSMEM reads also consume bandwidth. Each `vx_dsmem_read`
+is a cluster-scoped bus transaction (~2 ticks). For P=16, peers issue
+64 reads each = 1,024 DSMEM reads per K-iteration. At 1 read/cycle,
+that's ~1,024 cycles of DSMEM bus contention.
+
+### 9.4 DSMEM latency analysis
+
+The DSMEM arbiter processes one read per cycle (round-robin across cores).
+For P=16 CTAs in a cluster:
+
+- 15 peers × 64 reads each = 960 DSMEM reads per K-iteration
+- At 1 read/cycle: 960 cycles of DSMEM bus time
+- Each read: ~2 tick pipeline (SFU → cluster arb → target LMEM → response)
+- Total: 960 × 2 = 1,920 cycles of DSMEM latency per K-iteration
+
+Compare to DXA B-fetch latency: avg 13.68 cycles per element × 64 elements
+= 876 cycles. But DXA fetches are pipelined (inflight window), so the
+**wall-clock** DXA B-fetch is ~50-100 cycles (bounded by GMEM pipeline depth).
+
+**The DSMEM path is 19× slower than DXA for B delivery** (1,920 vs ~100
+cycles). This means the persistent CTA model **hurts** for small P but
+**helps** when P is large enough that the GMEM bandwidth savings outweigh
+the DSMEM latency.
+
+### 9.5 Break-even analysis
+
+The persistent CTA model helps when:
+
+```
+DSMEM_latency < GMEM_savings
+(P−1) × tileK × xtileN × 2 < P × (a_size + b_size) / GMEM_bandwidth
+```
+
+For G100 config with 16 cores/cluster:
+- DSMEM cost: 15 × 64 × 2 = 1,920 cycles
+- GMEM savings: 15 × 192 = 2,880 B saved, but DXA bandwidth is
+  already saturated (sfu=96%), so the savings don't translate to
+  fewer cycles — the DXA is the bottleneck, not GMEM bandwidth.
+
+**Critical insight:** The 100% b_only gate stall means the TCU is always
+waiting for B. If B arrives via DSMEM (1,920 cycles) instead of DXA
+(~100 cycles), the stall gets **worse**, not better. The DSMEM path is
+slower than DXA for B delivery.
+
+### 9.6 When persistent CTAs actually help
+
+The persistent CTA model helps only when:
+
+1. **GMEM bandwidth is the bottleneck** (not DXA pipeline latency). This
+   happens at very high occupancy (many CTAs, small tiles) where the DXA
+   is underutilized and GMEM reads dominate.
+2. **The DSMEM bus is fast enough** to deliver B before the TCU gate check.
+   This requires hardware-level DSMEM (dedicated bus, not SFU-mediated).
+3. **The B tile is large enough** that the GMEM savings outweigh the DSMEM
+   overhead. For NRC=8, B=128B — too small. For NRC=32 (production scale),
+   B=512B — the savings start to matter.
+
+### 9.7 Revised recommendation
+
+**Do not implement persistent CTAs for the current configuration.** The
+numbers show it hurts:
+
+| Approach | B delivery time | Gate stall |
+|----------|----------------|------------|
+| Current (DXA per-CTA) | ~100 cycles | 100% b_only |
+| Persistent CTA (DSMEM) | ~1,920 cycles | **worse** |
+
+The persistent CTA model becomes viable only after:
+
+1. **Phase 2 (self-pipelining TCU):** The pipeline FSM eliminates the
+   per-iteration DXA issue overhead, so CTAs are cheaper to run and the
+   GMEM savings matter more.
+2. **Phase 4 (tensor-dedicated memory path):** Dedicated DXA memory ports
+   increase GMEM bandwidth, making the bandwidth savings from sharing
+   meaningful.
+3. **Production-scale tiles (NRC≥32):** Larger B tiles (≥512B) make the
+   GMEM savings dominate the DSMEM overhead.
+
+The persistent CTA design is documented here as a **Phase 5 optimization**
+that builds on Phases 2 and 4. It is not the next lever to pull.
+
+### 9.8 What IS the next lever?
+
+The 9-experiment campaign (Section 1.1) proved the b_only stall is
+irreducible at the current DXA pipeline level. The remaining levers are:
+
+| Lever | Phase | Expected impact | Difficulty |
+|-------|-------|----------------|------------|
+| Self-pipelining TCU FSM | 2 | Eliminates per-iter DXA issue (62% ALU) | High |
+| Tensor-dedicated memory path | 4 | Enables dual-ported B fetch | Medium |
+| Size-symmetric tiles | 5 | Eliminates A/B asymmetry class | Low |
+| Persistent CTAs + DSMEM | 5+ | GMEM bandwidth sharing | High |
+
+The **self-pipelining TCU (Phase 2)** is the highest-impact next step: it
+eliminates 62% of the instruction stream (setup-uops) and moves the pipeline
+FSM into hardware, making all subsequent optimizations (DSMEM, persistent
+CTAs) more effective.
