@@ -561,6 +561,8 @@ public:
         fsm.compute_total = cfg::k_steps * nrc;
         fsm.tile_row = 0;
         fsm.tile_col = 0;
+        uint32_t nrc_acc = (tpuArgs.cd_nregs == 0) ? 8 : (tpuArgs.cd_nregs == 1) ? 16 : 32;
+        fsm.fragC.assign(nrc_acc, reg_data_t{});
         wgmma_desc_[fsm.wid][0] = fsm.a_desc;
         wgmma_desc_[fsm.wid][1] = fsm.b_desc;
         fsm.phase = TgmFsmState::FETCH;
@@ -610,8 +612,9 @@ public:
         fsm.compute_step = 0;
       }
     }
-    // COMPUTE: execute WGMMA uops
+    // COMPUTE: execute WGMMA uops (direct LMEM reads, bypass tbuf)
     if (fsm.phase == TgmFsmState::COMPUTE) {
+      tgm_direct_read_ = true;
       std::cerr << "TGM_PHASE: COMPUTE step=" << fsm.compute_step << "/" << fsm.compute_total << std::endl;
       if (fsm.compute_step < fsm.compute_total) {
         uint32_t m_steps = cfg::m_steps;
@@ -622,7 +625,7 @@ public:
         uint32_t rem = fsm.compute_step % mn;
         uint32_t n = rem / m_steps;
         uint32_t m = rem % m_steps;
-        std::vector<reg_data_t> empty_data;
+        // fragC is the persistent accumulator across K-tiles
         // Find TGM trace and accumulate into its dst_data
         for (uint32_t b = 0; b < VX_CFG_NUM_TCU_BLOCKS; ++b) {
           auto& input = simobject_->Inputs.at(b);
@@ -634,7 +637,7 @@ public:
           if (rd_data.empty()) rd_data.assign(VX_CFG_NUM_THREADS, reg_data_t{});
           // Step 0: setup lmem_desc_ (is_setup_uop=1); steps 1+: compute (is_setup_uop=0)
           this->wgmma(fsm.wid, tpuArgs.fmt_s, tpuArgs.fmt_d, m, n, k_step,
-                      fsm.a_desc, fsm.b_desc, empty_data, empty_data, empty_data,
+                      fsm.a_desc, fsm.b_desc, fsm.fragC, fsm.fragC, fsm.fragC,
                       rd_data, false, tpuArgs.cd_nregs, tpuArgs.is_a_smem,
                       (fsm.compute_step == 0) ? 1 : 0);
           break;
@@ -661,6 +664,7 @@ public:
         fsm.phase = TgmFsmState::ADVANCE;
       }
     }
+      tgm_direct_read_ = false;
     if (fsm.phase == TgmFsmState::ADVANCE) {
       std::cerr << "TGM_PHASE: ADVANCE k=" << fsm.k_current << "/" << fsm.k_end << std::endl;
       fsm.stage ^= 1u;
@@ -1527,10 +1531,39 @@ private:
     return result;
   }
 
+  // Direct LMEM read for TGM: bypasses tbuf, reads straight from smem.
+  uint32_t load_lmem_word_direct(const lmem_desc_t& desc, uint32_t row, uint32_t col,
+                                  uint32_t fmt_s, bool pack_along_row) const {
+    // For TGM, A uses row-major (M-outer K-inner), B uses row-major.
+    // Compute element offset and byte address, then read from LMEM directly.
+    uint64_t elem_off;
+    if (pack_along_row) {
+      // B: K-major (N-outer K-inner). cur_row=K, cur_col=N.
+      elem_off = uint64_t(col) * desc.ldm + row;
+    } else {
+      // A: row-major (M-outer K-inner). cur_row=M, cur_col=K.
+      elem_off = uint64_t(row) * desc.ldm + col;
+    }
+    uint32_t e_bits = elem_bits(fmt_s);
+    uint64_t byte_addr = desc.base + elem_off * e_bits / 8;
+    // Read a single word directly from LocalMem.
+    auto lmem = core_->local_mem();
+    uint32_t val = lmem->read_word(byte_addr);
+    if (e_bits == 16) {
+      // For 16-bit, read second element.
+      uint32_t val2 = lmem->read_word(byte_addr + 2);
+      return val | (val2 << 16);
+    }
+    return val;
+  }
+
   // Routes A reads through the current block's A buffer; B through the shared B buffer.
   // sparse_b selects the flat candidate-pair B layout.
   uint32_t load_lmem_word(const lmem_desc_t& desc, uint32_t row, uint32_t col,
                           uint32_t fmt_s, bool pack_along_row, bool sparse_b) const {
+    if (tgm_direct_read_) {
+      return load_lmem_word_direct(desc, row, col, fmt_s, pack_along_row);
+    }
     auto& tbuf = simobject_->tbuf();
     if (desc.base == cur_a_desc_base_) {
       uint32_t b = cur_block_;
@@ -1595,6 +1628,7 @@ private:
 #endif
   std::unordered_map<uint32_t, lmem_desc_t[2]> lmem_desc_;
   std::array<std::array<uint32_t, 2>, VX_CFG_NUM_WARPS> wgmma_desc_;
+  bool tgm_direct_read_ = false;  // TGM: bypass tbuf, read from LMEM directly
   mutable PerfStats perf_stats_;
   // Per-block guard: execute already happened for this trace; reset on pop().
   std::array<bool, VX_CFG_NUM_TCU_BLOCKS> exec_done_;
