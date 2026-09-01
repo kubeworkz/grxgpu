@@ -583,12 +583,12 @@ public:
       req.desc_slot = 0;
       req.bar_id    = tgm_bar;
       req.cta_mask  = 0;
-      req.smem_addr = uint64_t(fsm.a_desc & 0xFFFF);
+      req.smem_addr = uint64_t(VX_MEM_LMEM_BASE_ADDR) + (fsm.a_desc & 0xFFFF);
       req.coords[0] = fsm.k_current * cfg::k_steps * wg_cfg::fedpK;
       req.coords[1] = fsm.tile_row;
       req.pair        = true;
       req.desc_slot_b = 1;
-      req.smem_addr_b = uint64_t(fsm.b_desc & 0xFFFF);
+      req.smem_addr_b = uint64_t(VX_MEM_LMEM_BASE_ADDR) + (fsm.b_desc & 0xFFFF);
       req.coords_b[0] = fsm.tile_col;
       req.coords_b[1] = fsm.k_current * cfg::k_steps * wg_cfg::fedpK;
       auto sfu = core_->sfu_unit();
