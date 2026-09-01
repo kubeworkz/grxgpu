@@ -17,6 +17,8 @@
 #include "tensor_cfg.h"
 #include <rvfloats.h>
 #include "core.h"
+#include "../dxa/dxa_unit.h"
+#include "../sfu_unit.h"
 #include "scheduler.h"
 #include "local_mem.h"
 #include "processor_impl.h"
@@ -392,6 +394,7 @@ public:
     wgmma_cta_owner_ = -1;
     wgmma_admitted_warps_ = 0;
     cur_block_ = 0;
+    tgm_fsm_ = TgmFsmState{};
   #ifdef TCU_META_ENABLE
     agu_.fill(agu_state_t{});
     agu_issue_rr_ = 0;
@@ -534,11 +537,132 @@ public:
   }
 #endif // TCU_META_ENABLE
 
+  void tgm_fsm_tick() {
+    auto& fsm = tgm_fsm_;
+    // IDLE: look for a new TGM trace
+    if (fsm.phase == TgmFsmState::IDLE) {
+      for (uint32_t b = 0; b < VX_CFG_NUM_TCU_BLOCKS; ++b) {
+        auto& input = simobject_->Inputs.at(b);
+        if (input.empty()) continue;
+        auto trace = input.peek();
+        if (std::get<TcuType>(trace->op_type) != TcuType::TGM) continue;
+        auto& instr = *trace->instr_ptr;
+        auto tpuArgs = std::get<IntrTcuArgs>(instr.get_args());
+        fsm.wid = trace->wid;
+        fsm.cta_id = core_->scheduler().warp(trace->wid).cta_csrs.cta_id;
+        fsm.a_desc = trace->src_data.at(0).at(0).u32;
+        fsm.b_desc = trace->src_data.at(1).at(0).u32;
+        uint32_t k_range = trace->src_data.at(2).at(0).u32;
+        fsm.k_current = k_range >> 16;
+        fsm.k_end = k_range & 0xFFFF;
+        fsm.stage = 0;
+        fsm.compute_step = 0;
+        uint32_t nrc = (tpuArgs.cd_nregs == 0) ? 8 : (tpuArgs.cd_nregs == 1) ? 16 : 32;
+        fsm.compute_total = cfg::k_steps * nrc;
+        fsm.tile_row = 0;
+        fsm.tile_col = 0;
+        wgmma_desc_[fsm.wid][0] = fsm.a_desc;
+        wgmma_desc_[fsm.wid][1] = fsm.b_desc;
+        fsm.phase = TgmFsmState::FETCH;
+        break;
+      }
+      if (fsm.phase == TgmFsmState::IDLE) return;
+    }
+    // FETCH: issue DXA pair for current stage
+    if (fsm.phase == TgmFsmState::FETCH) {
+#ifdef VX_CFG_EXT_DXA_ENABLE
+      uint32_t tgm_bar = 2;
+      core_->barrier_event_attach(tgm_bar, 1);
+      DxaReq req{};
+      req.core      = core_;
+      req.uuid      = 0;
+      req.wid       = fsm.wid;
+      req.desc_slot = 0;
+      req.bar_id    = tgm_bar;
+      req.cta_mask  = 0;
+      req.smem_addr = uint64_t(fsm.a_desc & 0xFFFF);
+      req.coords[0] = fsm.k_current * cfg::k_steps * wg_cfg::fedpK;
+      req.coords[1] = fsm.tile_row;
+      req.pair        = true;
+      req.desc_slot_b = 1;
+      req.smem_addr_b = uint64_t(fsm.b_desc & 0xFFFF);
+      req.coords_b[0] = fsm.tile_col;
+      req.coords_b[1] = fsm.k_current * cfg::k_steps * wg_cfg::fedpK;
+      auto sfu = core_->sfu_unit();
+      if (sfu && !sfu->dxa_req_out.full()) {
+        sfu->dxa_req_out.send(req);
+        fsm.phase = TgmFsmState::WAIT_DXA;
+        fsm.dxa_wait_ticks = 0;
+      } else {
+        core_->barrier_event_release(tgm_bar);
+      }
+#else
+      fsm.phase = TgmFsmState::COMPUTE;
+      fsm.compute_step = 0;
+#endif
+    }
+    // WAIT_DXA: wait for DXA pipeline latency
+    if (fsm.phase == TgmFsmState::WAIT_DXA) {
+      constexpr uint32_t kDxaLatency = 10;
+      if (++fsm.dxa_wait_ticks >= kDxaLatency) {
+        fsm.phase = TgmFsmState::COMPUTE;
+        fsm.compute_step = 0;
+      }
+    }
+    // COMPUTE: execute WGMMA uops
+    if (fsm.phase == TgmFsmState::COMPUTE) {
+      if (fsm.compute_step < fsm.compute_total) {
+        uint32_t m_steps = cfg::m_steps;
+        uint32_t k_count = cfg::k_steps;
+        uint32_t nrc = fsm.compute_total / k_count;
+        uint32_t mn = nrc;
+        uint32_t k = fsm.compute_step / mn;
+        uint32_t rem = fsm.compute_step % mn;
+        uint32_t n = rem / m_steps;
+        uint32_t m = rem % m_steps;
+        std::vector<reg_data_t> empty_data;
+        std::vector<reg_data_t> rd_data(VX_CFG_NUM_THREADS, reg_data_t{});
+        auto& t0args = std::get<IntrTcuArgs>(simobject_->Inputs.at(0).peek()->instr_ptr->get_args());
+        this->wgmma(fsm.wid, t0args.fmt_s, t0args.fmt_d, m, n, k,
+                    fsm.a_desc, fsm.b_desc, empty_data, empty_data, empty_data,
+                    rd_data, false, t0args.cd_nregs, t0args.is_a_smem, 0);
+        ++fsm.compute_step;
+      } else {
+        fsm.phase = TgmFsmState::ADVANCE;
+      }
+    }
+    // ADVANCE: swap stage, increment K
+    if (fsm.phase == TgmFsmState::ADVANCE) {
+      fsm.stage ^= 1u;
+      ++fsm.k_current;
+      if (fsm.k_current < fsm.k_end) {
+        fsm.phase = TgmFsmState::FETCH;
+      } else {
+        fsm.phase = TgmFsmState::DONE;
+      }
+    }
+    // DONE: pop trace, reset FSM
+    if (fsm.phase == TgmFsmState::DONE) {
+      for (uint32_t b = 0; b < VX_CFG_NUM_TCU_BLOCKS; ++b) {
+        auto& input = simobject_->Inputs.at(b);
+        if (input.empty()) continue;
+        auto trace = input.peek();
+        if (std::get<TcuType>(trace->op_type) != TcuType::TGM) continue;
+        if (simobject_->Outputs.at(b).try_send(trace, kMmaLatency)) {
+          input.pop();
+        }
+        break;
+      }
+      fsm.phase = TgmFsmState::IDLE;
+    }
+  }
+
   void tick() {
   #ifdef TCU_META_ENABLE
     this->agu_step();
   #endif
   #ifdef VX_CFG_TCU_WGMMA_ENABLE
+    this->tgm_fsm_tick();
     // Q-warp lock-step probe.
     // Pass 1 — identify active WGMMA blocks and prime each one's plan() on
     // first uop. WMMA and TCU_LD blocks are unaffected (no Q-coupling).
@@ -547,7 +671,7 @@ public:
       auto& input = simobject_->Inputs.at(b);
       if (input.empty()) continue;
       auto trace = input.peek();
-      if (!tcu_is_wgmma(std::get<TcuType>(trace->op_type))) continue;
+      { auto _tt = std::get<TcuType>(trace->op_type); if (!tcu_is_wgmma(_tt)) { if (_tt == TcuType::TGM) continue; continue; } }
 
       uint32_t wid = trace->wid;
       uint64_t wid_bit = (uint64_t(1) << wid);
@@ -739,6 +863,10 @@ public:
           uint64_t base_addr = rs1_data.empty() ? 0 : rs1_data.at(0).u64;
           this->agu_start(b, wid, tpuArgs.fmt_d, base_addr, trace);
         } break;
+      #ifdef VX_CFG_TCU_WGMMA_ENABLE
+        case TcuType::TGM: {
+        } break;
+      #endif
       #endif
         default:
           std::abort();
@@ -754,6 +882,11 @@ public:
       case TcuType::WGMMA_SP:
         delay = kMmaLatency;
         break;
+      #ifdef VX_CFG_TCU_WGMMA_ENABLE
+      case TcuType::TGM:
+        delay = kMmaLatency;
+        break;
+      #endif
     #ifdef TCU_META_ENABLE
       case TcuType::TCU_LD:
         // The AGU round-trip models the memory latency; the remaining
@@ -1423,6 +1556,8 @@ private:
   // early "all blocks idle" check drop the slot too soon).
   int32_t wgmma_cta_owner_ = -1;
   uint32_t wgmma_admitted_warps_ = 0;
+
+  TgmFsmState tgm_fsm_;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1443,6 +1578,9 @@ op_string_t TcuUnit::op_string(TcuType tcu_type, IntrTcuArgs args) {
              + "." + std::to_string(nrc) + "." + src_mode
              + "." + std::to_string(args.step_m) + "." + std::to_string(args.step_n), ""};
   }
+  case TcuType::TGM:
+    return {"TGM." + std::string(vt::fmt_string(args.fmt_s)) + "." + std::string(vt::fmt_string(args.fmt_d))
+             + "." + std::to_string((args.cd_nregs == 0) ? 8 : (args.cd_nregs == 1) ? 16 : 32), ""};
   case TcuType::TCU_LD:
     return {"TCU_LD." + std::string((args.fmt_d & 0x10) ? "MX." : "SP.")
              + std::string(vt::fmt_string(args.fmt_s)) + ".slot" + std::to_string(args.fmt_d & 0xf), ""};
@@ -1481,6 +1619,9 @@ uint32_t TcuUopGen::uop_count(const Instr& instr) {
     uint32_t k_count = is_sparse ? std::max(1u, wg_cfg::k_steps / 2) : wg_cfg::k_steps;
     uint32_t mma_uops = k_count * nrc;
     return mma_uops + needs_setup;
+  }
+  if (tcu_type == TcuType::TGM) {
+    return 1;
   }
 #endif
 
