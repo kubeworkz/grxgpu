@@ -935,25 +935,19 @@ Instr::Ptr Decoder::decode(uint32_t code, uint64_t uuid) {
     #endif // TCU_META_ENABLE
     #ifdef VX_CFG_TCU_WGMMA_ENABLE
       case 3: { // TGM — Tensor GEMM range. Hardware FSM manages DXA prefetch + WGMMA loop.
-        // Encoding (R-type):
-        //   funct7[4:0]   = fmt_s (source format)
-        //   funct7[9:5]   = fmt_d (dest format)
-        //   funct7[11:10] = cd_nregs (0=8, 1=16, 2=32)
-        //   funct7[12]    = is_a_smem
+        // Encoding (R-type, compact):
+        //   funct7[3:0]   = K_end (number of K-tiles, 0-15)
         //   rd  = accumulator register (destination)
         //   rs1 = A descriptor register
         //   rs2 = B descriptor register
-        //   rs3 = K range register (K_start<<16 | K_end)
-        uint32_t fmt_s = funct7 & 0x1f;
-        uint32_t fmt_d = (funct7 >> 5) & 0x1f;
-        uint32_t nrc_code = (funct7 >> 10) & 0x3;
-        bool is_a_smem = (funct7 >> 12) & 1;
+        // Format params hardcoded for current use (fp16->fp32, 8 C/D regs, A from smem).
+        uint32_t k_end = funct7 & 0xf;
         instr->set_op_type(TcuType::TGM);
-        instr->set_args(IntrTcuArgs{is_a_smem ? 1u : 0u, nrc_code, fmt_s, fmt_d, 0, 0, 0, 0, 0, 0});
+        instr->set_args(IntrTcuArgs{1u, 0, 9, 1, 0, 0, 0, 0, 0, 0});  // is_a_smem=1, nrc=0, fmt_s=fp16, fmt_d=fp32
         instr->set_dest_reg(rd, RegType::Float);
         instr->set_src_reg(0, rs1, RegType::Integer);  // A descriptor
         instr->set_src_reg(1, rs2, RegType::Integer);  // B descriptor
-        instr->set_src_reg(2, rs3, RegType::Integer);  // K range (K_start<<16 | K_end)
+        instr->set_src_reg(2, k_end, RegType::Integer);  // K_end
         instr->set_wstall(true);  // warp stalls until FSM completes
       } break;
     #endif // VX_CFG_TCU_WGMMA_ENABLE
