@@ -584,3 +584,238 @@ The **self-pipelining TCU (Phase 2)** is the highest-impact next step: it
 eliminates 62% of the instruction stream (setup-uops) and moves the pipeline
 FSM into hardware, making all subsequent optimizations (DSMEM, persistent
 CTAs) more effective.
+
+---
+
+## 10. Phase 2 — Self-pipelining tensor FSM
+
+### 10.1 Current per-iteration overhead
+
+The double-buffered kernel (Section 8.1) executes this loop per K-iteration:
+
+```c
+// Each iteration: 7+ instructions, 62% ALU mix
+bar_nxt.expect_tx(1);                          // 1 ALU
+vx_dxa_issue_2d_wg_pair(...);                   // 1 SFU
+bar_cur.arrive_and_wait();                      // 1 ALU (barrier)
+// WGMMA compute — 1 TCU instruction → 9 uops
+ctx::wgmma_sync(fragC, desc_a, desc_b, fragC); // 1 TCU
+bar_cur.arrive_and_wait();                      // 1 ALU (barrier)
+cur = nxt;                                      // 1 ALU
+swap(cur_a, nxt_a); swap(cur_b, nxt_b);        // 3 ALU
+```
+
+CORE profile (VORTEX_PROFILING=1) confirms:
+
+| Component | % | Interpretation |
+|-----------|---|----------------|
+| **ALU** | **62%** | Setup-uops: barrier, pointer swap, loop control |
+| TCU | 22% | Actual WGMMA compute (the only useful work) |
+| SFU | 10% | DXA loads |
+| LSU | 6% | Stores |
+
+**62% of all instructions are overhead.** The TCU computes for 22% of the
+instruction stream. The kernel spends 3× more instructions managing the
+pipeline than executing useful math.
+
+### 10.2 Design: K-range descriptor
+
+One hardware instruction replaces the entire K-loop. The kernel issues a
+**tensor GEMM range descriptor** (`TGM`) that encodes:
+
+```
+TGM  rd, desc_a, desc_b, K_start, K_end, tile_row, tile_col
+
+  rd        = accumulator fragment (in-place, 8×8×fp32)
+  desc_a    = A tile descriptor (smem address + layout)
+  desc_b    = B tile descriptor (smem address + layout)
+  K_start   = first K-tile index (inclusive)
+  K_end     = last K-tile index (exclusive)
+  tile_row  = M-tile offset (for DXA A fetch)
+  tile_col  = N-tile offset (for DXA B fetch)
+```
+
+**Encoding:** Reuse the existing WGMMA opcode (funct7=0x3) with a new
+type bit in the descriptor meta field. The hardware distinguishes TGM
+from single-shot WGMMA via `meta[31]=1` + `meta[30]=1` (two flag bits).
+
+**One instruction, one barrier.** The kernel issues TGM, waits for the
+completion barrier, and reads the result from `rd`. Zero per-iteration
+instructions.
+
+### 10.3 Hardware FSM state machine
+
+The TCU gains a per-CTA pipeline FSM with 4 states:
+
+```
+┌─────────┐     ┌──────────┐     ┌──────────┐     ┌─────────┐
+│ FETCH_A │────▶│ FETCH_B  │────▶│ COMPUTE  │────▶│ ADVANCE │
+│ (DXA)   │     │ (DXA)    │     │ (FEDP)   │     │ (swap)  │
+└─────────┘     └──────────┘     └──────────┘     └─────────┘
+     ▲                                                       │
+     └───────────────── double-buffer rotate ───────────────┘
+```
+
+**State transitions:**
+
+1. **FETCH_A:** Issue DXA pair-read for A tile into smem stage[0].
+   Awaits LMEM write completion (barrier auto-release).
+2. **FETCH_B:** Issue DXA pair-read for B tile into smem stage[0]+a_size.
+   (In fused-pair mode, A+B issue simultaneously — FETCH_A and FETCH_B
+   collapse into one state.)
+3. **COMPUTE:** Dispatch WGMMA uops for current stage. TCU processes
+   k_steps × nrc micro-ops internally. No software intervention.
+4. **ADVANCE:** Swap smem stage pointers. If K tile < K_end, rotate
+   to FETCH_A for next stage. If K tile == K_end, signal completion
+   barrier.
+
+**Pipeline overlap:** While COMPUTE runs on stage[0], FETCH_A/B issues
+for stage[1] — this is the double-buffer overlap, now managed in
+hardware instead of software.
+
+### 10.4 FSM timing model
+
+For the G100 config with NRC=8, tileK=8, k_steps=1:
+
+| Phase | Latency (cycles) | Notes |
+|-------|-----------------|-------|
+| FETCH_A+B (fused pair) | ~50-100 | DXA pipelined GMEM read |
+| COMPUTE (1 WGMMA) | ~30-50 | FEDP eval, k_steps=1, nrc=8 |
+| ADVANCE | ~5 | Pointer swap, barrier signal |
+| **Total per K-tile** | **~85-155** | Hardware-managed |
+
+Compare to current software pipeline per K-tile:
+
+| Phase | Current (software) | Phase 2 (hardware) |
+|-------|--------------------|--------------------|
+| DXA issue | 1 SFU instr | 0 (HW-internal) |
+| Barrier wait | 2 ALU instr | 0 (HW-internal) |
+| WGMMA compute | 1 TCU instr | 0 (HW-internal) |
+| Pointer swap | 3 ALU instr | 0 (HW-internal) |
+| Loop control | 1 ALU instr | 0 (HW-internal) |
+| **Total instructions** | **8 per K-tile** | **1 (TGM)** |
+| **Total per K-tile** | **~100-200 cycles** | **~85-155 cycles** |
+
+The cycle count doesn't change dramatically (the DXA latency dominates),
+but the **instruction count drops by 87.5%** — from 8 instructions per
+K-tile to 1 instruction for the entire K-range. This eliminates the
+62% ALU overhead entirely.
+
+### 10.5 Kernel transformation
+
+**Before (software pipeline, 8 instructions per K-tile):**
+
+```c
+for (uint32_t k = 0; k < K; k += tileK) {
+  if (k + tileK < K && is_dxa_warp) {
+    bar_nxt.expect_tx(1);
+    vx_dxa_issue_2d_wg_pair(kDescA, kDescB, bar_nxt.id(),
+                            nxt_a, nxt_b, k+tileK, tile_row, tile_col, k+tileK);
+  }
+  bar_cur.arrive_and_wait();
+  ctx::wgmma_sync(fragC, desc_a, desc_b, fragC);
+  bar_cur.arrive_and_wait();
+  cur = nxt;
+  swap(cur_a, nxt_a); swap(cur_b, nxt_b);
+}
+```
+
+**After (self-pipelining FSM, 1 instruction total):**
+
+```c
+// Issue tensor GEMM with K-range — hardware does the rest.
+vx_tgm(fragC, kDescA, kDescB, 0, K/tileK, tile_row, tile_col);
+// fragC is updated in-place after K/tileK iterations.
+```
+
+The kernel shrinks from ~30 instructions (DB path) to ~10 instructions
+(descriptor setup + TGM + store). ALU mix drops from 62% to ~0%.
+
+### 10.6 SimX implementation plan
+
+**SimX model (functional simulation, no cycle-accuracy):**
+
+1. **New TcuType::TGM** — single opcode that triggers the FSM.
+2. **FSM state** — stored in `tcu_unit.h` as per-CTA state:
+   ```
+   struct TgmFsmState {
+     uint32_t k_current;      // current K-tile index
+     uint32_t k_end;          // K_end from descriptor
+     uint32_t tile_row, tile_col;
+     uint32_t stage;          // 0 or 1 (double-buffer)
+     uint32_t a_desc, b_desc;
+     bool prefetch_issued;    // has DXA been issued for next stage?
+   };
+   ```
+3. **tick() integration** — in the TCU tick loop, when a TGM trace
+   arrives, push it into the FSM. Each tick advances one state:
+   FETCH → COMPUTE → ADVANCE. When k_current == k_end, signal the
+   completion barrier.
+4. **DXA interface** — the FSM reuses the existing DXA issue path
+   (SFU → DXA unit) but issues are generated by the FSM, not by
+   kernel instructions.
+5. **Barrier interface** — the FSM auto-manages barriers using the
+   existing barrier infrastructure (bar0/bar1 for double-buffer).
+
+**Kernel interface:**
+
+```c
+// New intrinsic:
+void vx_tgm(fragment_acc& rd, uint32_t desc_a, uint32_t desc_b,
+             uint32_t k_start, uint32_t k_end,
+             uint32_t tile_row, uint32_t tile_col);
+
+// Implementation:
+static inline void vx_tgm(...) {
+  __asm__ volatile (
+    ".insn r %1, 0, 7, %0, %2, %3"
+    : : "r"(rd), "i"(0x0B), "r"(desc_a), "r"(desc_b)
+  );
+}
+```
+
+### 10.7 Expected impact
+
+| Metric | Current (DB) | Phase 2 (TGM) | Delta |
+|--------|-------------|---------------|-------|
+| Instructions per K-tile | 8 | ~0.33 (1 per 3 K-tiles) | −96% |
+| ALU instruction mix | 62% | ~0% | −62 pp |
+| TCU instruction mix | 22% | ~80% | +58 pp |
+| Cycles per K-tile | ~100-200 | ~85-155 | −7-22% |
+| Total instructions (K=512) | 574,976 | ~80,000 | −86% |
+| scrb stall | 92% | ~40-50% | −42-52 pp |
+| IPC | 1.325 | ~2.0-2.5 | +50-90% |
+
+The instruction count drops by 87.5%. The scrb stall drops because the
+core spends less time waiting for setup-uops. IPC improves because the
+instruction stream is dominated by useful TCU work (80%) instead of
+overhead (62%).
+
+**Cycles improvement is modest** (~7-22%) because the DXA latency
+(~50-100 cycles per K-tile) still dominates. But the instruction
+reduction enables future optimizations:
+- **Fewer instructions = less scrb pressure** → more room for DXA
+  prefetch overlap
+- **FSM-managed prefetch** → can prefetch 2 stages ahead (triple-buffer)
+  with zero software cost
+- **Hardware barrier auto-release** → eliminates the CTA-overlap fence
+  entirely
+
+### 10.8 What Phase 2 enables
+
+1. **Triple-buffer at zero cost.** The FSM can prefetch stage N+2 while
+   computing stage N — no additional instructions, no software complexity.
+   This gives B an extra iteration of latency hiding.
+
+2. **Persistent CTAs become viable.** With FSM-managed K-loops, a
+   persistent CTA processes multiple K-ranges without re-issuing the
+   TGM instruction. The DSMEM B-tile sharing (Section 9) can overlap
+   with the FSM's FETCH phase.
+
+3. **CTA-level software pipelining.** The FSM can be extended to
+   overlap DXA fetches across CTA boundaries — CTA N+1's FETCH phase
+   runs while CTA N's COMPUTE phase executes, all managed by hardware.
+
+4. **Self-tuning pipeline depth.** The FSM can dynamically adjust
+   prefetch depth based on DXA latency measurements — deep pipeline
+   for high-latency GMEM, shallow for cache-resident tiles.
