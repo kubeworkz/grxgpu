@@ -771,6 +771,7 @@ enum class TcuType {
   WMMA_SP,    // Sparse variants live in distinct op_types so IntrTcuArgs
   WGMMA_SP,   // doesn't carry a per-uop is_sparse bit.
   TCU_LD,     // Warp-level metadata load. rd[4] selects sparse/MX namespace.
+  TGM,         // Tensor GEMM range: hardware FSM manages DXA prefetch + WGMMA loop.
 };
 
 struct IntrTcuArgs {
@@ -797,6 +798,10 @@ inline bool tcu_is_wgmma(TcuType t) {
 }
 
 // Helper: WMMA family (covers dense + sparse).
+inline bool tcu_is_tgm(TcuType t) {
+  return t == TcuType::TGM;
+}
+
 inline bool tcu_is_wmma(TcuType t) {
   return t == TcuType::WMMA || t == TcuType::WMMA_SP;
 }
@@ -808,6 +813,7 @@ inline std::ostream &operator<<(std::ostream &os, const TcuType& type) {
   case TcuType::WMMA_SP:    os << "WMMA.SP"; break;
   case TcuType::WGMMA_SP:   os << "WGMMA.SP"; break;
   case TcuType::TCU_LD:     os << "TCU_LD"; break;
+  case TcuType::TGM:         os << "TGM"; break;
   default:
     assert(false);
   }

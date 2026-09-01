@@ -560,6 +560,8 @@ public:
           // acquires the per-lane FU lock prevents a deferred CTA from holding
           // that lock against the CTA it is waiting for (TCU deadlock).
           if (fu == (int)FUType::TCU && uop_fu_lock &&
+              (tcu_is_wgmma(std::get<TcuType>(uop_trace->instr_ptr->get_op_type())) ||
+               std::get<TcuType>(uop_trace->instr_ptr->get_op_type()) == TcuType::TGM) &&
               tcu_unit_->wgmma_cta_blocked(wid)) {
             continue;
           }
