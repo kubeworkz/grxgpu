@@ -850,7 +850,8 @@ public:
       auto trace = input.peek();
       auto tcu_type = std::get<TcuType>(trace->op_type);
       auto tpuArgs = std::get<IntrTcuArgs>(trace->instr_ptr->get_args());
-// TGM traces are owned by the FSM — skip them here.      if (tcu_type == TcuType::TGM) continue;
+// TGM traces are owned by the FSM - skip them here.
+      if (tcu_type == TcuType::TGM) continue;
 
       #ifdef VX_CFG_TCU_WGMMA_ENABLE
       // CTA-overlap fence deferred this block — skip until pass 1 plans it.
