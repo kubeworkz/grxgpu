@@ -552,9 +552,9 @@ public:
         fsm.cta_id = core_->scheduler().warp(trace->wid).cta_csrs.cta_id;
         fsm.a_desc = trace->src_data.at(0).at(0).u32;
         fsm.b_desc = trace->src_data.at(1).at(0).u32;
-        uint32_t k_range = trace->src_data.at(2).at(0).u32;
-        fsm.k_current = k_range >> 16;
-        fsm.k_end = k_range & 0xFFFF;
+        fsm.k_current = 0;
+        fsm.k_end = tpuArgs.step_k;
+        if (fsm.k_end == 0) fsm.k_end = 1;  // minimum 1 K-tile
         fsm.stage = 0;
         fsm.compute_step = 0;
         uint32_t nrc = (tpuArgs.cd_nregs == 0) ? 8 : (tpuArgs.cd_nregs == 1) ? 16 : 32;
@@ -564,15 +564,16 @@ public:
         wgmma_desc_[fsm.wid][0] = fsm.a_desc;
         wgmma_desc_[fsm.wid][1] = fsm.b_desc;
         fsm.phase = TgmFsmState::FETCH;
+        // Pre-register barrier events for DXA pair (A+B tiles)
         break;
       }
       if (fsm.phase == TgmFsmState::IDLE) return;
     }
     // FETCH: issue DXA pair for current stage
     if (fsm.phase == TgmFsmState::FETCH) {
+      std::cerr << "TGM_PHASE: FETCH" << std::endl;
 #ifdef VX_CFG_EXT_DXA_ENABLE
       uint32_t tgm_bar = 2;
-      core_->barrier_event_attach(tgm_bar, 2);  // 2 events: A + B tiles
       DxaReq req{};
       req.core      = core_;
       req.uuid      = 0;
@@ -593,9 +594,8 @@ public:
         sfu->dxa_req_out.send(req);
         fsm.phase = TgmFsmState::WAIT_DXA;
         fsm.dxa_wait_ticks = 0;
-      } else {
-        core_->barrier_event_release(tgm_bar);
       }
+      // If channel is full, stay in FETCH and retry next tick (events already registered)
 #else
       fsm.phase = TgmFsmState::COMPUTE;
       fsm.compute_step = 0;
@@ -603,6 +603,7 @@ public:
     }
     // WAIT_DXA: wait for DXA pipeline latency
     if (fsm.phase == TgmFsmState::WAIT_DXA) {
+      std::cerr << "TGM_PHASE: WAIT_DXA tick=" << fsm.dxa_wait_ticks << std::endl;
       constexpr uint32_t kDxaLatency = 100;
       if (++fsm.dxa_wait_ticks >= kDxaLatency) {
         fsm.phase = TgmFsmState::COMPUTE;
@@ -611,6 +612,7 @@ public:
     }
     // COMPUTE: execute WGMMA uops
     if (fsm.phase == TgmFsmState::COMPUTE) {
+      std::cerr << "TGM_PHASE: COMPUTE step=" << fsm.compute_step << "/" << fsm.compute_total << std::endl;
       if (fsm.compute_step < fsm.compute_total) {
         uint32_t m_steps = cfg::m_steps;
         uint32_t k_count = cfg::k_steps;
@@ -638,11 +640,29 @@ public:
           break;
         }
         ++fsm.compute_step;
+        // Debug: dump every 8th compute step
+        if ((fsm.compute_step & 7) == 0 || fsm.compute_step >= fsm.compute_total) {
+          for (uint32_t b = 0; b < VX_CFG_NUM_TCU_BLOCKS; ++b) {
+            auto& input = simobject_->Inputs.at(b);
+            if (input.empty()) continue;
+            auto trace = input.peek();
+            if (std::get<TcuType>(trace->op_type) != TcuType::TGM) continue;
+            auto& rd = trace->dst_data;
+            if (!rd.empty()) {
+              std::cerr << "TGM_STEP step=" << fsm.compute_step
+                        << "/" << fsm.compute_total
+                        << " k=" << k_step << " m=" << m << " n=" << n
+                        << " rd[0]=" << rd[0].u32 << std::endl;
+            }
+            break;
+          }
+        }
       } else {
         fsm.phase = TgmFsmState::ADVANCE;
       }
     }
     if (fsm.phase == TgmFsmState::ADVANCE) {
+      std::cerr << "TGM_PHASE: ADVANCE k=" << fsm.k_current << "/" << fsm.k_end << std::endl;
       fsm.stage ^= 1u;
       ++fsm.k_current;
       if (fsm.k_current < fsm.k_end) {
@@ -651,12 +671,31 @@ public:
         fsm.phase = TgmFsmState::DONE;
       }
     }
-    // DONE: signal barrier 3, pop trace, reset FSM
+    // DONE: dump results, signal barrier 3, pop trace, reset FSM
     if (fsm.phase == TgmFsmState::DONE) {
-      // Signal barrier 3 to release non-DXA warps
-      constexpr uint32_t tgm_done_bar = 3;
-      core_->barrier_event_attach(tgm_done_bar, 1);
-      core_->barrier_event_release(tgm_done_bar);
+      // Debug: dump accumulated rd_data
+      for (uint32_t b = 0; b < VX_CFG_NUM_TCU_BLOCKS; ++b) {
+        auto& input = simobject_->Inputs.at(b);
+        if (input.empty()) continue;
+        auto trace = input.peek();
+        if (std::get<TcuType>(trace->op_type) != TcuType::TGM) continue;
+        auto& rd = trace->dst_data;
+        std::cerr << "TGM_DONE wid=" << fsm.wid
+                  << " desc_a=0x" << std::hex << fsm.a_desc
+                  << " desc_b=0x" << fsm.b_desc
+                  << " k=" << std::dec << fsm.k_end
+                  << " rd_size=" << rd.size();
+        if (!rd.empty()) {
+          std::cerr << " rd[0]={";
+          for (uint32_t t = 0; t < std::min((uint32_t)rd.size(), (uint32_t)4); ++t) {
+            std::cerr << rd[t].u32 << ",";
+          }
+          std::cerr << "}";
+        }
+        std::cerr << std::endl;
+        break;
+      }
+      // Barrier 3 is handled by the kernel's sync_bar.arrive_and_wait()
       for (uint32_t b = 0; b < VX_CFG_NUM_TCU_BLOCKS; ++b) {
         auto& input = simobject_->Inputs.at(b);
         if (input.empty()) continue;
@@ -677,6 +716,17 @@ public:
   #endif
   #ifdef VX_CFG_TCU_WGMMA_ENABLE
     this->tgm_fsm_tick();
+    // Debug: check what traces are in TCU input
+    for (uint32_t b = 0; b < VX_CFG_NUM_TCU_BLOCKS; ++b) {
+      auto& input = simobject_->Inputs.at(b);
+      if (!input.empty()) {
+        auto trace = input.peek();
+        auto tt = std::get<TcuType>(trace->op_type);
+        if (tt == TcuType::TGM) {
+          std::cerr << "TCU_INPUT block=" << b << " TGM wid=" << trace->wid << std::endl;
+        }
+      }
+    }
     // Q-warp lock-step probe.
     // Pass 1 — identify active WGMMA blocks and prime each one's plan() on
     // first uop. WMMA and TCU_LD blocks are unaffected (no Q-coupling).
@@ -800,6 +850,7 @@ public:
       auto trace = input.peek();
       auto tcu_type = std::get<TcuType>(trace->op_type);
       auto tpuArgs = std::get<IntrTcuArgs>(trace->instr_ptr->get_args());
+// TGM traces are owned by the FSM — skip them here.      if (tcu_type == TcuType::TGM) continue;
 
       #ifdef VX_CFG_TCU_WGMMA_ENABLE
       // CTA-overlap fence deferred this block — skip until pass 1 plans it.
