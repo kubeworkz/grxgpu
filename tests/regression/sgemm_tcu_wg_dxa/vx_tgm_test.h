@@ -3,15 +3,21 @@
 #pragma once
 #include <stdint.h>
 
-// Build raw TGM instruction word (for runtime use / debugging).
-// Encoding: funct7[3:0] = K_end, rd=accumulator, rs1=A_desc, rs2=B_desc
+// R-type encoding:
+//   opcode  [6:0]  = 0x0B (EXT1)
+//   rd      [11:7] = accumulator register (float)
+//   funct3  [14:12]= 3 (TGM selector)
+//   rs1     [19:15]= A descriptor register (a0)
+//   rs2     [24:20]= B descriptor register (a1)
+//   funct7  [31:25]= (K_end << 2) | 0b10
+// Format params hardcoded: fp16->fp32, 8 C/D regs, A from smem.
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 static inline uint32_t vx_tgm_encode(uint32_t k_end) {
-  // R-type: opcode=0x0B | rd=0 | funct3=3 | rs1=10(a0) | rs2=11(a1) | funct7[3:0]=k_end
-  return 0x0B | (0u << 7) | (3u << 12) | (10u << 15) | (11u << 20) | ((k_end & 0xF) << 22);
+  return 0x0B | (0u << 7) | (3u << 12) | (10u << 15) | (11u << 20) | (((k_end & 0x1Fu) << 2 | 2u) << 25);
 }
 
 #ifdef __cplusplus
@@ -22,7 +28,7 @@ static inline uint32_t vx_tgm_encode(uint32_t k_end) {
 template <uint32_t K_END>
 static inline void vx_tgm_imm(uint32_t desc_a, uint32_t desc_b) {
 #ifdef __VORTEX__
-  constexpr uint32_t INSN = 0x0B | (0u << 7) | (3u << 12) | (10u << 15) | (11u << 20) | ((K_END & 0xF) << 22);
+  constexpr uint32_t INSN = 0x0B | (0u << 7) | (3u << 12) | (10u << 15) | (11u << 20) | (((K_END & 0x1Fu) << 2 | 2u) << 25);
   __asm__ volatile (
     "mv a0, %[da]\n"
     "mv a1, %[db]\n"

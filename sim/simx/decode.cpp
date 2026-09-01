@@ -900,7 +900,7 @@ Instr::Ptr Decoder::decode(uint32_t code, uint64_t uuid) {
     } break;
 #endif
   #ifdef VX_CFG_EXT_TCU_ENABLE
-    case 2: {
+    case 2: case 10: case 18: case 26: case 34: {
       instr->set_fu_type(FUType::TCU);
       switch (funct3) {
       case 0: { // WMMA_SYNC / WMMA_SP_SYNC — single macro Instr, sequencer expands to micro-ops
@@ -936,18 +936,19 @@ Instr::Ptr Decoder::decode(uint32_t code, uint64_t uuid) {
     #ifdef VX_CFG_TCU_WGMMA_ENABLE
       case 3: { // TGM — Tensor GEMM range. Hardware FSM manages DXA prefetch + WGMMA loop.
         // Encoding (R-type, compact):
-        //   funct7[3:0]   = K_end (number of K-tiles, 0-15)
+        //   funct7[6:2]  = K_end (number of K-tiles, 0-31)
+        //   funct7[1:0]  = 2 (TCU sub-type selector)
+        //   funct3       = 3 (TGM selector)
         //   rd  = accumulator register (destination)
         //   rs1 = A descriptor register
         //   rs2 = B descriptor register
         // Format params hardcoded for current use (fp16->fp32, 8 C/D regs, A from smem).
-        uint32_t k_end = funct7 & 0xf;
+        uint32_t k_end = (funct7 >> 2) & 0x1f;
         instr->set_op_type(TcuType::TGM);
-        instr->set_args(IntrTcuArgs{1u, 0, 9, 1, 0, 0, 0, 0, 0, 0});  // is_a_smem=1, nrc=0, fmt_s=fp16, fmt_d=fp32
+        instr->set_args(IntrTcuArgs{1u, 0, 9, 1, 0, 0, (uint32_t)k_end, 0, 0, 0});  // is_a_smem=1, nrc=0, fmt_s=fp16, fmt_d=fp32, step_k=k_end
         instr->set_dest_reg(rd, RegType::Float);
         instr->set_src_reg(0, rs1, RegType::Integer);  // A descriptor
-        instr->set_src_reg(1, rs2, RegType::Integer);  // B descriptor
-        instr->set_src_reg(2, k_end, RegType::Integer);  // K_end
+        instr->set_src_reg(1, rs2, RegType::Integer);  // B descriptor (register a1)
         instr->set_wstall(true);  // warp stalls until FSM completes
       } break;
     #endif // VX_CFG_TCU_WGMMA_ENABLE
