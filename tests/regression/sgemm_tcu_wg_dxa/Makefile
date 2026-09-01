@@ -10,7 +10,11 @@ SRC_DIR := $(VORTEX_HOME)/tests/regression/$(PROJECT)
 
 SRCS := $(SRC_DIR)/main.cpp $(SW_COMMON_DIR)/rvfloats.cpp $(SW_COMMON_DIR)/softfloat_ext.cpp
 
+ifdef TGM_KERNEL
+VX_SRCS := $(SRC_DIR)/kernel_tgm.cpp
+else
 VX_SRCS := $(SRC_DIR)/kernel.cpp
+endif
 
 CONFIGS := $(if $(findstring -DVX_CFG_NUM_WARPS=,$(CONFIGS)),$(CONFIGS),$(CONFIGS) -DVX_CFG_NUM_WARPS=4)
 CONFIGS := $(if $(findstring -DVX_CFG_ISSUE_WIDTH=,$(CONFIGS)),$(CONFIGS),$(CONFIGS) -DVX_CFG_ISSUE_WIDTH=4)
