@@ -52,6 +52,27 @@ private:
 
 ///////////////////////////////////////////////////////////////////////////////
 
+
+
+/// TGM FSM state: hardware-managed DXA prefetch + WGMMA loop.
+struct TgmFsmState {
+  enum Phase : uint8_t { IDLE, FETCH, WAIT_DXA, COMPUTE, ADVANCE, DONE };
+  Phase      phase = IDLE;
+  uint32_t   k_current = 0;       // current K-tile index
+  uint32_t   k_end = 0;           // K_end (exclusive)
+  uint32_t   tile_row = 0;        // M-tile offset for DXA A fetch
+  uint32_t   tile_col = 0;        // N-tile offset for DXA B fetch
+  uint32_t   a_desc = 0;          // A tile descriptor (smem addr)
+  uint32_t   b_desc = 0;          // B tile descriptor (smem addr)
+  uint32_t   stage = 0;           // double-buffer stage (0 or 1)
+  uint32_t   wid = 0;             // warp ID
+  uint32_t   cta_id = 0;          // CTA ID
+  uint32_t   compute_step = 0;    // current WGMMA compute step
+  uint32_t   compute_total = 0;   // total WGMMA steps per K-tile
+  uint32_t   barrier_id = 0;      // completion barrier ID
+  uint32_t   dxa_wait_ticks = 0;  // DXA pipeline latency counter
+};
+
 class TcuUnit : public FuncUnit<VX_CFG_NUM_TCU_BLOCKS> {
 public:
   using Ptr = std::shared_ptr<TcuUnit>;
