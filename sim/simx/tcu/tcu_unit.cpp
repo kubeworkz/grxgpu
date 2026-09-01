@@ -572,7 +572,7 @@ public:
     if (fsm.phase == TgmFsmState::FETCH) {
 #ifdef VX_CFG_EXT_DXA_ENABLE
       uint32_t tgm_bar = 2;
-      core_->barrier_event_attach(tgm_bar, 1);
+      core_->barrier_event_attach(tgm_bar, 2);  // 2 events: A + B tiles
       DxaReq req{};
       req.core      = core_;
       req.uuid      = 0;
@@ -603,7 +603,7 @@ public:
     }
     // WAIT_DXA: wait for DXA pipeline latency
     if (fsm.phase == TgmFsmState::WAIT_DXA) {
-      constexpr uint32_t kDxaLatency = 10;
+      constexpr uint32_t kDxaLatency = 100;
       if (++fsm.dxa_wait_ticks >= kDxaLatency) {
         fsm.phase = TgmFsmState::COMPUTE;
         fsm.compute_step = 0;
@@ -616,22 +616,32 @@ public:
         uint32_t k_count = cfg::k_steps;
         uint32_t nrc = fsm.compute_total / k_count;
         uint32_t mn = nrc;
-        uint32_t k = fsm.compute_step / mn;
+        uint32_t k_step = fsm.compute_step / mn;
         uint32_t rem = fsm.compute_step % mn;
         uint32_t n = rem / m_steps;
         uint32_t m = rem % m_steps;
         std::vector<reg_data_t> empty_data;
-        std::vector<reg_data_t> rd_data(VX_CFG_NUM_THREADS, reg_data_t{});
-        auto& t0args = std::get<IntrTcuArgs>(simobject_->Inputs.at(0).peek()->instr_ptr->get_args());
-        this->wgmma(fsm.wid, t0args.fmt_s, t0args.fmt_d, m, n, k,
-                    fsm.a_desc, fsm.b_desc, empty_data, empty_data, empty_data,
-                    rd_data, false, t0args.cd_nregs, t0args.is_a_smem, 0);
+        // Find TGM trace and accumulate into its dst_data
+        for (uint32_t b = 0; b < VX_CFG_NUM_TCU_BLOCKS; ++b) {
+          auto& input = simobject_->Inputs.at(b);
+          if (input.empty()) continue;
+          auto trace = input.peek();
+          if (std::get<TcuType>(trace->op_type) != TcuType::TGM) continue;
+          auto& tpuArgs = std::get<IntrTcuArgs>(trace->instr_ptr->get_args());
+          auto& rd_data = trace->dst_data;
+          if (rd_data.empty()) rd_data.assign(VX_CFG_NUM_THREADS, reg_data_t{});
+          // Step 0: setup lmem_desc_ (is_setup_uop=1); steps 1+: compute (is_setup_uop=0)
+          this->wgmma(fsm.wid, tpuArgs.fmt_s, tpuArgs.fmt_d, m, n, k_step,
+                      fsm.a_desc, fsm.b_desc, empty_data, empty_data, empty_data,
+                      rd_data, false, tpuArgs.cd_nregs, tpuArgs.is_a_smem,
+                      (fsm.compute_step == 0) ? 1 : 0);
+          break;
+        }
         ++fsm.compute_step;
       } else {
         fsm.phase = TgmFsmState::ADVANCE;
       }
     }
-    // ADVANCE: swap stage, increment K
     if (fsm.phase == TgmFsmState::ADVANCE) {
       fsm.stage ^= 1u;
       ++fsm.k_current;
@@ -641,8 +651,12 @@ public:
         fsm.phase = TgmFsmState::DONE;
       }
     }
-    // DONE: pop trace, reset FSM
+    // DONE: signal barrier 3, pop trace, reset FSM
     if (fsm.phase == TgmFsmState::DONE) {
+      // Signal barrier 3 to release non-DXA warps
+      constexpr uint32_t tgm_done_bar = 3;
+      core_->barrier_event_attach(tgm_done_bar, 1);
+      core_->barrier_event_release(tgm_done_bar);
       for (uint32_t b = 0; b < VX_CFG_NUM_TCU_BLOCKS; ++b) {
         auto& input = simobject_->Inputs.at(b);
         if (input.empty()) continue;
