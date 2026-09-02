@@ -77,6 +77,27 @@ public:
 };
 
 template <>
+class Comparator<vt::bf16> {
+public:
+  static uint16_t generate() {
+    auto fvalue = float(rand()) / RAND_MAX;
+    return rv_ftob_s(bit_cast<uint32_t>(fvalue), 0, nullptr);
+  }
+  static bool compare(uint16_t a, uint16_t b, int index, int errors) {
+    if (a != b) {
+      if (errors < MAX_ERRORS) {
+        float fa = bit_cast<float>(rv_btof_s(a, 0, nullptr));
+        float fb = bit_cast<float>(rv_btof_s(b, 0, nullptr));
+        printf("*** error: [%d] expected=0x%x (%.6f), actual=0x%x (%.6f)\n",
+               index, b, fb, a, fa);
+      }
+      return false;
+    }
+    return true;
+  }
+};
+
+template <>
 class Comparator<vt::int8> {
 public:
   static int8_t generate() {
@@ -144,6 +165,15 @@ struct muladd_t<vt::fp16, vt::fp32> {
   static float eval(uint16_t a, uint16_t b, float c) {
     auto fa = bit_cast<float>(rv_htof_s(a, 0, nullptr));
     auto fb = bit_cast<float>(rv_htof_s(b, 0, nullptr));
+    return fa * fb + c;
+  }
+};
+
+template <>
+struct muladd_t<vt::bf16, vt::fp32> {
+  static float eval(uint16_t a, uint16_t b, float c) {
+    auto fa = bit_cast<float>(rv_btof_s(a, 0, nullptr));
+    auto fb = bit_cast<float>(rv_btof_s(b, 0, nullptr));
     return fa * fb + c;
   }
 };

@@ -1,0 +1,7 @@
+*.o
+*.elf
+*.dump
+*.vxbin
+.depend
+config.stamp
+sgemm_tcu_bf16
