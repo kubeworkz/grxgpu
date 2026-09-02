@@ -56,6 +56,10 @@ public:
     return regs_.at(slot).ireg_file.at(reg).at(lane);
   }
 
+  uint64_t& dtm_freg(uint32_t slot, uint32_t reg, uint32_t lane = 0) {
+    return regs_.at(slot).freg_file.at(reg).at(lane);
+  }
+
 protected:
   virtual void on_reset();
   virtual void on_tick();
