@@ -936,14 +936,14 @@ Instr::Ptr Decoder::decode(uint32_t code, uint64_t uuid) {
     #ifdef VX_CFG_TCU_WGMMA_ENABLE
       case 3: { // TGM — Tensor GEMM range. Hardware FSM manages DXA prefetch + WGMMA loop.
         // Encoding (R-type, compact):
-        //   funct7[6:2]  = K_end (number of K-tiles, 0-31)
-        //   funct7[1:0]  = 2 (TCU sub-type selector)
+        //   funct7[6:0]  = K_end (number of K-tiles, 0-127)
+        
         //   funct3       = 3 (TGM selector)
         //   rd  = accumulator register (destination)
         //   rs1 = A descriptor register
         //   rs2 = B descriptor register
         // Format params hardcoded for current use (fp16->fp32, 8 C/D regs, A from smem).
-        uint32_t k_end = (funct7 >> 2) & 0x1f;
+        uint32_t k_end = funct7;  // all 7 bits for K_end (max 127)
         instr->set_op_type(TcuType::TGM);
         instr->set_args(IntrTcuArgs{1u, 0, 9, 1, 0, 0, (uint32_t)k_end, 0, 0, 0});  // is_a_smem=1, nrc=0, fmt_s=fp16, fmt_d=fp32, step_k=k_end
         instr->set_dest_reg(rd, RegType::Float);
