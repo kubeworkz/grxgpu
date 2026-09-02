@@ -582,6 +582,7 @@ public:
         fsm.fragC.assign(nrc_acc, std::vector<reg_data_t>(VX_CFG_NUM_THREADS));
         wgmma_desc_[fsm.wid][0] = fsm.a_desc;
         wgmma_desc_[fsm.wid][1] = fsm.b_desc;
+        fsm.has_prefetch = false;
         fsm.phase = TgmFsmState::FETCH;
         // Pre-register barrier events for DXA pair (A+B tiles)
         break;
@@ -642,11 +643,16 @@ public:
     }
     // WAIT_DXA: wait for DXA pipeline latency
     if (fsm.phase == TgmFsmState::WAIT_DXA) {
-      // The DXA completion event advances this warp's barrier phase; poll it.
+      // Check DXA completion. If prefetch was issued in ADVANCE, use
+      // the prefetch barrier phase. Otherwise use the FETCH barrier phase.
       uint32_t bar_no   = 2 + (fsm.wid % VX_CFG_NUM_WARPS);
       uint32_t raw_bar  = (bar_no << 8) | (fsm.cta_id & 0xff);
       uint32_t tgm_bar  = bar_decode_id(raw_bar, VX_CFG_NUM_BARRIERS);
-      if (core_->scheduler().barrier_unit().get_phase(tgm_bar) != fsm.bar_wait_phase) {
+      uint32_t expected_phase = fsm.has_prefetch ? fsm.prefetch_bar_wait_phase
+                                                  : fsm.bar_wait_phase;
+      if (core_->scheduler().barrier_unit().get_phase(tgm_bar) != expected_phase) {
+        wgmma_desc_[fsm.wid][0] = fsm.a_desc;
+        wgmma_desc_[fsm.wid][1] = fsm.b_desc;
         fsm.phase = TgmFsmState::COMPUTE;
         fsm.compute_step = 0;
       }
@@ -702,8 +708,46 @@ public:
       // (quiet) TGM_PHASE: ADVANCE k=...
       fsm.stage ^= 1u;
       ++fsm.k_current;
+      fsm.has_prefetch = false;
       if (fsm.k_current < fsm.k_end) {
-        fsm.phase = TgmFsmState::FETCH;
+#ifdef VX_CFG_EXT_DXA_ENABLE
+        // Double-buffer: issue DXA prefetch for next K-tile NOW,
+        // so it completes during the next COMPUTE phase.
+        {
+          uint32_t bar_no   = 2 + (fsm.wid % VX_CFG_NUM_WARPS);
+          uint32_t raw_bar  = (bar_no << 8) | (fsm.cta_id & 0xff);
+          uint32_t tgm_bar  = bar_decode_id(raw_bar, VX_CFG_NUM_BARRIERS);
+          uint32_t e_bits    = elem_bits(fsm.fmt_s);
+          uint32_t ldm_elems = (fsm.a_desc >> 16) * 8 / e_bits;
+          uint32_t warp_rank = fsm.wid % VX_CFG_NUM_WARPS;
+          uint32_t slice_bytes = warp_rank * wg_cfg::xtileM * ldm_elems * (e_bits / 8);
+          uint32_t tile_k_elems = wg_cfg::k_steps * wg_cfg::fedpK * (32 / e_bits);
+          DxaReq req{};
+          req.core      = core_;
+          req.uuid      = 0;
+          req.wid       = fsm.wid;
+          req.desc_slot = 0;
+          req.bar_id    = raw_bar;
+          req.cta_mask  = 0;
+          req.smem_addr = uint64_t(VX_MEM_LMEM_BASE_ADDR) + (fsm.a_desc & 0xFFFF) - slice_bytes;
+          req.coords[0] = fsm.k_current * tile_k_elems;
+          req.coords[1] = fsm.tile_row;
+          req.pair        = true;
+          req.desc_slot_b = 1;
+          req.smem_addr_b = uint64_t(VX_MEM_LMEM_BASE_ADDR) + (fsm.b_desc & 0xFFFF);
+          req.coords_b[0] = fsm.tile_col;
+          req.coords_b[1] = fsm.k_current * tile_k_elems;
+          auto sfu = core_->sfu_unit();
+          if (sfu && !sfu->dxa_req_out.full()) {
+            core_->scheduler().barrier_unit().event_attach(tgm_bar, 1);
+            fsm.prefetch_bar_wait_phase = core_->scheduler().barrier_unit().get_phase(tgm_bar);
+            sfu->dxa_req_out.send(req);
+            fsm.has_prefetch = true;
+          }
+        }
+#endif
+        fsm.phase = TgmFsmState::WAIT_DXA;
+        fsm.dxa_wait_ticks = 0;
       } else {
         fsm.phase = TgmFsmState::DONE;
       }
@@ -732,6 +776,7 @@ public:
         }
         if (simobject_->Outputs.at(b).try_send(trace, kMmaLatency)) {
           input.pop();
+          fsm.has_prefetch = false;
           fsm.phase = TgmFsmState::IDLE;
         }
         // else: commit path not ready — stay in DONE and retry next tick.
