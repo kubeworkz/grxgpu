@@ -134,6 +134,7 @@ public:
   Word dtm_get_ireg(uint32_t wid, uint32_t reg);
   void dtm_set_ireg(uint32_t wid, uint32_t reg, Word val);
   void dtm_set_freg(uint32_t wid, uint32_t reg, uint64_t val);
+  void dtm_set_freg_lane(uint32_t wid, uint32_t reg, uint32_t lane, uint64_t val);
 
   int dcr_write(uint32_t addr, uint32_t value);
 

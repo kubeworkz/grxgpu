@@ -945,10 +945,14 @@ Instr::Ptr Decoder::decode(uint32_t code, uint64_t uuid) {
         // Format params hardcoded for current use (fp16->fp32, 8 C/D regs, A from smem).
         uint32_t k_end = funct7;  // all 7 bits for K_end (max 127)
         instr->set_op_type(TcuType::TGM);
-        instr->set_args(IntrTcuArgs{1u, 0, 9, 1, 0, 0, (uint32_t)k_end, 0, 0, 0});  // is_a_smem=1, nrc=0, fmt_s=fp16, fmt_d=fp32, step_k=k_end
+        // is_a_smem=1, nrc=0, fmt_s=fp16 (id=2), fmt_d=fp32 (id=0), step_k=k_end.
+        // (tensor_cfg.h ids: fp32=0, fp16=2, tf32=1, mxbf8=9 — the previous
+        // {9, 1} silently routed the FEDP into the MX path with elem_bits=8.)
+        instr->set_args(IntrTcuArgs{1u, 0, 2, 0, 0, 0, (uint32_t)k_end, 0, 0, 0});
         instr->set_dest_reg(rd, RegType::Float);
         instr->set_src_reg(0, rs1, RegType::Integer);  // A descriptor
         instr->set_src_reg(1, rs2, RegType::Integer);  // B descriptor (register a1)
+        instr->set_src_reg(2, 12, RegType::Integer);   // K_END (register a2)
         instr->set_wstall(true);  // warp stalls until FSM completes
       } break;
     #endif // VX_CFG_TCU_WGMMA_ENABLE

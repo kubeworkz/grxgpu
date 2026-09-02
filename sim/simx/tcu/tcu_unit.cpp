@@ -552,17 +552,34 @@ public:
         fsm.cta_id = core_->scheduler().warp(trace->wid).cta_csrs.cta_id;
         fsm.a_desc = trace->src_data.at(0).at(0).u32;
         fsm.b_desc = trace->src_data.at(1).at(0).u32;
+        fsm.fmt_s   = tpuArgs.fmt_s;
         fsm.k_current = 0;
         fsm.k_end = tpuArgs.step_k;
+        // K_END passed via register a2 (x12) when present (TGM encoding).
+        if (trace->src_data.size() > 2 && !trace->src_data.at(2).empty()) {
+          uint32_t k_end = trace->src_data.at(2).at(0).u32;
+          if (k_end != 0) fsm.k_end = k_end;
+        }
         if (fsm.k_end == 0) fsm.k_end = 1;  // minimum 1 K-tile
         fsm.stage = 0;
         fsm.compute_step = 0;
         uint32_t nrc = (tpuArgs.cd_nregs == 0) ? 8 : (tpuArgs.cd_nregs == 1) ? 16 : 32;
-        fsm.compute_total = cfg::k_steps * nrc;
-        fsm.tile_row = 0;
-        fsm.tile_col = 0;
+        // compute_total = 1 setup uop + k_steps * (m_steps*n_steps) MMA uops.
+        // nrc == m_steps * n_steps for this context, so total = k_steps*nrc + 1.
+        // Use wg_cfg (WGMMA geometry: m_steps=2) to match TcuUopGen, NOT cfg
+        // (WMMA geometry: m_steps=4), or the fragment-register mapping differs.
+        fsm.compute_total = wg_cfg::k_steps * nrc + 1;
+        // Tile offsets come from registers a3 (tile_row) and a4 (tile_col).
+        // Tile offsets derive from the CTA's block index (CSRs), exactly as
+        // the kernel computes them: tile_row = blockIdx.y * cta_M,
+        // tile_col = blockIdx.x * xtileN.
+        {
+          auto& csrs = core_->scheduler().warp(trace->wid).cta_csrs;
+          fsm.tile_row = csrs.block_idx[1] * (VX_CFG_NUM_WARPS * wg_cfg::xtileM);
+          fsm.tile_col = csrs.block_idx[0] * wg_cfg::xtileN;
+        }
         uint32_t nrc_acc = (tpuArgs.cd_nregs == 0) ? 8 : (tpuArgs.cd_nregs == 1) ? 16 : 32;
-        fsm.fragC.assign(nrc_acc, reg_data_t{});
+        fsm.fragC.assign(nrc_acc, std::vector<reg_data_t>(VX_CFG_NUM_THREADS));
         wgmma_desc_[fsm.wid][0] = fsm.a_desc;
         wgmma_desc_[fsm.wid][1] = fsm.b_desc;
         fsm.phase = TgmFsmState::FETCH;
@@ -573,31 +590,51 @@ public:
     }
     // FETCH: issue DXA pair for current stage
     if (fsm.phase == TgmFsmState::FETCH) {
-      std::cerr << "TGM_PHASE: FETCH" << std::endl;
+      // (quiet) TGM_PHASE: FETCH
 #ifdef VX_CFG_EXT_DXA_ENABLE
-      uint32_t tgm_bar = 2;
+      // Encode the barrier id the kernel way: raw = (bar_no << 8) | cta_id,
+      // then decode to the flat per-CTA barrier index. DXA decodes the raw
+      // id at release time (bar_decode_id), so both sides must agree.
+      uint32_t bar_no   = 2 + (fsm.wid % VX_CFG_NUM_WARPS);
+      uint32_t raw_bar  = (bar_no << 8) | (fsm.cta_id & 0xff);
+      uint32_t tgm_bar  = bar_decode_id(raw_bar, VX_CFG_NUM_BARRIERS);
+      // DXA must place the FULL CTA A tile (cta_M rows) at the tile base so
+      // every warp's COMPUTE pass reads its slice from the shared smem tile.
+      // The warp's desc points at its own slice: subtract the slice byte
+      // offset to recover the tile base.
+      uint32_t e_bits    = elem_bits(fsm.fmt_s);
+      uint32_t ldm_elems = (fsm.a_desc >> 16) * 8 / e_bits;
+      uint32_t warp_rank = fsm.wid % VX_CFG_NUM_WARPS;
+      uint32_t slice_bytes = warp_rank * wg_cfg::xtileM * ldm_elems * (e_bits / 8);
+      // K offset in source elements = k-tile index * tileK_elems where
+      // tileK_elems = k_steps * fedpK * i_ratio (i_ratio = 32/e_bits).
+      uint32_t tile_k_elems = wg_cfg::k_steps * wg_cfg::fedpK * (32 / e_bits);
       DxaReq req{};
       req.core      = core_;
       req.uuid      = 0;
       req.wid       = fsm.wid;
       req.desc_slot = 0;
-      req.bar_id    = tgm_bar;
+      req.bar_id    = raw_bar;
       req.cta_mask  = 0;
-      req.smem_addr = uint64_t(VX_MEM_LMEM_BASE_ADDR) + (fsm.a_desc & 0xFFFF);
-      req.coords[0] = fsm.k_current * cfg::k_steps * wg_cfg::fedpK;
+      req.smem_addr = uint64_t(VX_MEM_LMEM_BASE_ADDR) + (fsm.a_desc & 0xFFFF) - slice_bytes;
+      req.coords[0] = fsm.k_current * tile_k_elems;
       req.coords[1] = fsm.tile_row;
       req.pair        = true;
       req.desc_slot_b = 1;
       req.smem_addr_b = uint64_t(VX_MEM_LMEM_BASE_ADDR) + (fsm.b_desc & 0xFFFF);
       req.coords_b[0] = fsm.tile_col;
-      req.coords_b[1] = fsm.k_current * cfg::k_steps * wg_cfg::fedpK;
+      req.coords_b[1] = fsm.k_current * tile_k_elems;
       auto sfu = core_->sfu_unit();
       if (sfu && !sfu->dxa_req_out.full()) {
+        // Arm the completion event BEFORE sending; DXA fires event_release on
+        // the last smem write, which advances the barrier phase.
+        core_->scheduler().barrier_unit().event_attach(tgm_bar, 1);
+        fsm.bar_wait_phase = core_->scheduler().barrier_unit().get_phase(tgm_bar);
         sfu->dxa_req_out.send(req);
         fsm.phase = TgmFsmState::WAIT_DXA;
         fsm.dxa_wait_ticks = 0;
       }
-      // If channel is full, stay in FETCH and retry next tick (events already registered)
+      // If channel is full, stay in FETCH and retry next tick
 #else
       fsm.phase = TgmFsmState::COMPUTE;
       fsm.compute_step = 0;
@@ -605,9 +642,11 @@ public:
     }
     // WAIT_DXA: wait for DXA pipeline latency
     if (fsm.phase == TgmFsmState::WAIT_DXA) {
-      std::cerr << "TGM_PHASE: WAIT_DXA tick=" << fsm.dxa_wait_ticks << std::endl;
-      constexpr uint32_t kDxaLatency = 100;
-      if (++fsm.dxa_wait_ticks >= kDxaLatency) {
+      // The DXA completion event advances this warp's barrier phase; poll it.
+      uint32_t bar_no   = 2 + (fsm.wid % VX_CFG_NUM_WARPS);
+      uint32_t raw_bar  = (bar_no << 8) | (fsm.cta_id & 0xff);
+      uint32_t tgm_bar  = bar_decode_id(raw_bar, VX_CFG_NUM_BARRIERS);
+      if (core_->scheduler().barrier_unit().get_phase(tgm_bar) != fsm.bar_wait_phase) {
         fsm.phase = TgmFsmState::COMPUTE;
         fsm.compute_step = 0;
       }
@@ -615,58 +654,52 @@ public:
     // COMPUTE: execute WGMMA uops (direct LMEM reads, bypass tbuf)
     if (fsm.phase == TgmFsmState::COMPUTE) {
       tgm_direct_read_ = true;
-      std::cerr << "TGM_PHASE: COMPUTE step=" << fsm.compute_step << "/" << fsm.compute_total << std::endl;
+      // (quiet) TGM_PHASE: COMPUTE step=...
       if (fsm.compute_step < fsm.compute_total) {
-        uint32_t m_steps = cfg::m_steps;
-        uint32_t k_count = cfg::k_steps;
-        uint32_t nrc = fsm.compute_total / k_count;
-        uint32_t mn = nrc;
-        uint32_t k_step = fsm.compute_step / mn;
-        uint32_t rem = fsm.compute_step % mn;
-        uint32_t n = rem / m_steps;
-        uint32_t m = rem % m_steps;
-        // fragC is the persistent accumulator across K-tiles
-        // Find TGM trace and accumulate into its dst_data
+        uint32_t m_steps = wg_cfg::m_steps;
+        // nrc == m_steps * n_steps for this ctx; total includes the setup uop.
+        uint32_t mn = (fsm.compute_total - 1) / wg_cfg::k_steps;  // m_steps * n_steps
+        // Find TGM trace
         for (uint32_t b = 0; b < VX_CFG_NUM_TCU_BLOCKS; ++b) {
           auto& input = simobject_->Inputs.at(b);
           if (input.empty()) continue;
           auto trace = input.peek();
           if (std::get<TcuType>(trace->op_type) != TcuType::TGM) continue;
+          if (trace->wid != fsm.wid) continue;
           auto& tpuArgs = std::get<IntrTcuArgs>(trace->instr_ptr->get_args());
           auto& rd_data = trace->dst_data;
           if (rd_data.empty()) rd_data.assign(VX_CFG_NUM_THREADS, reg_data_t{});
-          // Step 0: setup lmem_desc_ (is_setup_uop=1); steps 1+: compute (is_setup_uop=0)
-          this->wgmma(fsm.wid, tpuArgs.fmt_s, tpuArgs.fmt_d, m, n, k_step,
-                      fsm.a_desc, fsm.b_desc, fsm.fragC, fsm.fragC, fsm.fragC,
-                      rd_data, false, tpuArgs.cd_nregs, tpuArgs.is_a_smem,
-                      (fsm.compute_step == 0) ? 1 : 0);
+          if (fsm.compute_step == 0) {
+            // Setup uop: populate lmem_desc_/wgmma_desc_ from the descriptors
+            // (the SS real path does this via plan_wgmma_lines which TGM skips).
+            this->wgmma(fsm.wid, tpuArgs.fmt_s, tpuArgs.fmt_d, 0, 0, 0,
+                        fsm.a_desc, fsm.b_desc, rd_data, rd_data, rd_data,
+                        rd_data, false, tpuArgs.cd_nregs, tpuArgs.is_a_smem, 1);
+          } else {
+            uint32_t mma_idx = fsm.compute_step - 1;
+            uint32_t k_step  = mma_idx / mn;
+            uint32_t rem     = mma_idx % mn;
+            uint32_t n       = rem / m_steps;
+            uint32_t m       = rem % m_steps;
+            uint32_t r       = n * m_steps + m;   // fragment register index
+            auto& acc = fsm.fragC.at(r);          // [NT] lanes, persistent accumulator
+            this->wgmma(fsm.wid, tpuArgs.fmt_s, tpuArgs.fmt_d, m, n, k_step,
+                        fsm.a_desc, fsm.b_desc, acc, acc, acc, rd_data,
+                        false, tpuArgs.cd_nregs, tpuArgs.is_a_smem, 0);
+            // Fold the FEDP result back into the persistent accumulator.
+            for (uint32_t t = 0; t < VX_CFG_NUM_THREADS; ++t)
+              acc.at(t) = rd_data.at(t);
+          }
           break;
         }
         ++fsm.compute_step;
-        // Debug: dump every 8th compute step
-        if ((fsm.compute_step & 7) == 0 || fsm.compute_step >= fsm.compute_total) {
-          for (uint32_t b = 0; b < VX_CFG_NUM_TCU_BLOCKS; ++b) {
-            auto& input = simobject_->Inputs.at(b);
-            if (input.empty()) continue;
-            auto trace = input.peek();
-            if (std::get<TcuType>(trace->op_type) != TcuType::TGM) continue;
-            auto& rd = trace->dst_data;
-            if (!rd.empty()) {
-              std::cerr << "TGM_STEP step=" << fsm.compute_step
-                        << "/" << fsm.compute_total
-                        << " k=" << k_step << " m=" << m << " n=" << n
-                        << " rd[0]=" << rd[0].u32 << std::endl;
-            }
-            break;
-          }
-        }
       } else {
         fsm.phase = TgmFsmState::ADVANCE;
       }
     }
       tgm_direct_read_ = false;
     if (fsm.phase == TgmFsmState::ADVANCE) {
-      std::cerr << "TGM_PHASE: ADVANCE k=" << fsm.k_current << "/" << fsm.k_end << std::endl;
+      // (quiet) TGM_PHASE: ADVANCE k=...
       fsm.stage ^= 1u;
       ++fsm.k_current;
       if (fsm.k_current < fsm.k_end) {
@@ -677,28 +710,35 @@ public:
     }  // end ADVANCE
     // DONE: write fragC[0..NRC-1] to float registers f0..f[NRC-1], pop trace, reset FSM
     if (fsm.phase == TgmFsmState::DONE) {
-      // Write all NRC accumulator registers directly to the core regfile.
+      // Write the full NRC fragment per-lane into the TGM warp's fregs.
       uint32_t nrc = fsm.fragC.size();
       for (uint32_t i = 0; i < nrc; ++i) {
-        core_->dtm_set_freg(fsm.wid, i, fsm.fragC[i].u64);
+        for (uint32_t t = 0; t < VX_CFG_NUM_THREADS; ++t) {
+          core_->dtm_set_freg_lane(fsm.wid, i, t, fsm.fragC.at(i).at(t).u64);
+        }
       }
-      // Pop the TGM trace from TCU input and send through Outputs for commit.
+      // Pop the TGM trace belonging to THIS warp and send it to commit.
       for (uint32_t b = 0; b < VX_CFG_NUM_TCU_BLOCKS; ++b) {
         auto& input = simobject_->Inputs.at(b);
         if (input.empty()) continue;
         auto trace = input.peek();
         if (std::get<TcuType>(trace->op_type) != TcuType::TGM) continue;
-        // Set dst_data so the commit path also writes f0 (redundant but clean).
+        if (trace->wid != fsm.wid) continue;
+        // Commit path writes freg[rd=0] per-lane from dst_data; mirror the
+        // first fragment register so the register file stays consistent.
         trace->dst_data.assign(VX_CFG_NUM_THREADS, reg_data_t{});
         for (uint32_t t = 0; t < VX_CFG_NUM_THREADS; ++t) {
-          trace->dst_data[t].u64 = fsm.fragC[0].u64;
+          trace->dst_data[t].u64 = fsm.fragC.at(0).at(t).u64;
         }
         if (simobject_->Outputs.at(b).try_send(trace, kMmaLatency)) {
           input.pop();
+          fsm.phase = TgmFsmState::IDLE;
         }
+        // else: commit path not ready — stay in DONE and retry next tick.
+        // Never reset to IDLE while the trace is still in the input queue,
+        // or the FSM re-grabs the same trace and re-runs the whole sequence.
         break;
       }
-      fsm.phase = TgmFsmState::IDLE;
     }
   }
 
@@ -708,17 +748,7 @@ public:
   #endif
   #ifdef VX_CFG_TCU_WGMMA_ENABLE
     this->tgm_fsm_tick();
-    // Debug: check what traces are in TCU input
-    for (uint32_t b = 0; b < VX_CFG_NUM_TCU_BLOCKS; ++b) {
-      auto& input = simobject_->Inputs.at(b);
-      if (!input.empty()) {
-        auto trace = input.peek();
-        auto tt = std::get<TcuType>(trace->op_type);
-        if (tt == TcuType::TGM) {
-          std::cerr << "TCU_INPUT block=" << b << " TGM wid=" << trace->wid << std::endl;
-        }
-      }
-    }
+    // (quiet) TCU_INPUT debug removed.
     // Q-warp lock-step probe.
     // Pass 1 — identify active WGMMA blocks and prime each one's plan() on
     // first uop. WMMA and TCU_LD blocks are unaffected (no Q-coupling).
@@ -1520,29 +1550,62 @@ private:
   }
 
   // Direct LMEM read for TGM: bypasses tbuf, reads straight from smem.
+  // The smem layout is IDENTICAL to the tbuf path (DXA wrote it), so elem_off
+  // must mirror gather_word: A row-major (ldm≠0) or block-major (ldm==0),
+  // B block-major (ldm==0, N-outer K-inner within tcN blocks) or K-major.
   uint32_t load_lmem_word_direct(const lmem_desc_t& desc, uint32_t row, uint32_t col,
                                   uint32_t fmt_s, bool pack_along_row) const {
-    // For TGM, A uses row-major (M-outer K-inner), B uses row-major.
-    // Compute element offset and byte address, then read from LMEM directly.
-    uint64_t elem_off;
-    if (pack_along_row) {
-      // B: K-major (N-outer K-inner). cur_row=K, cur_col=N.
-      elem_off = uint64_t(col) * desc.ldm + row;
-    } else {
-      // A: row-major (M-outer K-inner). cur_row=M, cur_col=K.
-      elem_off = uint64_t(row) * desc.ldm + col;
+    uint32_t e_bits  = elem_bits(fmt_s);
+    uint32_t ratio   = (e_bits >= 32) ? 1 : (32 / e_bits);
+    uint32_t result  = 0;
+    for (uint32_t r = 0; r < ratio; ++r) {
+      uint32_t cur_row = pack_along_row ? (row + r) : row;
+      uint32_t cur_col = pack_along_row ? col       : (col + r);
+      uint64_t elem_off;
+      if (desc.ldm == 0) {
+        // Block-major SMEM (mirrors gather_word).
+        uint32_t k_blk_dim = kFedpWords * ratio;
+        if (pack_along_row) {
+          // Dense B (block-major): r is K coord, c is N coord; N outer, K inner.
+          uint32_t k_blk = cur_row / k_blk_dim;
+          uint32_t r_in  = cur_row % k_blk_dim;
+          uint32_t n_blk = cur_col / cfg::tcN;
+          uint32_t n_in  = cur_col % cfg::tcN;
+          uint32_t b_blk_elems = k_blk_dim * cfg::tcN;
+          uint32_t n_steps     = cur_xtile_n_ / cfg::tcN;
+          elem_off = (k_blk * n_steps + n_blk) * b_blk_elems
+                   + n_in * k_blk_dim + r_in;
+        } else {
+          // A (block-major): r is M coord, c is K coord.
+          uint32_t m_blk = cur_row / cfg::tcM;
+          uint32_t i_in  = cur_row % cfg::tcM;
+          uint32_t k_blk = cur_col / k_blk_dim;
+          uint32_t k_in  = cur_col % k_blk_dim;
+          uint32_t a_blk_elems = cfg::tcM * k_blk_dim;
+          elem_off = (k_blk * wg_cfg::m_steps + m_blk) * a_blk_elems
+                   + i_in * k_blk_dim + k_in;
+        }
+      } else if (pack_along_row) {
+        // B: K-major (N-outer K-inner). cur_row=K, cur_col=N.
+        elem_off = uint64_t(cur_col) * desc.ldm + cur_row;
+      } else {
+        // A: row-major (M-outer K-inner). cur_row=M, cur_col=K.
+        elem_off = uint64_t(cur_row) * desc.ldm + cur_col;
+      }
+      uint64_t byte_addr = desc.base + elem_off * e_bits / 8;
+      auto lmem = core_->local_mem();
+      uint32_t val = lmem->read_word(byte_addr);
+      if (e_bits == 32) {
+        return val;
+      } else if (e_bits == 16) {
+        result |= (val & 0xFFFF) << (r * 16);
+      } else if (e_bits == 8) {
+        result |= (val & 0xFF) << (r * 8);
+      } else {
+        std::abort();
+      }
     }
-    uint32_t e_bits = elem_bits(fmt_s);
-    uint64_t byte_addr = desc.base + elem_off * e_bits / 8;
-    // Read a single word directly from LocalMem.
-    auto lmem = core_->local_mem();
-    uint32_t val = lmem->read_word(byte_addr);
-    if (e_bits == 16) {
-      // For 16-bit, read second element.
-      uint32_t val2 = lmem->read_word(byte_addr + 2);
-      return val | (val2 << 16);
-    }
-    return val;
+    return result;
   }
 
   // Routes A reads through the current block's A buffer; B through the shared B buffer.

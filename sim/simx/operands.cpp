@@ -157,8 +157,8 @@ Word& Operands::dtm_ireg(uint32_t wid, uint32_t reg) {
   return opc_units_.at(wid_to_opc_idx(wid))->dtm_ireg(wid_to_slot(wid), reg);
 }
 
-uint64_t& Operands::dtm_freg(uint32_t wid, uint32_t reg) {
-  return opc_units_.at(wid_to_opc_idx(wid))->dtm_freg(wid_to_slot(wid), reg);
+uint64_t& Operands::dtm_freg(uint32_t wid, uint32_t reg, uint32_t lane) {
+  return opc_units_.at(wid_to_opc_idx(wid))->dtm_freg(wid_to_slot(wid), reg, lane);
 }
 
 int Operands::get_exit_code() const {
