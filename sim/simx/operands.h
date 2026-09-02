@@ -45,6 +45,7 @@ public:
   // file entry for warp `wid`, register `reg` (lane 0).
   // Used exclusively by sim/simx/dtm/debug_module.cpp.
   Word& dtm_ireg(uint32_t wid, uint32_t reg);
+  uint64_t& dtm_freg(uint32_t wid, uint32_t reg);
 
 protected:
   virtual void on_reset();

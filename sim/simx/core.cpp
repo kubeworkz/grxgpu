@@ -890,6 +890,9 @@ public:
   void dtm_set_ireg(uint32_t wid, uint32_t reg, Word val) {
     operands_.at(wid % VX_CFG_ISSUE_WIDTH)->dtm_ireg(wid, reg) = val;
   }
+  void dtm_set_freg(uint32_t wid, uint32_t reg, uint64_t val) {
+    operands_.at(wid % VX_CFG_ISSUE_WIDTH)->dtm_freg(wid, reg) = val;
+  }
 
   Scheduler*    scheduler() { return scheduler_.get(); }
   Scoreboard*   scoreboard() { return scoreboard_.get(); }
@@ -1101,6 +1104,7 @@ Word Core::dtm_get_pc(uint32_t wid) const         { return impl_->dtm_get_pc(wid
 void Core::dtm_set_pc(uint32_t wid, Word pc)      { impl_->dtm_set_pc(wid, pc); }
 Word Core::dtm_get_ireg(uint32_t wid, uint32_t reg)            { return impl_->dtm_get_ireg(wid, reg); }
 void Core::dtm_set_ireg(uint32_t wid, uint32_t reg, Word val)  { impl_->dtm_set_ireg(wid, reg, val); }
+void Core::dtm_set_freg(uint32_t wid, uint32_t reg, uint64_t val) { impl_->dtm_set_freg(wid, reg, val); }
 
 #ifdef VX_CFG_EXT_TCU_ENABLE
 std::shared_ptr<TcuUnit>& Core::tcu_unit() {

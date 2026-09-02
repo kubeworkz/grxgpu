@@ -674,37 +674,25 @@ public:
       } else {
         fsm.phase = TgmFsmState::DONE;
       }
-    }
-    // DONE: dump results, signal barrier 3, pop trace, reset FSM
+    }  // end ADVANCE
+    // DONE: write fragC[0..NRC-1] to float registers f0..f[NRC-1], pop trace, reset FSM
     if (fsm.phase == TgmFsmState::DONE) {
-      // Debug: dump accumulated rd_data
-      for (uint32_t b = 0; b < VX_CFG_NUM_TCU_BLOCKS; ++b) {
-        auto& input = simobject_->Inputs.at(b);
-        if (input.empty()) continue;
-        auto trace = input.peek();
-        if (std::get<TcuType>(trace->op_type) != TcuType::TGM) continue;
-        auto& rd = trace->dst_data;
-        std::cerr << "TGM_DONE wid=" << fsm.wid
-                  << " desc_a=0x" << std::hex << fsm.a_desc
-                  << " desc_b=0x" << fsm.b_desc
-                  << " k=" << std::dec << fsm.k_end
-                  << " rd_size=" << rd.size();
-        if (!rd.empty()) {
-          std::cerr << " rd[0]={";
-          for (uint32_t t = 0; t < std::min((uint32_t)rd.size(), (uint32_t)4); ++t) {
-            std::cerr << rd[t].u32 << ",";
-          }
-          std::cerr << "}";
-        }
-        std::cerr << std::endl;
-        break;
+      // Write all NRC accumulator registers directly to the core regfile.
+      uint32_t nrc = fsm.fragC.size();
+      for (uint32_t i = 0; i < nrc; ++i) {
+        core_->dtm_set_freg(fsm.wid, i, fsm.fragC[i].u64);
       }
-      // Barrier 3 is handled by the kernel's sync_bar.arrive_and_wait()
+      // Pop the TGM trace from TCU input and send through Outputs for commit.
       for (uint32_t b = 0; b < VX_CFG_NUM_TCU_BLOCKS; ++b) {
         auto& input = simobject_->Inputs.at(b);
         if (input.empty()) continue;
         auto trace = input.peek();
         if (std::get<TcuType>(trace->op_type) != TcuType::TGM) continue;
+        // Set dst_data so the commit path also writes f0 (redundant but clean).
+        trace->dst_data.assign(VX_CFG_NUM_THREADS, reg_data_t{});
+        for (uint32_t t = 0; t < VX_CFG_NUM_THREADS; ++t) {
+          trace->dst_data[t].u64 = fsm.fragC[0].u64;
+        }
         if (simobject_->Outputs.at(b).try_send(trace, kMmaLatency)) {
           input.pop();
         }
