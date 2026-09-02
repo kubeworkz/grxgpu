@@ -1,5 +1,9 @@
 // TGM test kernel: replaces the software K-loop with a single TGM instruction.
-// For K=64 testing: k_tiles = 64/8 = 8 (compile-time constant).
+// All 4 warps issue TGM with per-warp A-slice descriptors; the FSM computes
+// each warp's fragment, writes it to that warp's fregs (f0..f7), the warp
+// resumes and stores its own slice of C.
+//
+// For K=512 testing: k_tiles = 512/8 = 64 (passed at runtime via a2).
 
 #include "common.h"
 #include <vx_spawn2.h>
@@ -17,36 +21,26 @@ __kernel void kernel_main(kernel_arg_t* __UNIFORM__ arg) {
   uint32_t warp_rank = tid / VX_CFG_NUM_THREADS;
 
   uint32_t cta_M = VX_CFG_NUM_WARPS * ctx::xtileM;
-  (void)cta_M;
   uint32_t tile_row = blockIdx.y * cta_M;
   uint32_t tile_col = blockIdx.x * ctx::xtileN;
-
-  const bool is_dxa_warp = (get_sub_group_id() == 0);
-
-  if (is_dxa_warp) {
-    auto smem __attribute__((unused)) = reinterpret_cast<ctx::input_t *>(__local_mem());
-    const uint32_t a_size = VX_CFG_NUM_WARPS * ctx::xtileM * ctx::tileK;
-
-    uint32_t a_offset = 0;
-    uint32_t a_leading = ctx::tileK * sizeof(ctx::input_t);
-
-    uint32_t b_offset = a_size;
-
-    uint32_t desc_a = (a_leading << 16) | (a_offset / sizeof(ctx::input_t));
-    uint32_t desc_b = (0u << 16) | (b_offset / sizeof(ctx::input_t));
-
-    // Issue TGM with compile-time k_tiles=8 (K=64, tileK=8).
-    // TGM stalls the warp until completion.
-    constexpr uint32_t K_TILES = 8;
-    vx_tgm_imm<K_TILES>(desc_a, desc_b);
-    // Warp is stalled by TGM - never reaches here.
-  }
-
-  // Non-DXA warps: store zeros to output (no correctness check).
-  // DXA warp: never reaches here (stalled by TGM).
-  ctx::fragment_acc fragC;
-  ctx::fill_fragment(fragC, 0);
   uint32_t N = arg->N;
+
+  // smem layout (FP16 elements): A tile (cta_M x tileK) then B tile (tileK x xtileN).
+  const uint32_t a_size = cta_M * ctx::tileK;
+  const uint32_t b_offset = a_size * sizeof(ctx::input_t);  // byte offset
+
+  // Per-warp A slice (byte offset into smem).
+  const uint32_t a_warp_off = warp_rank * ctx::xtileM * ctx::tileK * sizeof(ctx::input_t);
+  // A row-major (ldm = tileK bytes), B block-major (ldm = 0).
+  uint32_t desc_a = (ctx::tileK * sizeof(ctx::input_t) << 16) | a_warp_off;
+  uint32_t desc_b = (0u << 16) | b_offset;
+
+  // One TGM covers the full K range; the FSM runs FETCH/COMPUTE per K-tile.
+  uint32_t k_tiles = arg->K / ctx::tileK;
+  ctx::fragment_acc fragC;
+  vx_tgm(desc_a, desc_b, k_tiles, fragC.data.data());
+
+  // Warp resumed after TGM: store its slice of C.
   auto pC = reinterpret_cast<ctx::output_t *>(arg->C_addr);
   auto pTileC = pC + (tile_row + warp_rank * ctx::xtileM) * N + tile_col;
   ctx::store_matrix_sync(pTileC, fragC, N);

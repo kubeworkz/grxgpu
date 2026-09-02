@@ -62,6 +62,7 @@ struct TgmFsmState {
   uint32_t   k_end = 0;           // K_end (exclusive)
   uint32_t   tile_row = 0;        // M-tile offset for DXA A fetch
   uint32_t   tile_col = 0;        // N-tile offset for DXA B fetch
+  uint32_t   fmt_s = 9;           // input format id (fp16 default; TGM fixed context)
   uint32_t   a_desc = 0;          // A tile descriptor (smem addr)
   uint32_t   b_desc = 0;          // B tile descriptor (smem addr)
   uint32_t   stage = 0;           // double-buffer stage (0 or 1)
@@ -71,7 +72,9 @@ struct TgmFsmState {
   uint32_t   compute_total = 0;   // total WGMMA steps per K-tile
   uint32_t   barrier_id = 0;      // completion barrier ID
   uint32_t   dxa_wait_ticks = 0;  // DXA pipeline latency counter
-  std::vector<reg_data_t> fragC;  // persistent accumulator across K-tiles
+  uint32_t   bar_wait_phase = 0;  // barrier phase captured at FETCH (DXA done)
+  // Persistent accumulator across K-tiles: [fragment reg][lane].
+  std::vector<std::vector<reg_data_t>> fragC;
 };
 
 class TcuUnit : public FuncUnit<VX_CFG_NUM_TCU_BLOCKS> {
