@@ -70,8 +70,6 @@ struct TgmFsmState {
   uint32_t   cta_id = 0;          // CTA ID
   uint32_t   compute_step = 0;    // current WGMMA compute step
   uint32_t   compute_total = 0;   // total WGMMA steps per K-tile
-  uint32_t   barrier_id = 0;      // completion barrier ID
-  uint32_t   dxa_wait_ticks = 0;  // DXA pipeline latency counter
   uint32_t   bar_wait_phase = 0;  // barrier phase captured at FETCH (DXA done)
   bool       has_prefetch = false;  // true if prefetch for next K-tile was issued
   uint32_t   prefetch_bar_wait_phase = 0;  // barrier phase for prefetch

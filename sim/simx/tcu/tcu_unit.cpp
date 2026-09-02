@@ -633,7 +633,6 @@ public:
         fsm.bar_wait_phase = core_->scheduler().barrier_unit().get_phase(tgm_bar);
         sfu->dxa_req_out.send(req);
         fsm.phase = TgmFsmState::WAIT_DXA;
-        fsm.dxa_wait_ticks = 0;
       }
       // If channel is full, stay in FETCH and retry next tick
 #else
@@ -747,7 +746,6 @@ public:
         }
 #endif
         fsm.phase = TgmFsmState::WAIT_DXA;
-        fsm.dxa_wait_ticks = 0;
       } else {
         fsm.phase = TgmFsmState::DONE;
       }
