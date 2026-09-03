@@ -183,9 +183,14 @@ public:
     // pulse start while busy is high, the wait-for-busy loop exits immediately
     // and the drain loop exits after one tick, executing only ~1/2300 of the frame.
     constexpr uint32_t DRAIN_TIMEOUT = 100000;
+    uint32_t drain_i = 0;
     for (uint32_t i = 0; device_->busy && i < DRAIN_TIMEOUT; ++i) {
       this->tick();
+      drain_i = i + 1;
     }
+#ifndef NDEBUG
+    std::cout << std::dec << timestamp << ": [sim] drain iterations: " << drain_i << std::endl;
+#endif
 
     // wait for device to go busy. A frame may legitimately have no work — e.g. a
     // fully-culled graphics draw whose rasterizer emits zero fragment waves — and
