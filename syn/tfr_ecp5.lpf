@@ -1,0 +1,2 @@
+# LPF constraints for TFR synthesis
+# No external I/O pins — pure internal logic block
