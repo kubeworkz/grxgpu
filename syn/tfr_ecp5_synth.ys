@@ -1,0 +1,23 @@
+# TFR synthesis targeting Lattice ECP5 for resource utilization
+read_verilog -sv \
+    -I/home/ubuntu/grxgpu/hw \
+    -I/home/ubuntu/grxgpu/hw/rtl \
+    -DVX_CFG_XLEN=32 \
+    -DSYNTHESIS \
+    /home/ubuntu/grxgpu/hw/rtl/VX_define.vh
+
+read_verilog -sv /home/ubuntu/grxgpu/syn/tcu_synth_defs.vh
+read_verilog -sv /home/ubuntu/grxgpu/syn/stubs.sv
+
+read_verilog -sv \
+    -DVX_CFG_XLEN=32 \
+    -DSYNTHESIS \
+    /tmp/tfr_flat_v2.sv
+
+hierarchy -top VX_tcu_fedp_tfr -check -chparam LANE_MASK 16
+
+# Run ECP5-specific synthesis
+synth_ecp5 -top VX_tcu_fedp_tfr
+
+# Output stats
+stat
