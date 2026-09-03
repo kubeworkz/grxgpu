@@ -561,6 +561,17 @@ public:
           if (k_end != 0) fsm.k_end = k_end;
         }
         if (fsm.k_end == 0) fsm.k_end = 1;  // minimum 1 K-tile
+        // Double-buffer stage stride — must match main.cpp's wgmma_dbuf_stride_elems.
+        // Use cfg (WMMA config) to match main.cpp, NOT wg_cfg (WGMMA config).
+        {
+          uint32_t elem_bytes = elem_bits(fsm.fmt_s) / 8;
+          uint32_t cta_M = VX_CFG_NUM_WARPS * cfg::xtileM;
+          uint32_t stage_elems = cta_M * cfg::tileK + cfg::tileK * cfg::xtileN;
+          uint32_t stage_bytes = stage_elems * elem_bytes;
+          const uint32_t sweep = VX_CFG_LMEM_NUM_BANKS * (VX_CFG_XLEN / 8);
+          uint32_t shift = ((sweep / 2) % VX_CFG_MEM_BLOCK_SIZE == 0) ? sweep / 2 : 0;
+          fsm.stage_stride_bytes = ((stage_bytes + sweep - 1) / sweep) * sweep + shift;
+        }
         fsm.stage = 0;
         fsm.compute_step = 0;
         uint32_t nrc = (tpuArgs.cd_nregs == 0) ? 8 : (tpuArgs.cd_nregs == 1) ? 16 : 32;
@@ -617,12 +628,12 @@ public:
       req.desc_slot = 0;
       req.bar_id    = raw_bar;
       req.cta_mask  = 0;
-      req.smem_addr = uint64_t(VX_MEM_LMEM_BASE_ADDR) + (fsm.a_desc & 0xFFFF) - slice_bytes;
+      req.smem_addr = uint64_t(VX_MEM_LMEM_BASE_ADDR) + fsm.stage * fsm.stage_stride_bytes + (fsm.a_desc & 0xFFFF) - slice_bytes;
       req.coords[0] = fsm.k_current * tile_k_elems;
       req.coords[1] = fsm.tile_row;
       req.pair        = true;
       req.desc_slot_b = 1;
-      req.smem_addr_b = uint64_t(VX_MEM_LMEM_BASE_ADDR) + (fsm.b_desc & 0xFFFF);
+      req.smem_addr_b = uint64_t(VX_MEM_LMEM_BASE_ADDR) + fsm.stage * fsm.stage_stride_bytes + (fsm.b_desc & 0xFFFF);
       req.coords_b[0] = fsm.tile_col;
       req.coords_b[1] = fsm.k_current * tile_k_elems;
       auto sfu = core_->sfu_unit();
@@ -677,9 +688,14 @@ public:
           if (fsm.compute_step == 0) {
             // Setup uop: populate lmem_desc_/wgmma_desc_ from the descriptors
             // (the SS real path does this via plan_wgmma_lines which TGM skips).
-            this->wgmma(fsm.wid, tpuArgs.fmt_s, tpuArgs.fmt_d, 0, 0, 0,
-                        fsm.a_desc, fsm.b_desc, rd_data, rd_data, rd_data,
-                        rd_data, false, tpuArgs.cd_nregs, tpuArgs.is_a_smem, 1);
+            {
+              uint32_t so = fsm.stage * fsm.stage_stride_bytes;
+              uint32_t sa = (fsm.a_desc & 0xFFFF0000) | ((fsm.a_desc & 0xFFFF) + so);
+              uint32_t sb = (fsm.b_desc & 0xFFFF0000) | ((fsm.b_desc & 0xFFFF) + so);
+              this->wgmma(fsm.wid, tpuArgs.fmt_s, tpuArgs.fmt_d, 0, 0, 0,
+                          sa, sb, rd_data, rd_data, rd_data,
+                          rd_data, false, tpuArgs.cd_nregs, tpuArgs.is_a_smem, 1);
+            }
           } else {
             uint32_t mma_idx = fsm.compute_step - 1;
             uint32_t k_step  = mma_idx / mn;
@@ -728,12 +744,12 @@ public:
           req.desc_slot = 0;
           req.bar_id    = raw_bar;
           req.cta_mask  = 0;
-          req.smem_addr = uint64_t(VX_MEM_LMEM_BASE_ADDR) + (fsm.a_desc & 0xFFFF) - slice_bytes;
+          req.smem_addr = uint64_t(VX_MEM_LMEM_BASE_ADDR) + fsm.stage * fsm.stage_stride_bytes + (fsm.a_desc & 0xFFFF) - slice_bytes;
           req.coords[0] = fsm.k_current * tile_k_elems;
           req.coords[1] = fsm.tile_row;
           req.pair        = true;
           req.desc_slot_b = 1;
-          req.smem_addr_b = uint64_t(VX_MEM_LMEM_BASE_ADDR) + (fsm.b_desc & 0xFFFF);
+          req.smem_addr_b = uint64_t(VX_MEM_LMEM_BASE_ADDR) + fsm.stage * fsm.stage_stride_bytes + (fsm.b_desc & 0xFFFF);
           req.coords_b[0] = fsm.tile_col;
           req.coords_b[1] = fsm.k_current * tile_k_elems;
           auto sfu = core_->sfu_unit();

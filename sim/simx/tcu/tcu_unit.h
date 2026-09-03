@@ -71,6 +71,7 @@ struct TgmFsmState {
   uint32_t   compute_step = 0;    // current WGMMA compute step
   uint32_t   compute_total = 0;   // total WGMMA steps per K-tile
   uint32_t   bar_wait_phase = 0;  // barrier phase captured at FETCH (DXA done)
+  uint32_t   stage_stride_bytes = 0;  // double-buffer stride in bytes
   bool       has_prefetch = false;  // true if prefetch for next K-tile was issued
   uint32_t   prefetch_bar_wait_phase = 0;  // barrier phase for prefetch
   // Persistent accumulator across K-tiles: [fragment reg][lane].
