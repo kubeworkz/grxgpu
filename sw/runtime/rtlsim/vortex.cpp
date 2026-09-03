@@ -157,6 +157,7 @@ private:
       return v;
     };
     h.vortex_start = [this]() {
+      if (future_.valid()) future_.wait();
       future_ = std::async(std::launch::async, [&] { processor_.run(); });
     };
     h.vortex_busy = [this]() -> bool {
