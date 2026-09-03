@@ -86,6 +86,23 @@ We have applied your corrected placement (commit `3d8785f11`) and pushed to `kub
 
 The `vortex_start` serialization fix (`future_.wait()`) stays — your measurement that `std::async` assignment doesn't serialize confirms it closes a real race window.
 
+## Verification Plan
+
+We will add the one-line diagnostic you suggested — print the drain loop's iteration count — and commit it so any build can verify:
+
+```cpp
+// After the drain loop:
+#ifndef NDEBUG
+std::cout << "[sim] drain iterations: " << drain_i << std::endl;
+#endif
+```
+
+`≈ 1` on every launch means the frame is not executing in its own call. `≈ 2300` means it is. We recommend this as a permanent diagnostic in debug builds.
+
+## Correction: simx Reproduction Claim
+
+Your final question is correct — we cannot reproduce the alternation on simx. SimX processes everything in a single-threaded loop with direct `dcr_write()` calls; there is no memory bus, no clock edges, no pipeline. The `future_.valid()` state machine cannot cause the same edge-timing issue because there is no Verilated model. If our earlier summary mentioned simx at 2/4 cores, that was an rtlsim run mislabeled. We will correct this in the summary.
+
 ---
 
 *Response prepared by the grxgpu team.*
