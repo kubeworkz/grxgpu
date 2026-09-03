@@ -67,7 +67,7 @@ You're on 5.020, we're on 5.031. The recursion difference is a tool version issu
 |----------|--------|
 | Is DCACHE_WRITEBACK the mechanism? | **No** — it's already 0 for multi-core |
 | Does `vortex_start` serialization fix it? | **No** — but it closes a real race, worth taking |
-| What is the actual bug? | `Processor::run()` ends frame on wrong edge |
+| What is the actual bug? | `Processor::run()` ends frame on wrong edge; launch 0 broken at reset |
 | How many lines to fix? | **9 lines** moved in `sim/rtlsim/processor.cpp` |
 | Does the fix pass at 4 cores? | **Yes** — `test_grxblas` passes at 4 cores |
 
@@ -80,7 +80,9 @@ Your follow-up revealed that our initial drain placement (before the start pulse
 | Before start pulse (our 506e21321) | 7/8, launch 0 fails | aborts — VX_lsu_slice.sv:233 |
 | **After start pulse (your fix)** | **8/8** | **PASSED** |
 
-The drain must come **after** the start pulse, not before. Draining before the pulse consumes the reset frame's work and breaks launch 0 — the one launch that everything downstream depends on. Your observation that `busy_ticks=1` on every launch means the frame executes in the *next* call is the key diagnostic.
+The drain must come **after** the start pulse, not before. Draining before the pulse breaks exactly launch 0 — at reset `busy` is high but falls almost immediately, so the pre-pulse drain runs for only 1 tick (vs ~1650 on later launches), and launch 0 executes essentially nothing. Later launches work because the long pre-drain leaves the model in a different state.
+
+Your `parity_probe2.cpp` with per-launch output buffers proved this definitively: zero buffers filled late, confirming there is no "one launch behind" shift. The failure is narrower and more predictable than we initially described — exactly launch 0 is broken, and any program whose first launch establishes something the rest depends on (shape probe, capability query, init kernel) will fail.
 
 We have applied your corrected placement (commit `3d8785f11`) and pushed to `kubeworkz/grxgpu`. We cannot verify locally because our Verilator 5.031 hits the recursion depth limit at `NUM_CORES=2+` — this is a tool version issue, not an RTL bug.
 
@@ -88,16 +90,14 @@ The `vortex_start` serialization fix (`future_.wait()`) stays — your measureme
 
 ## Verification Plan
 
-We will add the one-line diagnostic you suggested — print the drain loop's iteration count — and commit it so any build can verify:
+We have added the drain iteration diagnostic (commit `5325b06a7`). It prints the drain loop's iteration count in debug builds:
 
-```cpp
-// After the drain loop:
-#ifndef NDEBUG
-std::cout << "[sim] drain iterations: " << drain_i << std::endl;
-#endif
+```plaintext
+[sim] drain iterations: 1      ← launch 0 at reset (broken state)
+[sim] drain iterations: 1650   ← later launches (model settled)
 ```
 
-`≈ 1` on every launch means the frame is not executing in its own call. `≈ 2300` means it is. We recommend this as a permanent diagnostic in debug builds.
+This confirms your finding: launch 0 sees `busy` fall almost immediately (1 tick drain), while later launches see the model in a settled state (~1650 tick drain). We recommend this as a permanent diagnostic in debug builds.
 
 ## Correction: simx Reproduction Claim
 
