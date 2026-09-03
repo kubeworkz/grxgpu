@@ -23,11 +23,18 @@ read_verilog -sv \
     -DSYNTHESIS \
     /tmp/tfr_flat_v2.sv
 
-# Elaborate and check hierarchy
-hierarchy -top VX_tcu_fedp_tfr -check
+# Elaborate and check hierarchy (override LANE_MASK=0 to enable pipeline)
+hierarchy -top VX_tcu_fedp_tfr -check -chparam LANE_MASK 16
 
-# Synthesis
-synth -flatten -run begin:fine
+# Synthesis WITHOUT flattening (preserve stub module hierarchy)
+synth -run begin:fine
+
+# Techmap internal cells to generic gates
+techmap
+
+# Final optimization pass
+opt
+opt_clean
 
 # Statistics
 stat
