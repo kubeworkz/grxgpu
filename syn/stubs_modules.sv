@@ -43,32 +43,4 @@ module VX_fifo_queue #(
 );
 endmodule
 
-module VX_priority_arbiter #(
-    parameter NUM_REQS = 2,
-    parameter STICKY = 0,
-    parameter LOG_NUM_REQS = $clog2(NUM_REQS)
-) (
-    input wire clk,
-    input wire reset,
-    input wire [NUM_REQS-1:0] requests,
-    output wire [LOG_NUM_REQS-1:0] grant_index,
-    output wire [NUM_REQS-1:0] grant_onehot,
-    output wire grant_valid
-);
-endmodule
-
-module VX_rr_arbiter #(
-    parameter NUM_REQS = 2,
-    parameter MODEL = 1,
-    parameter LOG_NUM_REQS = $clog2(NUM_REQS),
-    parameter STICKY = 0,
-    parameter LUT_OPT = 0
-) (
-    input wire clk,
-    input wire reset,
-    input wire [NUM_REQS-1:0] requests,
-    output wire [LOG_NUM_REQS-1:0] grant_index,
-    output wire [NUM_REQS-1:0] grant_onehot,
-    output wire grant_valid
-);
-endmodule
+// VX_priority_arbiter and VX_rr_arbiter use real RTL from hw/rtl/libs/
