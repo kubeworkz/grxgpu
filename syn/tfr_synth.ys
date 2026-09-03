@@ -1,0 +1,37 @@
+# TFR (Tensor Floating-point Reduction) synthesis for GRXGPU G100
+# Uses the preprocessed flat file (Phase A + Phase B transforms applied)
+
+# Config defines
+read_verilog -sv \
+    -I/home/ubuntu/grxgpu/hw \
+    -I/home/ubuntu/grxgpu/hw/rtl \
+    -DVX_CFG_XLEN=32 \
+    -DSYNTHESIS \
+    /home/ubuntu/grxgpu/hw/rtl/VX_define.vh
+
+# TCU synthesis defines (format IDs, constants, macros)
+read_verilog -sv \
+    /home/ubuntu/grxgpu/syn/tcu_synth_defs.vh
+
+# Stub modules for external dependencies
+read_verilog -sv \
+    /home/ubuntu/grxgpu/syn/stubs.sv
+
+# Preprocessed flat TFR file (all 17 TFR modules, Yosys-compatible)
+read_verilog -sv \
+    -DVX_CFG_XLEN=32 \
+    -DSYNTHESIS \
+    /tmp/tfr_flat_v2.sv
+
+# Elaborate and check hierarchy
+hierarchy -top VX_tcu_fedp_tfr -check
+
+# Synthesis
+synth -flatten -run begin:fine
+
+# Statistics
+stat
+
+# Output
+write_verilog -noattr /home/ubuntu/grxgpu/syn/out/tfr_synth.v
+write_json /home/ubuntu/grxgpu/syn/out/tfr_synth.json

@@ -139,7 +139,7 @@ def transform(content):
     # Strip package imports
     content = re.sub(r"import\s+\w+::\*;", "", content)
 
-    # Resolve VX_tcu_pkg::func(TCU_XXX_ID) calls
+    # Resolve VX_tcu_pkg::func(TCU_XXX_ID) calls FIRST (before backtick-escaping)
     func_map = {
         "exp_bits": {"TCU_FP32_ID": "8", "TCU_TF32_ID": "8", "TCU_FP16_ID": "5",
                       "TCU_BF16_ID": "8", "TCU_FP8_ID": "4", "TCU_BF8_ID": "5"},
@@ -155,6 +155,14 @@ def transform(content):
             content = content.replace(f"VX_tcu_pkg::{func_name}({fmt_id})", val)
             content = content.replace(f"tcu_pkg::{func_name}({fmt_id})", val)
             content = content.replace(f"{func_name}({fmt_id})", val)
+
+    # Backtick-escape bare TCU_*_ID constants (they're `define macros in tcu_synth_defs.vh)
+    content = re.sub(r"(?<!\w)(TCU_(?:FP32|TF32|FP16|BF16|FP8|BF8|MXFP8|MXBF8|MXFP4|NVFP4|I32|I8|U8|I4|U4)_ID)(?!\w)",
+                     r"`\1", content)
+
+    # Also backtick-escape TCU constant names used as bare identifiers
+    content = re.sub(r"(?<!\w)(TCU_(?:NT|NR|NRA|NRB|NRC|EXP_BITS|FMT_WIDTH|TILE_CAP|BLOCK_CAP|TC_[MNK]|M_STEPS|N_STEPS|K_STEPS))(?!\w)",
+                     r"`\1", content)
 
     return content
 
