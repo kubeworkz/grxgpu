@@ -169,6 +169,15 @@ public:
   #ifndef NDEBUG
     std::cout << std::dec << timestamp << ": [sim] run()" << std::endl;
   #endif
+    // drain any residual busy from the previous frame before starting a new one.
+    // busy is already high after reset and at the end of every frame; if we
+    // pulse start while busy is high, the wait-for-busy loop exits immediately
+    // and the drain loop exits after one tick, executing only ~1/2300 of the frame.
+    constexpr uint32_t DRAIN_TIMEOUT = 100000;
+    for (uint32_t i = 0; device_->busy && i < DRAIN_TIMEOUT; ++i) {
+      this->tick();
+    }
+
     // pulse start for one cycle
     device_->start = 1;
     this->tick();
