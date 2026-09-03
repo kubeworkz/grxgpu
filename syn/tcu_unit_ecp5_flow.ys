@@ -1,0 +1,98 @@
+# Full TCU ECP5 flow: Yosys → nextpnr → bitstream
+# Uses wrapper to connect interface ports
+
+read_slang \
+    /home/ubuntu/grxgpu/hw/rtl/VX_gpu_pkg.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_pkg.sv \
+    /home/ubuntu/grxgpu/hw/rtl/interfaces/VX_execute_if.sv \
+    /home/ubuntu/grxgpu/hw/rtl/interfaces/VX_result_if.sv \
+    /home/ubuntu/grxgpu/hw/rtl/interfaces/VX_dispatch_if.sv \
+    /home/ubuntu/grxgpu/hw/rtl/interfaces/VX_commit_if.sv \
+    /home/ubuntu/grxgpu/hw/rtl/mem/VX_mem_bus_if.sv \
+    /home/ubuntu/grxgpu/hw/rtl/interfaces/VX_lsu_sched_if.sv \
+    /home/ubuntu/grxgpu/hw/rtl/mem/VX_mem_bus_arb.sv \
+    /home/ubuntu/grxgpu/hw/rtl/core/VX_lane_dispatch.sv \
+    /home/ubuntu/grxgpu/hw/rtl/core/VX_lane_gather.sv \
+    /home/ubuntu/grxgpu/hw/rtl/libs/VX_bits_insert.sv \
+    /home/ubuntu/grxgpu/hw/rtl/libs/VX_bits_remove.sv \
+    /home/ubuntu/grxgpu/hw/rtl/libs/VX_elastic_buffer.sv \
+    /home/ubuntu/grxgpu/hw/rtl/libs/VX_stream_buffer.sv \
+    /home/ubuntu/grxgpu/hw/rtl/libs/VX_pipe_buffer.sv \
+    /home/ubuntu/grxgpu/hw/rtl/libs/VX_stream_arb.sv \
+    /home/ubuntu/grxgpu/hw/rtl/libs/VX_stream_switch.sv \
+    /home/ubuntu/grxgpu/hw/rtl/libs/VX_generic_arbiter.sv \
+    /home/ubuntu/grxgpu/hw/rtl/libs/VX_priority_arbiter.sv \
+    /home/ubuntu/grxgpu/hw/rtl/libs/VX_rr_arbiter.sv \
+    /home/ubuntu/grxgpu/hw/rtl/libs/VX_cyclic_arbiter.sv \
+    /home/ubuntu/grxgpu/hw/rtl/libs/VX_matrix_arbiter.sv \
+    /home/ubuntu/grxgpu/hw/rtl/libs/VX_gto_arbiter.sv \
+    /home/ubuntu/grxgpu/hw/rtl/libs/VX_priority_encoder.sv \
+    /home/ubuntu/grxgpu/hw/rtl/libs/VX_pipe_register.sv \
+    /home/ubuntu/grxgpu/hw/rtl/libs/VX_lzc.sv \
+    /home/ubuntu/grxgpu/hw/rtl/libs/VX_csa_tree.sv \
+    /home/ubuntu/grxgpu/hw/rtl/libs/VX_csa_42.sv \
+    /home/ubuntu/grxgpu/hw/rtl/libs/VX_csa_32.sv \
+    /home/ubuntu/grxgpu/hw/rtl/libs/VX_find_first.sv \
+    /home/ubuntu/grxgpu/hw/rtl/libs/VX_ks_adder.sv \
+    /home/ubuntu/grxgpu/hw/rtl/libs/VX_popcount.sv \
+    /home/ubuntu/grxgpu/hw/rtl/libs/VX_wallace_mul.sv \
+    /home/ubuntu/grxgpu/syn/stubs_modules.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_abuf.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_bbuf.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_tbuf.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_meta.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_agu.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_mx_scale.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_sp_mux.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_dsm.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_lockstep.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_uops.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_wgmma.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_core.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_unit.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_fedp_tfr.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_acc.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_align.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_classifier.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_exc_reduce.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_lane_mask.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_max_exp.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_mul_f16.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_mul_f4.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_mul_f8.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_mul_i4.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_mul_i8.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_mul_join.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_norm_round.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_pipe_register.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_shared_mul.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_wmul.sv \
+    /home/ubuntu/grxgpu/syn/tcu_unit_wrapper.sv \
+    --top tcu_unit_wrapper \
+    --allow-use-before-declare \
+    --error-limit 0 \
+    -D SYNTHESIS \
+    -D VX_CFG_TCU_WGMMA_ENABLE \
+    -D VX_CFG_TCU_SPARSE_ENABLE \
+    -D VX_CFG_TCU_MX_ENABLE \
+    -D VX_CFG_TCU_FP16_ENABLE \
+    -D VX_CFG_XLEN=32 \
+    -I /home/ubuntu/grxgpu/hw/rtl \
+    -I /home/ubuntu/grxgpu/hw/rtl/interfaces \
+    -I /home/ubuntu/grxgpu/hw/rtl/tcu \
+    -I /home/ubuntu/grxgpu/hw/rtl/tcu/tfr \
+    -I /home/ubuntu/grxgpu/hw/rtl/cache \
+    -I /home/ubuntu/grxgpu/hw/rtl/mem \
+    -I /home/ubuntu/grxgpu/hw/rtl/core \
+    -I /home/ubuntu/grxgpu/hw/rtl/libs
+
+hierarchy -top tcu_unit_wrapper
+
+# ECP5 synthesis
+synth_ecp5 -top tcu_unit_wrapper
+
+# Write JSON for nextpnr
+write_json /home/ubuntu/grxgpu/syn/out/tcu_unit_ecp5.json
+
+# Resource report
+stat
