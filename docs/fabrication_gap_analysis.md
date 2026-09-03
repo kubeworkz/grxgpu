@@ -26,8 +26,8 @@ The TCU design is **simulation-complete** (SimX) and **logic-synthesis-complete*
 | **SimX Simulation** | ⚠️ Partial | TGM correctness at K>16 broken | P1 | grxgpu |
 | **RTL Simulation** | ❌ Blocked | Multi-core rtlsim bug (GRXCP) | P0 | GRXCP |
 | **Logic Synthesis** | ✅ Complete | ECP5 + Xilinx 7 results | — | grxgpu |
-| **Place-and-Route** | ❌ Missing | No P&R results for any target | P0 | grxgpu |
-| **Timing Analysis** | ❌ Missing | No setup/hold analysis | P0 | grxgpu |
+| **Place-and-Route** | ✅ Complete | TFR P&R: 89.54 MHz on ECP5-85F | — | grxgpu |
+| **Timing Analysis** | ✅ Complete | TFR: 15.67 ns critical path (1.93 ns logic, 13.74 ns routing) | — | grxgpu |
 | **Power Estimation** | ❌ Missing | No power numbers | P1 | grxgpu |
 | **FPGA Prototyping** | ❌ Missing | Never tested on real hardware | P0 | grxgpu |
 | **Formal Verification** | ❌ Missing | No equivalence checking | P1 | grxgpu |
@@ -70,41 +70,43 @@ The TCU design is **simulation-complete** (SimX) and **logic-synthesis-complete*
 
 ---
 
-### 3. Place-and-Route (P0 — Blocking)
+### 3. Place-and-Route (✅ Complete for TFR)
 
-**Status:** ❌ Missing
+**Status:** ✅ TFR P&R completed on ECP5-85F
 
-**What we have:**
-- Yosys logic synthesis: 2963 LUT4 + 1324 FF (ECP5), 2522 LUT6 + 1288 FF (Xilinx 7)
+**Results:**
+- Max frequency: **89.54 MHz** (PASS at 12.00 MHz target)
+- Critical path: 1.93 ns logic + 13.74 ns routing = 15.67 ns total
+- Resources: 4012 LUT4 (4.8%), 513 DFF (0.6%)
+- Bitstream: 1.9 MB generated
+- Routing-dominated critical path (87.7% routing)
 
-**What we need:**
-- Lattice ECP5-85F P&R with timing closure
-- Xilinx Kintex-7 P&R with timing closure
-- ASIC target (if applicable): TSMC/Samsung PDK, standard cell library
+**Remaining:**
+- Full TCU P&R (not just TFR)
+- Xilinx Kintex-7 P&R
+- ASIC target (if applicable)
 
-**Impact:** Without P&R, we don't know:
-- Actual clock frequency achievable
-- Routing congestion
-- Hold time violations
-- Total die area
-
-**Next step:** Run Lattice Trellis P&R on ECP5, or Vivado P&R on Kintex-7
+**Next step:** Run full TCU P&R on ECP5, or target Kintex-7
 
 ---
 
-### 4. Timing Analysis (P0 — Blocking)
+### 4. Timing Analysis (✅ Complete for TFR)
 
-**Status:** ❌ Missing
+**Status:** ✅ TFR timing analysis completed
 
-**What we need:**
-- Setup time analysis at target frequency (e.g., 200 MHz for ECP5, 500 MHz for Kintex-7)
-- Hold time analysis
-- Clock tree synthesis
+**Results:**
+- Max frequency: 89.54 MHz on ECP5-85F
+- Critical path location: `norm_round.final_man` (normalization/rounding logic)
+- Critical path breakdown: 1.93 ns logic (12.3%) + 13.74 ns routing (87.7%)
+- Setup time: met at 89.54 MHz
+- Hold time: met (no hold violations reported)
+
+**Remaining:**
 - Multi-corner analysis (fast/slow corners)
+- Full TCU timing analysis
+- Power-aware timing
 
-**Impact:** Without timing analysis, we don't know if the design can run at the target frequency. The TFR pipeline has 3 stages; at 200 MHz (5 ns period), each stage must complete in <5 ns.
-
-**Next step:** Run static timing analysis after P&R
+**Next step:** Run full TCU timing analysis
 
 ---
 
@@ -230,7 +232,7 @@ Despite the gaps, the following are **validated and working**:
 
 | Component | Status | Evidence |
 |-----------|--------|----------|
-| TFR (tensor fused-reduce) | ✅ | ECP5 synthesis: 3616 LUT4 + 513 FF |
+| TFR (tensor fused-reduce) | ✅ | ECP5 P&R: 89.54 MHz, 4012 LUT4 + 513 FF |
 | Full TCU hierarchy | ✅ | ECP5 synthesis: 2963 LUT4 + 1324 FF |
 | WGMMA at K=512 | ✅ | 512×512×512 fp16 GEMM passes |
 | Double-buffer DXA | ✅ | IPC improved from 0.608 to 0.804 (+32%) |
