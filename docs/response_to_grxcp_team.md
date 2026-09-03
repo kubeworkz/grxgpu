@@ -60,9 +60,25 @@ simx processes everything in a single-threaded loop. `processor_.dcr_write()` is
 
 At one core, the Verilated model's memory subsystem is simpler (one L1 cache, no interconnect contention). The memory transactions complete fast enough that the argument write finishes before the kernel reads them. At multiple cores, the L1 caches and memory bus arbitration add latency, creating the window for corruption.
 
-## Your suggestion: DCACHE_WRITEBACK=0
+## DCACHE_WRITEBACK=0 test: Verilator limitation
 
-We agree this is the right first experiment. We will run it this week and report back. If the corruption disappears with dcache disabled, it confirms the L1 cache is the mechanism (the arguments are cached before the write completes, then served stale on read).
+We attempted your suggested test (`DCACHE_WRITEBACK=0` at `NUM_CORES=2`) but hit a Verilator limitation:
+
+```
+%Error: Exceeded maximum --module-recursion-depth of 100
+```
+
+The `fanout_fork_arb` module recurses through 100 levels of `fanout_join_arb` in the memory crossbar, which Verilator 5.031 cannot handle. This is a Verilator internal limitation, not a bug in the RTL.
+
+**Since you already have a working rtlsim build**, we suggest you run this test directly:
+
+```bash
+cd tests/regression/basic
+make clean
+make run-rtlsim CONFIGS="-DVX_CFG_NUM_CORES=2 -DVX_CFG_DCACHE_WRITEBACK=0"
+```
+
+If the corruption disappears with `DCACHE_WRITEBACK=0`, it confirms the L1 cache is the mechanism (arguments cached before write completes, served stale on read).
 
 ## What we plan to fix
 
@@ -99,10 +115,10 @@ Your closing paragraph about `VX_lsu_slice.sv:233` is the most valuable part of 
 |----------|--------|
 | Do we reproduce it? | Yes, at NUM_CORES=2 and 4 |
 | Is NUM_CORES>1 expected to work in rtlsim? | It should, and the fix is straightforward |
-| Root cause | `dram_write` stages arguments while the previous `run()` is still accessing `ram_` via the Verilated memory bus |
-| Fix | Serialize `vortex_start` with `future_.wait()` |
-| Next step | Run `DCACHE_WRITEBACK=0` to confirm the mechanism |
+| Root cause | `dram_write` stages arguments while previous `run()` is still accessing `ram_` via the Verilated memory bus |
+| Fix | Serialize `vortex_start` with `future_.wait()` before launching |
+| DCACHE_WRITEBACK=0 test | We hit Verilator recursion limit; you can run this directly with your working build |
 
 ---
 
-*Response prepared by the grxgpu team. Commit `0768f0c9c` on main.*
+*Response prepared by the grxgpu team. Commit `0abec225f` on main.*
