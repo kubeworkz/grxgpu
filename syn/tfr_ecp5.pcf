@@ -1,0 +1,4 @@
+# Minimal PCF for TFR synthesis — no external I/O pins
+# The TFR is a pure combinational+registered compute block
+# with no I/O ports in the synthesizable wrapper.
+# This file intentionally has no pin assignments.
