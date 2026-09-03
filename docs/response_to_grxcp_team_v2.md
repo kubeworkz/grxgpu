@@ -55,12 +55,11 @@ This explains everything:
 
 You're on 5.020, we're on 5.031. The recursion difference is a tool version issue, not an RTL bug. We will try 5.020 or adjust the recursion limit.
 
-## What We Will Do
+## What We Did
 
-1. **Apply the `Processor::run()` fix** — thirteen lines in `sim/rtlsim/processor.cpp`
-2. **Take the `vortex_start` serialization fix** — closes a real race, worth having
-3. **Try Verilator 5.020** — or adjust recursion limit in 5.031
-4. **Re-run multi-core tests** — at NUM_CORES=2 and NUM_CORES=4
+1. **Applied the `Processor::run()` fix** — moved drain loop after the start pulse in `sim/rtlsim/processor.cpp`
+2. **Took the `vortex_start` serialization fix** — `future_.wait()` before new async launch
+3. **Committed as `3d8785f11`** — pushed to `kubeworkz/grxgpu`
 
 ## Summary
 
@@ -69,8 +68,23 @@ You're on 5.020, we're on 5.031. The recursion difference is a tool version issu
 | Is DCACHE_WRITEBACK the mechanism? | **No** — it's already 0 for multi-core |
 | Does `vortex_start` serialization fix it? | **No** — but it closes a real race, worth taking |
 | What is the actual bug? | `Processor::run()` ends frame on wrong edge |
-| How many lines to fix? | **13 lines** in `sim/rtlsim/processor.cpp` |
+| How many lines to fix? | **9 lines** moved in `sim/rtlsim/processor.cpp` |
 | Does the fix pass at 4 cores? | **Yes** — `test_grxblas` passes at 4 cores |
+
+## Critical Correction: Drain Placement
+
+Your follow-up revealed that our initial drain placement (before the start pulse) was wrong:
+
+| Drain placement | sgemm_shape ×8 | test_grxblas 4-core |
+|-----------------|----------------|--------------------|
+| Before start pulse (our 506e21321) | 7/8, launch 0 fails | aborts — VX_lsu_slice.sv:233 |
+| **After start pulse (your fix)** | **8/8** | **PASSED** |
+
+The drain must come **after** the start pulse, not before. Draining before the pulse consumes the reset frame's work and breaks launch 0 — the one launch that everything downstream depends on. Your observation that `busy_ticks=1` on every launch means the frame executes in the *next* call is the key diagnostic.
+
+We have applied your corrected placement (commit `3d8785f11`) and pushed to `kubeworkz/grxgpu`. We cannot verify locally because our Verilator 5.031 hits the recursion depth limit at `NUM_CORES=2+` — this is a tool version issue, not an RTL bug.
+
+The `vortex_start` serialization fix (`future_.wait()`) stays — your measurement that `std::async` assignment doesn't serialize confirms it closes a real race window.
 
 ---
 
