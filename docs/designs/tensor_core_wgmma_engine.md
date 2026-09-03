@@ -242,7 +242,136 @@ structs and tile-geometry templates; `sw/runtime/include/tensor_sp.h` and
 
 ---
 
-## 7. Proposed but not yet implemented
+## 7. TGM: Self-pipelining tensor FSM (Phase 2)
+
+The TGM (Tensor Generalized Matmul) instruction replaces the software
+K-loop with a single hardware instruction that drives the DXA fetch,
+barrier synchronization, WGMMA compute, and accumulator writeback
+entirely within the TCU's FSM — eliminating per-iteration instruction
+fetch, decode, and branch overhead.
+
+### 7.1 Instruction encoding
+
+TGM is an R-type instruction (`opcode=0x0B`, `funct3=3`, `funct7=2`)
+routed to the TCU. It carries:
+
+| Field | Source | Meaning |
+|-------|--------|---------|
+| `rs1` (x10) | kernel | A tile descriptor (smem offset + ldm) |
+| `rs2` (x11) | kernel | B tile descriptor (smem offset + ldm) |
+| `a2` (x12) | kernel | K_END — number of K-tiles |
+| `rd` (f0-f7) | FSM | Accumulator fragment (8 fp32 registers) |
+
+Tile row/col are derived by the FSM from the CTA's `block_idx` CSRs,
+matching the kernel's own tile-row/col computation. The format is fixed
+to the WGMMA context: fp16→fp32, 8 C/D registers, A from smem.
+
+### 7.2 FSM state machine
+
+```
+  IDLE ──► FETCH ──► WAIT_DXA ──► COMPUTE ──► ADVANCE ──┐
+                ▲                                         │
+                └─────────────────────────────────────────┘
+                                                     │
+                                                   DONE
+```
+
+- **IDLE**: Pops a TGM trace from the input queue, initializes fragC to
+  zero, computes `stage_stride_bytes` for double-buffering.
+- **FETCH**: Issues a DXA pair (A+B) for the current K-tile into the
+  current smem stage. Arms a barrier event for completion.
+- **WAIT_DXA**: Polls the barrier phase; transitions to COMPUTE when the
+  DXA completes.
+- **COMPUTE**: Executes `k_steps × nrc` MMA micro-ops (1 setup + 8 compute
+  for WGMMA_NRC=8), reading A/B from smem via `load_lmem_word_direct`
+  and accumulating into `fragC`.
+- **ADVANCE**: Toggles the double-buffer stage, increments `k_current`,
+  and optionally issues a DXA prefetch for the next K-tile.
+- **DONE**: Writes `fragC` to the warp's f0-f7 registers via
+  `dtm_set_freg_lane`, commits the trace, and returns to IDLE.
+
+### 7.3 Double-buffer smem staging
+
+The FSM uses two smem stages (allocated by `main.cpp` when
+`WGMMA_DXA_DOUBLE_BUFFER` is defined). The stage stride is computed
+from the WMMA config to match `wgmma_dbuf_stride_elems` in `common.h`:
+
+```
+stage_elems = cta_M × tileK + tileK × xtileN
+stage_bytes = stage_elems × elem_bytes
+stride = ROUND_UP(stage_bytes, sweep_bytes) + bank_shift
+```
+
+where `sweep_bytes = LMEM_NUM_BANKS × (XLEN/8)` and `bank_shift` avoids
+smem bank conflicts between stages. The FSM stores `stage_stride_bytes`
+in `TgmFsmState` and applies it to:
+
+- DXA `smem_addr` / `smem_addr_b` in FETCH and ADVANCE
+- `lmem_desc_` base in the COMPUTE setup uop (via stage-offset
+  descriptors)
+
+On **real hardware**, this enables the DXA to prefetch K+1 into stage
+`nxt` while the TCU computes K from stage `cur`. In SimX, DXA and
+compute are serialized per tick, so no cycle improvement is observed.
+
+### 7.4 Instruction count reduction
+
+The TGM instruction replaces the entire software K-loop. At K=512
+(64 K-tiles), the instruction count drops from 483,008 (software) to
+7,168 (TGM) — a **67× reduction**. The remaining instructions are
+kernel setup, the TGM dispatch, and the store.
+
+| Metric | Software K-loop | TGM FSM | Ratio |
+|--------|----------------|---------|-------|
+| Instructions | 483,008 | 7,168 | **67× fewer** |
+| Cycles (SimX) | 275,676 | 1,050,304 | 3.85× slower |
+| IPC | 1.752 | 0.007 | |
+
+The cycle regression in SimX is expected: the single-threaded FSM
+serializes all 4 warps × K-tiles through one engine, while the software
+K-loop has 4 warps in flight with instruction-level parallelism. On real
+hardware, the DXA prefetch overlap would recover most of this gap.
+
+### 7.5 Correctness verification
+
+All K sizes pass with 64×64 fp16 GEMM on G100 (SimX, 16 cores):
+
+| K | Status | Cycles | IPC |
+|---|--------|--------|-----|
+| 16 | ✅ PASSED | 65,408 | 0.110 |
+| 64 | ✅ PASSED | 133,024 | 0.054 |
+| 128 | ✅ PASSED | 290,332 | 0.025 |
+| 256 | ✅ PASSED | 534,596 | 0.013 |
+| 512 | ✅ PASSED | 1,050,304 | 0.007 |
+
+### 7.6 Config mismatch pitfall
+
+When rebuilding the simx runtime with `rm -rf sim/simx/obj && make`,
+the gen_config derives `VX_CFG_NUM_TCU_BLOCKS` from
+`VX_CFG_ISSUE_WIDTH` via the TOML expression `up($VX_CFG_NUM_WARPS / 16)`,
+which evaluates to 1 for 4 warps. The test kernel's Makefile overrides
+this to 4 via `-DVX_CFG_NUM_TCU_BLOCKS=4`. This mismatch causes the
+TGM FSM to only process 1 of 4 TCU blocks, producing incorrect results.
+
+**Fix**: always pass matching CONFIGS when rebuilding the runtime:
+```bash
+make -j$(nproc) CONFIGS="-DVX_CFG_NUM_THREADS=4 -DVX_CFG_NUM_WARPS=4   -DVX_CFG_ISSUE_WIDTH=4 -DVX_CFG_NUM_TCU_BLOCKS=4"
+```
+
+### 7.7 Known limitations and next steps
+
+1. **SimX serialization**: DXA and compute are serialized per tick. True
+   pipeline overlap requires RTL simulation (Verilator) or FPGA.
+2. **Per-warp FSM**: The current FSM is single-instance — one warp at a
+   time. Per-warp FSM state would allow multiple warps to overlap.
+3. **Barrier phase tracking**: The FSM reuses a single barrier per warp
+   across K-tiles. Phase tracking must be correct to avoid stale
+   completion signals.
+4. **K>16 correctness bug** (historical): Fixed by the B-first DXA
+   dispatch ordering and barrier phase tracking in earlier sessions.
+
+
+## 8. Proposed but not yet implemented
 
 The following were specified across the source proposals and remain open;
 they are recorded so the intent is preserved.
@@ -290,7 +419,7 @@ deleted); and the proposed SimX file/class splits (`TcuTbufA`+`TcuSharedB`,
 
 ---
 
-## 8. Source proposals
+## 9. Source proposals
 
 This design consolidates and supersedes the following proposals (now
 removed from `docs/proposals/`): `wgmma_simx_v3_proposal.md`,
