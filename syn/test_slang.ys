@@ -1,0 +1,31 @@
+plugin -i slang
+
+read_slang \
+    /home/ubuntu/grxgpu/hw/rtl/VX_gpu_pkg.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_pkg.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_abuf.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_bbuf.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_tbuf.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_meta.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_agu.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_mx_scale.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_sp_mux.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_dsm.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_lockstep.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_uops.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_wgmma.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_core.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_unit.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr*.sv \
+    --top VX_tcu_core \
+    -D SYNTHESIS \
+    -D VX_CFG_TCU_WGMMA_ENABLE \
+    -D VX_CFG_TCU_SPARSE_ENABLE \
+    -D VX_CFG_XLEN=32 \
+    -I /home/ubuntu/grxgpu/hw/rtl \
+    -I /home/ubuntu/grxgpu/hw/rtl/tcu \
+    -I /home/ubuntu/grxgpu/hw/rtl/tcu/tfr \
+    -I /home/ubuntu/grxgpu/hw/rtl/cache \
+    2>&1 | grep -c "error:"
+hierarchy -top VX_tcu_core
+stat
