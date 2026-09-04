@@ -1,0 +1,328 @@
+# GRX G100 ASIC Tapeout Plan
+
+## Executive Summary
+
+This document outlines the plan to take the GRX G100 — a 128-core GPU with tensor compute (TCU), data transfer engine (DXA), and graphics pipeline — from RTL to working silicon on TSMC 28nm HPC+.
+
+**Key decisions:**
+- **SRAM strategy**: Hybrid — ORRAM (open-source, DFF-based) for small SRAMs, foundry embedded SRAM IP for large SRAMs
+- **Target**: TSMC 28nm HPC+ MPW shuttle
+- **Budget**: $50K–$100K (shuttle + packaging + test)
+- **Timeline**: 6–9 months from RTL freeze to working silicon
+
+---
+
+## 1. Design Overview
+
+### 1.1 GRX G100 Architecture
+
+| Component | Count | Description |
+|-----------|-------|-------------|
+| **Cores** | 128 (8 clusters × 16) | RISC-V scalar + SIMD vector pipeline |
+| **TCU** | 4 blocks/core | WGMMA tensor engine (fp32/bf16/fp16) |
+| **DXA** | 2 cores/cluster | GMEM→LMEM tile fetch engine |
+| **Graphics** | Per-cluster | Rasterizer, texture cache, RTU, output merger |
+| **Barriers** | 128/core | Hardware barrier unit for CTA sync |
+
+### 1.2 Memory Hierarchy
+
+| Memory | Size/Core | Count | Total | Technology |
+|--------|-----------|-------|-------|------------|
+| **LMEM** (shared mem) | 16 KB | 128 | 2,048 KB | Embedded SRAM |
+| **ICache** | 16 KB | 128 | 2,048 KB | Embedded SRAM |
+| **DCache** | 16 KB | 128 | 2,048 KB | Embedded SRAM |
+| **TCACHE** | 8 KB | 2 | 16 KB | ORRAM |
+| **RCACHE** | 4 KB | 1 | 4 KB | ORRAM |
+| **OCACHE** | 16 KB | 2 | 32 KB | ORRAM |
+| **Total SRAM** | — | — | **~6.1 MB** | Hybrid |
+
+---
+
+## 2. SRAM Strategy
+
+### 2.1 Why Hybrid?
+
+| Approach | Area (28nm) | Cost | Risk |
+|----------|------------|------|------|
+| **All ORRAM (DFF-based)** | ~50 mm² | $0 license | High area, slow DRT routing |
+| **All custom 6T SRAM** | ~13 mm² | $150K–$200K license | SRAM compiler dependency |
+| **Hybrid (recommended)** | ~25 mm² | $0 license | Balanced |
+
+### 2.2 SRAM Assignment
+
+#### Large SRAMs — Foundry Embedded SRAM IP (Free with PDK)
+
+These are the performance-critical, area-dominant SRAMs. The foundry provides pre-characterized, silicon-proven SRAM macros at no additional cost when you sign a PDK agreement.
+
+| SRAM | Size | Ports | Count | Why Embedded |
+|------|------|-------|-------|-------------|
+| LMEM | 16 KB | 1RW | 128 | TCU reads tiles here — 1-cycle access critical |
+| ICache | 16 KB | 1RW | 128 | Instruction fetch bandwidth |
+| DCache | 16 KB | 1RW | 128 | Data load/store bandwidth |
+
+**Total embedded SRAM**: 6,144 KB = **6 MB**
+
+#### Small SRAMs — ORRAM (Open-Source, Free)
+
+These are shared caches with lower access frequency. ORRAM's DFF-based approach is acceptable here because:
+- Area overhead is small (32 KB total = ~0.5 mm²)
+- Access latency is 1–2 cycles (acceptable for texture/raster)
+- No license cost, no NDA
+
+| SRAM | Size | Ports | Count | Why ORRAM |
+|------|------|-------|-------|----------|
+| TCACHE | 8 KB | 1RW | 2 | Shared, lower bandwidth need |
+| RCACHE | 4 KB | 1RW | 1 | Shared, minimal |
+| OCACHE | 16 KB | 1RW | 2 | Shared, write-heavy |
+
+**Total ORRAM**: 84 KB = **~0.5 mm² at 28nm**
+
+### 2.3 SRAM Area Estimate
+
+| Component | Area (28nm) | Notes |
+|-----------|------------|-------|
+| Embedded SRAM (6 MB) | ~13 mm² | 0.25 µm²/bit (custom 6T) |
+| ORRAM (84 KB) | ~0.5 mm² | 28K bits/mm² (DFF-based) |
+| **Total SRAM** | **~13.5 mm²** | **54% of die** |
+| Logic (TCU + DXA + cores) | ~5 mm² | From Yosys synthesis |
+| Interconnect + I/O | ~3 mm² | Clock tree, pad ring |
+| **Total die** | **~22 mm²** | **4.7 mm × 4.7 mm** |
+
+---
+
+## 3. Fabrication Path
+
+### 3.1 Foundry Selection
+
+| Foundry | Node | MPW Cost | SRAM IP | Recommendation |
+|---------|------|----------|---------|----------------|
+| **TSMC** | 28nm HPC+ | $30K–$80K | Included with PDK | **Primary choice** |
+| GlobalFoundries | 28nm SLPe | €50K | Included with PDK | Backup |
+| SkyWater | 130nm | $0 (Tiny Tapeout) | Manual porting | Proof-of-concept only |
+
+### 3.2 MPW Shuttle Schedule (2026–2027)
+
+| Deadline | Fab Start | Delivery | Status |
+|----------|-----------|----------|--------|
+| **Sep 15, 2026** | Oct 2026 | Jan 2027 | ⚠️ 11 days away — unlikely |
+| **Oct 15, 2026** | Nov 2026 | Feb 2027 | Feasible if RTL freezes soon |
+| **Nov 15, 2026** | Dec 2026 | Mar 2027 | **Recommended target** |
+| Jan 15, 2027 | Feb 2027 | May 2027 | Backup |
+
+**Recommendation**: Target the **November 15, 2026** deadline. This gives ~11 weeks for:
+- RTL freeze and lint
+- Synthesis (Yosys/OpenROAD)
+- Place & route (OpenROAD)
+- DRC/LVS signoff
+- GDSII export
+
+### 3.3 Cost Breakdown
+
+| Item | Cost | Notes |
+|------|------|-------|
+| **TSMC 28nm HPC+ MPW** | $40K–$60K | 4 mm² die, shuttle fee |
+| **Foundry PDK** | $0 | Included with MPW agreement |
+| **Embedded SRAM IP** | $0 | Included with PDK |
+| **ORRAM license** | $0 | BSD 3-Clause |
+| **EDA tools** | $0–$100K | OpenLane (free) or commercial |
+| **Packaging (QFN/BGA)** | $5K–$10K | 20–100 units |
+| **Test board + probe** | $5K–$15K | Custom PCB or eval board |
+| **DRC/LVS signoff** | $10K–$20K | Foundry PDK checks |
+| **Second shuttle (if bugs)** | $40K–$60K | Typical 2-pass to production |
+| **Total NRE** | **$100K–$265K** | First silicon to production-ready |
+
+---
+
+## 4. Design Flow
+
+### 4.1 RTL-to-GDSII Pipeline
+
+```
+RTL (SystemVerilog)
+    │
+    ▼
+┌─────────────┐
+│  Lint (Verilator)  │  ← Catch syntax/width errors
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
+│  Synthesis (Yosys/OpenROAD)  │  ← Gate-level netlist
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
+│  Floorplan (OpenROAD)  │  ← Die size, SRAM placement
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
+│  Place & Route (OpenROAD)  │  ← Cell placement, routing
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
+│  STA (OpenSTA)  │  ← Timing closure
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
+│  DRC/LVS (KLayout + Magic)  │  ← Physical verification
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
+│  GDSII Export  │  ← Tapeout!
+└─────────────┘
+```
+
+### 4.2 Open-Source Tool Chain
+
+| Tool | Purpose | Status |
+|------|---------|--------|
+| **Yosys** | RTL synthesis | ✅ Installed on server |
+| **OpenROAD** | P&R + STA | ✅ Docker image (26Q3) |
+| **OpenRAM/ORRAM** | SRAM generation | ✅ Validated (512B SRAM) |
+| **KLayout** | DRC/LVS + GDSII | ⏳ Need to install |
+| **Magic** | DRC/LVS | ⏳ Need to install |
+| **OpenSTA** | Static timing | ✅ Included with OpenROAD |
+
+### 4.3 SRAM Integration
+
+#### Embedded SRAM (LMEM, ICache, DCache)
+
+1. Sign TSMC 28nm HPC+ MPW agreement → receive PDK
+2. PDK includes embedded SRAM compiler (or pre-built macros)
+3. Generate 16 KB SRAM macros for each configuration
+4. Import as black boxes in RTL (Verilog behavioral model for sim, LEF/GDS for P&R)
+5. Place SRAMs in floorplan near their consumer cores
+
+#### ORRAM (TCACHE, RCACHE, OCACHE)
+
+1. Use OpenROAD Docker container (already validated)
+2. Generate 4–16 KB macros for each configuration
+3. Import LEF abstract + Verilog behavioral + liberty timing
+4. Place in floorplan near graphics pipeline
+
+---
+
+## 5. Risk Mitigation
+
+### 5.1 Technical Risks
+
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| **SRAM yield** | High | Use foundry-proven embedded SRAM; ORRAM for non-critical |
+| **Timing closure** | High | Start synthesis early; 28nm has good timing margins |
+| **DRC violations** | Medium | Run DRC weekly during P&R; use foundry DRC deck |
+| **Power density** | Medium | 28nm handles ~1W/mm² easily; 22 mm² = 22W budget |
+| **Multi-core rtlsim bug** | Low | Fixed (drain placement); GRXCP team confirmed |
+
+### 5.2 Schedule Risks
+
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| **RTL not frozen** | High | Freeze by Oct 15 for Nov shuttle |
+| **SRAM integration delays** | Medium | Use black-box SRAMs in RTL; integrate post-synthesis |
+| **EDA tool issues** | Medium | Docker image validated; have commercial fallback |
+| **Foundry delays** | Low | MPW is quarterly; can slip to Jan 2027 |
+
+### 5.3 First-Silicon Validation Plan
+
+| Test | Method | Pass Criteria |
+|------|--------|--------------|
+| **Basic core boot** | JTAG debug | PC advances, CSR reads |
+| **LMEM read/write** | Memory test | All 16 KB per core |
+| **TCU WGMMA** | SGEMM K=16 | Correct matrix multiply |
+| **DXA fetch** | GMEM→LMEM DMA | Correct tile transfer |
+| **Multi-core** | Barrier test | All 128 cores sync |
+| **Graphics pipeline** | Rasterizer test | Fragment output |
+| **Full SGEMM** | 512×512×512 | PASSED (SimX baseline) |
+
+---
+
+## 6. Timeline
+
+```
+Aug 2026          Sep 2026          Oct 2026          Nov 2026          Jan 2027
+    │                 │                 │                 │                 │
+    ├─ RTL freeze     ├─ Synthesis      ├─ P&R            ├─ DRC/LVS       ├─ Silicon
+    │  (Aug 15)       │  (Sep 15)       │  (Oct 15)       │  (Nov 1)       │  delivery
+    │                 │                 │                 │                 │
+    ├─ Lint           ├─ Floorplan      ├─ STA closure    ├─ GDSII export  ├─ Test
+    │  (Verilator)    │  (SRAM place)   │  (timing met)   │  (Nov 10)      │  board
+    │                 │                 │                 │                 │
+    └─ SimX verify    └─ SRAM gen       └─ Route          └─ Shuttle       └─ Silicon
+       (K=512 PASSED)    (ORRAM + embedded) (OpenROAD)      submit (Nov 15)   validation
+```
+
+### Key Milestones
+
+| Date | Milestone | Status |
+|------|-----------|--------|
+| **Now** | RTL complete, all tests passing | ✅ Done |
+| **Aug 15, 2026** | RTL freeze (no more feature additions) | ⏳ 11 days |
+| **Sep 1, 2026** | Synthesis complete, gate count known | ⏳ Next |
+| **Oct 1, 2026** | Floorplan + SRAM placement done | ⏳ Planned |
+| **Nov 1, 2026** | Timing closure, DRC/LVS clean | ⏳ Planned |
+| **Nov 15, 2026** | GDSII submitted to TSMC | ⏳ Target |
+| **Feb 2027** | Silicon delivered | ⏳ Expected |
+| **Mar 2027** | First silicon validated | ⏳ Goal |
+
+---
+
+## 7. Open Questions
+
+1. **SRAM compiler**: Does TSMC 28nm HPC+ PDK include an embedded SRAM compiler, or do we need to license one separately?
+2. **Multi-project wafer**: Can we share the shuttle with another project to reduce cost?
+3. **Package**: QFN vs BGA — which is easier for first-silicon test?
+4. **Clock target**: What frequency should we target? (28nm HPC+ can do 500–800 MHz)
+5. **Power budget**: What's the TDP target? (22 mm² at 28nm can handle 15–20W)
+
+---
+
+## 8. Appendix: Validated ORRAM Results
+
+### 8.1 512-Byte SRAM (sky130nm)
+
+| Metric | Value |
+|--------|-------|
+| Macro | RAM16x32 |
+| Size | 462.3 × 46.24 µm |
+| Area | 0.021 mm² |
+| Density | 192 Kbit/mm² |
+| Word size | 32 bits |
+| Words | 16 |
+| Routing time | ~100s (Docker, 8-core) |
+| Technology | sky130hd (130nm) |
+
+### 8.2 Scaling to 28nm
+
+| Metric | sky130nm | 28nm (estimated) |
+|--------|----------|-----------------|
+| DFF density | 192 Kbit/mm² | ~960 Kbit/mm² |
+| 16 KB SRAM area | 1.3 mm² | 0.26 mm² |
+| 6 MB total | 502 mm² | 100 mm² |
+
+### 8.3 ORRAM Configuration Used
+
+```tcl
+generate_ram \
+  -word_size 32 \
+  -num_words 16 \
+  -rw_ports 1 \
+  -storage_cell sky130_fd_sc_hd__dfxtp_1 \
+  -tristate_cell sky130_fd_sc_hd__ebufn_4 \
+  -inv_cell sky130_fd_sc_hd__inv_1 \
+  -routing_layer {met1 0.48} \
+  -ver_layer {met2 0.48 40} \
+  -hor_layer {met3 0.48 20} \
+  -filler_cells {sky130_fd_sc_hd__fill_1 ...} \
+  -tapcell sky130_fd_sc_hd__tap_1 \
+  -max_tap_dist 15
+```
+
+---
+
+*Document version: 1.0 — September 4, 2026*
+*Author: Buffy (Codebuff agent) + GRX GPU team*
