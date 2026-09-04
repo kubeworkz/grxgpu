@@ -1,0 +1,69 @@
+# Yosys synthesis script for GRXGPU G100 TCU (Tensor Core Unit)
+# Target: TCU block including WGMMA, FEDP/TFR, tile buffers
+
+# Read configuration headers (generated from VX_config.toml)
+read_verilog -nolib -I${ROOT}/hw -define SYNTHESIS \
+  ${ROOT}/hw/VX_config.vh \
+  ${ROOT}/hw/VX_types.vh
+
+# Read packages
+read_verilog -nolib -I${ROOT}/hw -defer \
+  ${ROOT}/hw/rtl/VX_gpu_pkg.sv \
+  ${ROOT}/hw/rtl/tcu/VX_tcu_pkg.sv
+
+# Read TCU RTL files
+read_verilog -nolib -I${ROOT}/hw \
+  ${ROOT}/hw/rtl/tcu/VX_tcu_unit.sv \
+  ${ROOT}/hw/rtl/tcu/VX_tcu_core.sv \
+  ${ROOT}/hw/rtl/tcu/VX_tcu_wgmma.sv \
+  ${ROOT}/hw/rtl/tcu/VX_tcu_uops.sv \
+  ${ROOT}/hw/rtl/tcu/VX_tcu_tbuf.sv \
+  ${ROOT}/hw/rtl/tcu/VX_tcu_abuf.sv \
+  ${ROOT}/hw/rtl/tcu/VX_tcu_bbuf.sv \
+  ${ROOT}/hw/rtl/tcu/VX_tcu_agu.sv \
+  ${ROOT}/hw/rtl/tcu/VX_tcu_dsm.sv \
+  ${ROOT}/hw/rtl/tcu/VX_tcu_meta.sv \
+  ${ROOT}/hw/rtl/tcu/VX_tcu_mx_scale.sv \
+  ${ROOT}/hw/rtl/tcu/VX_tcu_sp_mux.sv \
+  ${ROOT}/hw/rtl/tcu/VX_tcu_lockstep.sv
+
+# Read TFR (Tensor Floating-point Reduction) sub-modules
+read_verilog -nolib -I${ROOT}/hw \
+  ${ROOT}/hw/rtl/tcu/tfr/VX_tcu_fedp_tfr.sv \
+  ${ROOT}/hw/rtl/tcu/tfr/VX_tcu_tfr_acc.sv \
+  ${ROOT}/hw/rtl/tcu/tfr/VX_tcu_tfr_align.sv \
+  ${ROOT}/hw/rtl/tcu/tfr/VX_tcu_tfr_classifier.sv \
+  ${ROOT}/hw/rtl/tcu/tfr/VX_tcu_tfr_exc_reduce.sv \
+  ${ROOT}/hw/rtl/tcu/tfr/VX_tcu_tfr_lane_mask.sv \
+  ${ROOT}/hw/rtl/tcu/tfr/VX_tcu_tfr_max_exp.sv \
+  ${ROOT}/hw/rtl/tcu/tfr/VX_tcu_tfr_mul_f16.sv \
+  ${ROOT}/hw/rtl/tcu/tfr/VX_tcu_tfr_mul_f4.sv \
+  ${ROOT}/hw/rtl/tcu/tfr/VX_tcu_tfr_mul_f8.sv \
+  ${ROOT}/hw/rtl/tcu/tfr/VX_tcu_tfr_mul_i4.sv \
+  ${ROOT}/hw/rtl/tcu/tfr/VX_tcu_tfr_mul_i8.sv \
+  ${ROOT}/hw/rtl/tcu/tfr/VX_tcu_tfr_mul_join.sv \
+  ${ROOT}/hw/rtl/tcu/tfr/VX_tcu_tfr_norm_round.sv \
+  ${ROOT}/hw/rtl/tcu/tfr/VX_tcu_tfr_pipe_register.sv \
+  ${ROOT}/hw/rtl/tcu/tfr/VX_tcu_tfr_shared_mul.sv \
+  ${ROOT}/hw/rtl/tcu/tfr/VX_tcu_tfr_wmul.sv
+
+# Read FPU sub-modules (needed by TFR multipliers)
+# Check if these exist
+# read_verilog -nolib -I${ROOT}/hw ...
+
+# Hierarchy check
+hierarchy -top VX_tcu_unit -check
+
+# Process: synthesis + optimization
+synth -flatten -run begin:fine
+
+# Print statistics
+stat
+
+# Write netlist
+write_verilog -noattr ${OUTDIR}/tcu_synth.v
+write_json ${OUTDIR}/tcu_synth.json
+
+# Report
+echo "=== Synthesis complete ==="
+echo "Check ${OUTDIR}/tcu_synth.json for area/timing data"

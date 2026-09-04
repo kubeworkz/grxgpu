@@ -1,0 +1,9 @@
+read_verilog -sv /tmp/tcu_flat_v2.sv
+read_verilog stubs.sv stubs_tcu.sv
+hierarchy -top VX_tcu_core
+proc
+opt
+synth_ecp5 -top VX_tcu_core
+stat
+write_verilog -noexpr out/tcu_ecp5.v
+write_json out/tcu_ecp5.json

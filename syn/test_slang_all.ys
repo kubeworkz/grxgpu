@@ -1,0 +1,51 @@
+plugin -i slang
+
+read_slang /home/ubuntu/grxgpu/syn/interfaces.sv \
+    /home/ubuntu/grxgpu/hw/rtl/VX_gpu_pkg.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_pkg.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_abuf.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_bbuf.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_tbuf.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_meta.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_agu.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_mx_scale.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_sp_mux.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_dsm.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_lockstep.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_uops.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_wgmma.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_core.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_unit.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_fedp_tfr.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_acc.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_align.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_classifier.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_exc_reduce.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_lane_mask.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_max_exp.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_mul_f16.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_mul_f4.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_mul_f8.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_mul_i4.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_mul_i8.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_mul_join.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_norm_round.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_pipe_register.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_shared_mul.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_wmul.sv \
+    --top VX_tcu_core \
+    --allow-use-before-declare \
+    --ignore-unknown-modules \
+    --compat-mode \
+    --error-limit 0 \
+    -D SYNTHESIS \
+    -D VX_CFG_TCU_WGMMA_ENABLE \
+    -D VX_CFG_TCU_SPARSE_ENABLE \
+    -D VX_CFG_TCU_MX_ENABLE \
+    -D VX_CFG_TCU_FP16_ENABLE \
+    -D VX_CFG_XLEN=32 \
+    -I /home/ubuntu/grxgpu/hw/rtl \
+    -I /home/ubuntu/grxgpu/hw/rtl/tcu \
+    -I /home/ubuntu/grxgpu/hw/rtl/tcu/tfr \
+    -I /home/ubuntu/grxgpu/hw/rtl/cache
+stat
