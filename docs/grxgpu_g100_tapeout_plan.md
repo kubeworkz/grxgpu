@@ -139,12 +139,24 @@ Decomposition takeaways: **L2 control is tiny** (~0.25 mm² shared; the data arr
 | 8→4 | 3,853 µm² |
 | 4→2 | 1,936 µm² |
 
+| Port sweep at DW=512 (flat, RR) | Area | per-in-per-bit |
+|--------------------------------|------|----------------|
+| 2:1 | 974 µm² | 0.95 µm² |
+| 4:1 | 2,921 µm² | 1.43 µm² |
+| 8:1 | 6,797 µm² | 1.66 µm² |
+| 16:1 | 14,019 µm² | 1.71 µm² |
+| 24:1 | 20,076 µm² | 1.63 µm² |
+| 32:1 | 27,778 µm² | 1.70 µm² |
+| 64:1 | 56,870 µm² | 1.74 µm² |
+
 Key scaling findings:
 - **Area grows superlinearly with ports** — the 8:1→16:1 step is 4.2× (not 2×). Per-bit-per-input jumps from 1.9 to 4.0 µm² at the 16-port threshold, then saturates ~4.8 µm² at 64 ports. The grant/onehot logic dominates at low port counts; the data MUX dominates beyond ~16 inputs.
 - **Width scales linearly** — ~58–70 µm² per data bit at fixed ports; total arb area ≈ 60 µm²/bit × DW at 16:1.
 - **Arbiter flavor is nearly free**: priority vs round-robin is −3%, sticky +4%, output buffering +11%. Pick priority (used at the L2) with no area penalty.
 - **Tree arbitration is a *penalty*, not a win — earlier claim corrected (Sept 2026)**. Direct measurement (`syn/arb_area_sweep.sh` with `MAX_FANOUT` passthrough) shows the existing fanout tree is **worse** than flat: at 64:1 the default `MAX_FANOUT=8` self-slice costs 19,538 µm² vs **7,879 µm² flat (−60%)**; deeper trees get worse (69.7K µm² at `MAX_FANOUT=2`). Each tree slice adds a hardcoded 3-deep elastic buffer and a join arb, and the duplicated arbitration logic costs more than the flat mux saves. The tree trades area for timing (registered slices shorten the critical path) — for area it is a penalty.
 - **Measured cluster-level effect is small**: re-synthesizing the full 16-socket fabric with `MAX_FANOUT=0` (flat) gives **11,428,017 µm² vs 11,698,076 µm² tree — only −2.3%**. Most cluster arbiters (L2 32→16, socket 2:1) have `NUM_REQS ≤ 2`, which never triggers the fanout path — they are already flat. Only the large paramod instances (e.g. 155K µm² L2 arb) were tree-structured, and flattening them shaves 0.27 mm² off the 11.7 mm² fabric. Net: the arbitration network is still the cost center, but its area is dominated by *port count × data width* at the flat level, not by tree depth. Cheaper NoC topology (fewer ports, narrower paths) beats tree restructuring.
+- **At the cluster's real request width (DW=512) port scaling is LINEAR — there is no area knee** (`syn/arb_ports512_sweep.sh`). Per-input-per-bit is flat ~1.6–1.7 µm² from 8:1 to 64:1; the superlinear 16-port step seen at DW=64 (1.9→4.0 µm²/in/bit) is a grant/onehot artifact that vanishes once the data mux dominates. So port count is *not* the lever to attack at L2 widths — area ≈ 0.87 µm²/in/bit × NI × DW, a pure data-path cost.
+- **The L2 32→16 is already optimal — it is not a 32:1**. `NUM_REQS = CDIV(NI,NO) = 2`, so the L2 arb is 16 parallel 2:1 selectors (15,356 µm²), not a monolithic 32:1 (27,778 µm²) — it is already −45% vs the naive shape and costs just 1.7 µm²/in/bit × 32 × 512. Splitting to 2×16→8 keeps NUM_REQS=2 per output and nets zero (7,688×2 = 15,376 ≈ same). The genuine lever is **DATAW**: the largest cluster arb is an 8:1 × **1260-bit** slice (155K µm², elastic-buffered) — narrowing the request payload (route data outside arbitration, or split control/data planes) cuts more than any topology change.
 
 > **Scope notes:** (1) `VX_core` instantiates `VX_execute` → `VX_tcu_unit`/`VX_dxa_unit`, so the measured 434K µm²/core **includes** the TCU + DXA tensor logic (verified present in the 613K reference, absent from the stubbed BB runs — the orphan TCU module definitions Yosys drops contribute 0 cells). (2) The 8-cluster G100 row assumes no extra inter-cluster fabric (L3/NoC); add interconnect margin when sizing the full die.
 
