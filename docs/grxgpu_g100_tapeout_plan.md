@@ -105,6 +105,46 @@ Key finding: the shared 16-socket fabric (L2 control, cluster crossbars/arbiters
 
 Decomposition takeaways: **L2 control is tiny** (~0.25 mm² shared; the data arrays will add on top but the control logic is negligible). The cost center is the **arbitration network** — `VX_stream_arb` alone is ~5.6 mm², essentially all cluster-level. 76% of the fabric is shared cluster-level logic; only 24% scales linearly with socket count. For die area, the NoC topology and arbiter port counts matter far more than cache tuning.
 
+**Arbiter area scaling** — `VX_stream_arb` synthesized standalone (Nangate45, `syn/arb_area_sweep.sh`):
+
+| Ports (N:1, DW=64, RR) | Area | per-bit-per-input |
+|------------------------|------|-------------------|
+| 2:1 | 140 µm² | 1.09 µm² |
+| 4:1 | 419 µm² | 1.64 µm² |
+| 8:1 | 958 µm² | 1.87 µm² |
+| 16:1 | 4,055 µm² | 3.96 µm² |
+| 32:1 | 8,127 µm² | 3.97 µm² |
+| 64:1 | 19,538 µm² | 4.77 µm² |
+
+| Width (16:1, RR) | Area | per-bit |
+|------------------|------|---------|
+| 32 b | 2,225 µm² | 69.5 µm² |
+| 64 b | 4,055 µm² | 63.4 µm² |
+| 128 b | 7,715 µm² | 60.3 µm² |
+| 256 b | 15,036 µm² | 58.7 µm² |
+| 512 b | 29,676 µm² | 58.0 µm² |
+
+| Variant (16:1, DW=64) | Area | Δ vs baseline |
+|----------------------|------|---------------|
+| Round-robin | 4,055 µm² | — |
+| Priority (`"P"`) | 3,927 µm² | −3% |
+| Sticky | 4,233 µm² | +4% |
+| OUT_BUF=1 | 4,497 µm² | +11% |
+
+| Realistic L2 shape (32→16, DW=512) | Area |
+|-------------------------------------|------|
+| RR | 15,356 µm² |
+| Priority | 15,340 µm² |
+| 16→8 (half-width crossbar) | 7,688 µm² |
+| 8→4 | 3,853 µm² |
+| 4→2 | 1,936 µm² |
+
+Key scaling findings:
+- **Area grows superlinearly with ports** — the 8:1→16:1 step is 4.2× (not 2×). Per-bit-per-input jumps from 1.9 to 4.0 µm² at the 16-port threshold, then saturates ~4.8 µm² at 64 ports. The grant/onehot logic dominates at low port counts; the data MUX dominates beyond ~16 inputs.
+- **Width scales linearly** — ~58–70 µm² per data bit at fixed ports; total arb area ≈ 60 µm²/bit × DW at 16:1.
+- **Arbiter flavor is nearly free**: priority vs round-robin is −3%, sticky +4%, output buffering +11%. Pick priority (used at the L2) with no area penalty.
+- **Tree arbitration is the big lever**: a flat 64:1 arb costs 19,538 µm²; a 3-level 8:1 tree (8 × 8:1) costs 7,661 µm² — **−61%**. Even 2×32:1 is −17%. Since `VX_stream_arb` already self-slices at `MAX_FANOUT=8`, the cluster fabric's 5.6 mm² is partly tree-structured, but the L2 32→16 crossbar is still flat per output. Replacing the flat 32→16 L2 arb with a 2-level (4→2 then 16×) tree would cut the 15.4K µm² instance to ~8K, and a 3-level design roughly halves it again at the cost of one extra pipeline stage of latency.
+
 > **Scope notes:** (1) `VX_core` instantiates `VX_execute` → `VX_tcu_unit`/`VX_dxa_unit`, so the measured 434K µm²/core **includes** the TCU + DXA tensor logic (verified present in the 613K reference, absent from the stubbed BB runs — the orphan TCU module definitions Yosys drops contribute 0 cells). (2) The 8-cluster G100 row assumes no extra inter-cluster fabric (L3/NoC); add interconnect margin when sizing the full die.
 
 > **Process-node note:** Nangate45 is a **45 nm** library. Scaling to the 28 nm target **shrinks** area by (28/45)² ≈ **0.39×** (it does *not* grow 2.5× as previously stated).
