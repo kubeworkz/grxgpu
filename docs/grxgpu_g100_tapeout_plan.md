@@ -77,16 +77,33 @@ These are shared caches with lower access frequency. ORRAM's DFF-based approach 
 
 **Total ORRAM**: 84 KB = **~0.5 mm² at 28nm**
 
-### 2.3 SRAM Area Estimate
+### 2.3 Area Estimate
 
-| Component | Area (28nm) | Notes |
-|-----------|------------|-------|
-| Embedded SRAM (6 MB) | ~13 mm² | 0.25 µm²/bit (custom 6T) |
-| ORRAM (84 KB) | ~0.5 mm² | 28K bits/mm² (DFF-based) |
-| **Total SRAM** | **~13.5 mm²** | **54% of die** |
-| Logic (TCU + DXA + cores) | ~5 mm² | From Yosys synthesis |
-| Interconnect + I/O | ~3 mm² | Clock tree, pad ring |
-| **Total die** | **~22 mm²** | **4.7 mm × 4.7 mm** |
+**Logic area is now measured** via Yosys blackbox synthesis on the Nangate45 (45 nm) open-cell library (Sept 2026). The full 16-core cluster cannot be synthesized in one flat Yosys pass (sv2v inlines the interface hierarchy, so Yosys must re-derive 16 inlined cores single-threaded — it never finishes). The blackbox flow stubs `VX_core` in the source tree and synthesizes only the fabric, then recovers the core area by difference:
+
+| Measurement (Nangate45, RAM blackboxed) | Area | Cells |
+|------------------------------------------|------|-------|
+| 1-socket full design (core + fabric) | 613,610 µm² | 340K |
+| BB1 — 1-socket fabric, `VX_core` stubbed | 179,465 µm² | 84K |
+| **VX_core logic alone** (= full − BB1) | **434,146 µm²** | ~256K |
+| BB16 — 16-socket cluster fabric, cores stubbed | 11,698,076 µm² | 5.76M |
+| **16-core cluster total** (= BB16 + 16×core) | **18,644,409 µm²** | ~9.9M |
+
+Key finding: the shared 16-socket fabric (L2 control, cluster crossbars/arbiters) is **11.7 mm²** — 4× the sum of per-socket fabrics (16 × 0.18 = 2.9 mm²) — so the L2/interconnect does not scale linearly with core count. It dominates a 16-core cluster.
+
+> **Scope notes:** (1) `VX_core` instantiates `VX_execute` → `VX_tcu_unit`/`VX_dxa_unit`, so the measured 434K µm²/core **includes** the TCU + DXA tensor logic (verified present in the 613K reference, absent from the stubbed BB runs — the orphan TCU module definitions Yosys drops contribute 0 cells). (2) The 8-cluster G100 row assumes no extra inter-cluster fabric (L3/NoC); add interconnect margin when sizing the full die.
+
+> **Process-node note:** Nangate45 is a **45 nm** library. Scaling to the 28 nm target **shrinks** area by (28/45)² ≈ **0.39×** (it does *not* grow 2.5× as previously stated).
+
+| Component | Area @45 nm | Area @28 nm (×0.39) |
+|-----------|------------|---------------------|
+| 16-core cluster logic | 18.64 mm² | ~7.2 mm² |
+| G100 logic (8 clusters) | 149.2 mm² | ~57.8 mm² |
+| Embedded SRAM (6 MB) | — | ~13 mm² (0.25 µm²/bit 6T) |
+| ORRAM (84 KB) | — | ~0.5 mm² |
+| **Total die estimate** | — | **~71 mm²** |
+
+**This is a die-area problem for MPW.** A ~71 mm² G100 does not fit a typical 4 mm² MPW shuttle tile. Options: (a) shrink the tapeout to a single **16-core cluster (~20 mm² @28nm incl. SRAM)** as a first-silicon proof point, or (b) move to a full reticle/wafer share. Revisit with the foundry's shuttle tile size before committing.
 
 ---
 
