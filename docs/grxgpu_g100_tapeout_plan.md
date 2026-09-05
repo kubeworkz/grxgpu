@@ -91,6 +91,20 @@ These are shared caches with lower access frequency. ORRAM's DFF-based approach 
 
 Key finding: the shared 16-socket fabric (L2 control, cluster crossbars/arbiters) is **11.7 mm²** — 4× the sum of per-socket fabrics (16 × 0.18 = 2.9 mm²) — so the L2/interconnect does not scale linearly with core count. It dominates a 16-core cluster.
 
+**Where the 11.7 mm² goes** — recursive per-type decomposition of the BB16 stat (`syn/decompose_fabric.py`; totals reconcile exactly to the reported top-module area):
+
+| Fabric component | Cluster (BB16) | Per-socket (BB1) | Shared (BB16 − 16×BB1) |
+|------------------|----------------|------------------|------------------------|
+| **Arbiters** (`VX_stream_arb`, rr/priority) | **5.66 mm² (48%)** | 0.009 mm² | **5.51 mm²** |
+| **Crossbar/switch** (`VX_stream_buffer`, xbar, omega) | **3.11 mm² (27%)** | 0.082 mm² | **1.80 mm²** |
+| **Buffers/queues** (`VX_pipe_register`, fifo_queue) | **1.79 mm² (15%)** | 0.036 mm² | **1.21 mm²** |
+| **Cache control** (bank/mshr/data/tags) | **0.89 mm² (8%)** | 0.040 mm² | **0.25 mm²** |
+| RAM macros (blackbox) | 0.17 mm² (1%) | 0.004 mm² | 0.11 mm² |
+| Misc + top glue | ~0.08 mm² | ~0.008 mm² | ~0 |
+| **Total** | **11.70 mm²** | **0.179 mm²** | **8.88 mm²** |
+
+Decomposition takeaways: **L2 control is tiny** (~0.25 mm² shared; the data arrays will add on top but the control logic is negligible). The cost center is the **arbitration network** — `VX_stream_arb` alone is ~5.6 mm², essentially all cluster-level. 76% of the fabric is shared cluster-level logic; only 24% scales linearly with socket count. For die area, the NoC topology and arbiter port counts matter far more than cache tuning.
+
 > **Scope notes:** (1) `VX_core` instantiates `VX_execute` → `VX_tcu_unit`/`VX_dxa_unit`, so the measured 434K µm²/core **includes** the TCU + DXA tensor logic (verified present in the 613K reference, absent from the stubbed BB runs — the orphan TCU module definitions Yosys drops contribute 0 cells). (2) The 8-cluster G100 row assumes no extra inter-cluster fabric (L3/NoC); add interconnect margin when sizing the full die.
 
 > **Process-node note:** Nangate45 is a **45 nm** library. Scaling to the 28 nm target **shrinks** area by (28/45)² ≈ **0.39×** (it does *not* grow 2.5× as previously stated).
