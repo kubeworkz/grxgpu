@@ -6,7 +6,8 @@ module arb_sweep_top #(
     parameter DW = 64,
     parameter `STRING ARB = "R",
     parameter STK = 0,
-    parameter OB = 0
+    parameter OB = 0,
+    parameter MF = 8
 ) (
     input  wire clk,
     input  wire reset,
@@ -24,7 +25,8 @@ module arb_sweep_top #(
         .DATAW       (DW),
         .ARBITER     (ARB),
         .STICKY      (STK),
-        .OUT_BUF     (OB)
+        .OUT_BUF     (OB),
+        .MAX_FANOUT  (MF)
     ) u_arb (
         .clk        (clk),
         .reset      (reset),
