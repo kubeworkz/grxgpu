@@ -352,7 +352,12 @@ module VX_cluster import VX_gpu_pkg::*;
         // RSP_OUT_BUF=1: ensures the DXA port's buffer is empty (ready=1)
         // after DXA completes, preventing stale sel_in from backpressuring
         // the L2 bank when no response is pending.
-        .RSP_OUT_BUF (1)
+        .RSP_OUT_BUF (1),
+        // DATA_OOB=1: route only the 54b control plane through the arbiter;
+        // the 576b write-data plane follows out-of-band via a bufferless
+        // switch on the same grant (read-dominated DXA/GEMM traffic never
+        // touches the write payload in the arbitration network).
+        .DATA_OOB    (1)
     ) dxa_l2_priority_arb (
         .clk        (clk),
         .reset      (reset),
