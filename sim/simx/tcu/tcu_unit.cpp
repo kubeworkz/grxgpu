@@ -640,7 +640,7 @@ public:
       if (sfu && !sfu->dxa_req_out.full()) {
         // Arm the completion event BEFORE sending; DXA fires event_release on
         // the last smem write, which advances the barrier phase.
-        core_->scheduler().barrier_unit().event_attach(tgm_bar, 1);
+        core_->scheduler().barrier_unit().event_attach(tgm_bar, 2); // fused pair: A and B halves each release
         fsm.bar_wait_phase = core_->scheduler().barrier_unit().get_phase(tgm_bar);
         sfu->dxa_req_out.send(req);
         fsm.phase = TgmFsmState::WAIT_DXA;
@@ -754,7 +754,7 @@ public:
           req.coords_b[1] = fsm.k_current * tile_k_elems;
           auto sfu = core_->sfu_unit();
           if (sfu && !sfu->dxa_req_out.full()) {
-            core_->scheduler().barrier_unit().event_attach(tgm_bar, 1);
+            core_->scheduler().barrier_unit().event_attach(tgm_bar, 2); // fused pair: A and B halves each release
             fsm.prefetch_bar_wait_phase = core_->scheduler().barrier_unit().get_phase(tgm_bar);
             sfu->dxa_req_out.send(req);
             fsm.has_prefetch = true;

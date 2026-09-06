@@ -28,10 +28,13 @@ module VX_dxa_unit import VX_gpu_pkg::*, VX_dxa_pkg::*; #(
     `UNUSED_VAR (execute_if.data.rs3_data)
 
     // Wgather-based layout (lane index = thread_id & 3):
-    //   Lane 0: rs1=smem_addr, rs2=coord2
-    //   Lane 1: rs1=meta,      rs2=coord3
-    //   Lane 2: rs1=coord0,    rs2=coord4
-    //   Lane 3: rs1=coord1,    rs2=cta_mask (multicast)
+    //   Non-pair: lane0 rs1=smem_addr,  rs2=coord2
+    //             lane1 rs1=meta,       rs2=coord3
+    //             lane2 rs1=coord0,     rs2=coord4
+    //             lane3 rs1=coord1,     rs2=cta_mask (multicast)
+    //   Fused pair (meta[31] = 1, set by vx_dxa_issue_2d_wg_pair):
+    //             rs1 lanes carry A (smem_a, meta|PAIR, coord_a0, coord_a1);
+    //             rs2 lanes carry B (smem_b, meta_b, coord_b0, coord_b1).
     wire [`VX_CFG_XLEN-1:0] lane0_rs1 = execute_if.data.rs1_data[0];
     wire [`VX_CFG_XLEN-1:0] lane1_rs1 = execute_if.data.rs1_data[1];
     wire [`VX_CFG_XLEN-1:0] lane2_rs1 = execute_if.data.rs1_data[2];
@@ -40,7 +43,10 @@ module VX_dxa_unit import VX_gpu_pkg::*, VX_dxa_pkg::*; #(
     wire [`VX_CFG_XLEN-1:0] lane1_rs2 = execute_if.data.rs2_data[1];
     wire [`VX_CFG_XLEN-1:0] lane2_rs2 = execute_if.data.rs2_data[2];
     wire [`VX_CFG_XLEN-1:0] lane3_rs2 = execute_if.data.rs2_data[3];
-    `UNUSED_VAR (lane3_rs2)
+
+    // meta[31] = fused A+B pair flag (exclusive: pack_meta only uses bits
+    // [30:0] = (barrier_id << 4) | desc_slot).
+    wire pair_iss = lane1_rs1[31];
 
     // Cluster-contiguous LMEM placement guarantees receiver bases are
     // `issuer_base + r × smem_stride`, so the bus carries the issuer's
@@ -56,47 +62,103 @@ module VX_dxa_unit import VX_gpu_pkg::*, VX_dxa_pkg::*; #(
     wire [`VX_CFG_XLEN-1:0] lmem_rel_byte_addr =
         lane0_rs1 - `VX_CFG_XLEN'(`VX_MEM_LMEM_BASE_ADDR);
 
-    // Build dxa_req payload
-    dxa_req_data_t dxa_req_data_in;
-    assign dxa_req_data_in.core_id   = NC_WIDTH'(CORE_ID);
-    assign dxa_req_data_in.uuid      = execute_if.data.header.uuid;
-    assign dxa_req_data_in.wid       = execute_if.data.header.wid;
-    assign dxa_req_data_in.smem_addr = lmem_rel_byte_addr[DXA_SMEM_ADDR_W-1:0];
-    assign dxa_req_data_in.meta      = lane1_rs1[31:0];
-    assign dxa_req_data_in.coords[0] = lane2_rs1[31:0];
-    assign dxa_req_data_in.coords[1] = lane3_rs1[31:0];
-    assign dxa_req_data_in.coords[2] = lane0_rs2[31:0];
-    assign dxa_req_data_in.coords[3] = lane1_rs2[31:0];
-    assign dxa_req_data_in.coords[4] = lane2_rs2[31:0];
-    assign dxa_req_data_in.cta_mask  = lane3_rs2[`VX_CFG_NUM_WARPS-1:0];
-    // smem_addr (LMEM byte width) and meta/coords (32-bit ABI) take low bits;
-    // high bits unused when XLEN exceeds the field width
-    `UNUSED_VAR (lmem_rel_byte_addr)
-    `UNUSED_VAR (lane1_rs1)
-    `UNUSED_VAR (lane2_rs1)
-    `UNUSED_VAR (lane3_rs1)
-    `UNUSED_VAR (lane0_rs2)
-    `UNUSED_VAR (lane1_rs2)
-    `UNUSED_VAR (lane2_rs2)
+    // ── Request A: the legacy single-tile mapping ────────────────────────
+    // In pair mode the rs2 lanes carry B's fields (not coords[2..4] / the
+    // multicast mask), so those are zeroed and the PAIR meta bit is cleared;
+    // the desc-slot and bar-id bits are untouched.
+    dxa_req_data_t req_a_data;
+    assign req_a_data.core_id   = NC_WIDTH'(CORE_ID);
+    assign req_a_data.uuid      = execute_if.data.header.uuid;
+    assign req_a_data.wid       = execute_if.data.header.wid;
+    assign req_a_data.smem_addr = lmem_rel_byte_addr[DXA_SMEM_ADDR_W-1:0];
+    assign req_a_data.meta      = pair_iss ? {1'b0, lane1_rs1[30:0]} : lane1_rs1[31:0];
+    assign req_a_data.coords[0] = lane2_rs1[31:0];
+    assign req_a_data.coords[1] = lane3_rs1[31:0];
+    assign req_a_data.coords[2] = pair_iss ? '0 : lane0_rs2[31:0];
+    assign req_a_data.coords[3] = pair_iss ? '0 : lane1_rs2[31:0];
+    assign req_a_data.coords[4] = pair_iss ? '0 : lane2_rs2[31:0];
+    assign req_a_data.cta_mask  = pair_iss ? '0 : lane3_rs2[`VX_CFG_NUM_WARPS-1:0];
+
+    // Captured payload — needed after the accept cycle for the pair's B
+    // request and the single SFU writeback.
+    reg [3:0][`VX_CFG_XLEN-1:0] cap_rs2;
+    sfu_header_t                cap_hdr;
+
+    // ── Request B: the pair's B tile (captured rs2 lanes) ────────────────
+    dxa_req_data_t req_b_data;
+    wire [`VX_CFG_XLEN-1:0] b_rel_byte_addr = cap_rs2[0] - `VX_CFG_XLEN'(`VX_MEM_LMEM_BASE_ADDR);
+    assign req_b_data.core_id   = NC_WIDTH'(CORE_ID);
+    assign req_b_data.uuid      = cap_hdr.uuid;
+    assign req_b_data.wid       = cap_hdr.wid;
+    assign req_b_data.smem_addr = b_rel_byte_addr[DXA_SMEM_ADDR_W-1:0];
+    assign req_b_data.meta      = cap_rs2[1][31:0];
+    assign req_b_data.coords[0] = cap_rs2[2][31:0];
+    assign req_b_data.coords[1] = cap_rs2[3][31:0];
+    assign req_b_data.coords[2] = '0;
+    assign req_b_data.coords[3] = '0;
+    assign req_b_data.coords[4] = '0;
+    assign req_b_data.cta_mask  = '0;
+
+    // ── Issue control ────────────────────────────────────────────────────
+    // A fused pair is split into TWO sibling single-tile requests (A, then
+    // B) that flow through the ordinary per-request DXA pipeline. Each
+    // request drains and releases its barrier once -> two release events per
+    // pair; the kernel arms expect_tx(2). The warp is freed by a SINGLE SFU
+    // writeback issued after both requests have been accepted. Non-pair
+    // issues keep the original single-cycle accept (req + rsp together).
+    localparam PS_IDLE = 2'd0, PS_PAIR_B = 2'd1, PS_PAIR_RSP = 2'd2;
+    reg [1:0] pstate_r;
+
+    wire dxa_buf_ready, wb_ready;
+
+    wire issue_single = execute_if.valid && ~pair_iss && (pstate_r == PS_IDLE)
+                        && dxa_buf_ready && wb_ready;
+    wire issue_pair_a = execute_if.valid &&  pair_iss && (pstate_r == PS_IDLE)
+                        && dxa_buf_ready;
+    wire issue_pair_b = (pstate_r == PS_PAIR_B) && dxa_buf_ready;
+    wire issue_rsp    = (pstate_r == PS_PAIR_RSP) && wb_ready;
+
+    assign execute_if.ready = issue_single || issue_pair_a;
+
+    always_ff @(posedge clk) begin
+        if (reset) begin
+            pstate_r <= PS_IDLE;
+        end else begin
+            case (pstate_r)
+            PS_IDLE:     if (issue_pair_a) pstate_r <= PS_PAIR_B;
+            PS_PAIR_B:   if (issue_pair_b) pstate_r <= PS_PAIR_RSP;
+            PS_PAIR_RSP: if (issue_rsp)    pstate_r <= PS_IDLE;
+            default:     pstate_r <= PS_IDLE;
+            endcase
+        end
+    end
+
+    // Capture the payload on accept (rs2 lanes + header) for the B request
+    // and the writeback that follows the pair's request beats.
+    always_ff @(posedge clk) begin
+        if (reset) begin
+            cap_rs2 <= '0;
+            cap_hdr <= '0;
+        end else if (issue_single || issue_pair_a) begin
+            cap_rs2 <= execute_if.data.rs2_data;
+            cap_hdr <= execute_if.data.header;
+        end
+    end
+
+    wire push_req = issue_single || issue_pair_a || issue_pair_b;
 
     // Output elastic buffer breaks the combinatorial path between
     // dxa_req_arb and this unit. Barrier transaction registration is
     // handled by software via vx_barrier.h::expect_tx.
-    wire dxa_buf_ready, wb_ready;
-    wire accept = dxa_buf_ready && wb_ready;
-    wire fire   = execute_if.valid && accept;
-
-    assign execute_if.ready = accept;
-
     VX_elastic_buffer #(
         .DATAW ($bits(dxa_req_data_t)),
         .SIZE  (2)
     ) dxa_req_buf (
         .clk       (clk),
         .reset     (reset),
-        .valid_in  (fire),
+        .valid_in  (push_req),
         .ready_in  (dxa_buf_ready),
-        .data_in   (dxa_req_data_in),
+        .data_in   (issue_pair_b ? req_b_data : req_a_data),
         .valid_out (dxa_req_bus_if.req_valid),
         .ready_out (dxa_req_bus_if.req_ready),
         .data_out  (dxa_req_bus_if.req_data)
@@ -104,15 +166,19 @@ module VX_dxa_unit import VX_gpu_pkg::*, VX_dxa_pkg::*; #(
 
     sfu_header_t header_out;
 
+    // Single SFU writeback: once per issue (for a pair, after both sibling
+    // requests have been accepted).
+    wire push_rsp = issue_single || issue_rsp;
+
     VX_elastic_buffer #(
         .DATAW ($bits(sfu_header_t)),
         .SIZE  (2)
     ) rsp_buf (
         .clk       (clk),
         .reset     (reset),
-        .valid_in  (fire),
+        .valid_in  (push_rsp),
         .ready_in  (wb_ready),
-        .data_in   (execute_if.data.header),
+        .data_in   (issue_rsp ? cap_hdr : execute_if.data.header),
         .data_out  (header_out),
         .valid_out (result_if.valid),
         .ready_out (result_if.ready)
@@ -120,6 +186,7 @@ module VX_dxa_unit import VX_gpu_pkg::*, VX_dxa_pkg::*; #(
 
     assign result_if.data.header = header_out;
     assign result_if.data.data   = '0;
+
 
 `ifdef DBG_TRACE_DXA
     always_ff @(posedge clk) begin

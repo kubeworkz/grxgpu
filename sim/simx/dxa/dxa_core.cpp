@@ -130,7 +130,6 @@ public:
     // per-item by lw.desc_idx.
     bool                    is_pair = false;
     uint8_t                 pair_half = 0;
-    uint64_t                pair_id = 0;   // DXA-internal pair key (uuid is 0 in release)
     Descriptor              desc_b;
     uint64_t                smem_addr_b = 0;
   };
@@ -162,10 +161,7 @@ public:
       w.writes_emitted = 0;
       w.is_pair = false;
       w.pair_half = 0;
-      w.pair_id = 0;
     }
-    pair_pending_.clear();
-    pair_id_ = 0;
   }
 
   int dcr_write(uint32_t addr, uint32_t value) {
@@ -262,12 +258,6 @@ public:
         }
         if (b != UINT32_MAX) {
           queue_.pop_front();
-          uint64_t pid = pair_id_++;
-          // Set the key BEFORE starting the halves so the empty-work-list
-          // early-exit path in start_worker_half sees the tracked entry.
-          workers_[a].pair_id = pid;
-          workers_[b].pair_id = pid;
-          pair_pending_[pid] = 2;
           start_worker_half(workers_[a], req, 0);
           start_worker_half(workers_[b], req, 1);
         }
@@ -435,8 +425,10 @@ private:
 
   // Start ONE half of a fused pair on this worker (half 0 = A, half 1 = B).
   // The two halves run on independent workers → independent GMEM pipes, so
-  // A and B fetch in parallel. Barrier release is coordinated via
-  // pair_pending_: only the half that finishes last emits notify_done.
+  // A and B fetch in parallel. Each half is an independent transfer whose
+  // final smem write carries notify_done: a fused pair emits TWO barrier
+  // events (one per tile). Consumers arm the barrier with expect_tx(2) /
+  // event_attach(2) so it releases only after BOTH tiles are resident.
   void start_worker_half(Worker& w, const DxaReq& req, uint8_t half) {
     w.req = req;
     w.issue_cycle = cycle_;
@@ -466,10 +458,8 @@ private:
     const uint8_t  didx   = (half == 1) ? 1 : 0;
 
     if (slot >= VX_DCR_DXA_DESC_COUNT) {
-      // Invalid descriptor for this half — note completion; the peer half
-      // (or this one if it's last) releases.
-      if (pair_note_half_done(w))
-        release_all_barriers(w);
+      // Invalid descriptor for this half — release and finish immediately.
+      release_all_barriers(w);
       finish_worker(w);
       return;
     }
@@ -483,14 +473,13 @@ private:
 
     enumerate_work_list(w, w.desc, smem, coords, didx);
     if (w.work_list.empty()) {
-      if (pair_note_half_done(w))
-        release_all_barriers(w);
+      release_all_barriers(w);
       finish_worker(w);
       return;
     }
 
-    // Last item of THIS half — its final write may carry notify_done if it
-    // is the pair's last finisher (see pair_note_half_done in smem_wr).
+    // Last item of THIS half — its final smem write carries notify_done
+    // (barrier release) for this half.
     w.work_list.back().last = true;
 
     w.state = WState::RUNNING;
@@ -500,23 +489,6 @@ private:
        << ": core=" << req.core->id() << ", wid=" << req.wid
        << ", slot=" << slot << ", lines=" << w.work_list.size()
        << ", multicast=" << w.is_multicast);
-  }
-
-  // Pair completion: decrement the shared pending counter for this pair's
-  // uuid. Returns true when THIS worker's half is the last to finish, i.e.
-  // it must carry the barrier release.
-  bool pair_note_half_done(Worker& w) {
-    // Key on the DXA-internal pair id, NOT req.uuid: in release builds
-    // (NDEBUG) the scheduler sets uuid=0 for every trace, so two concurrent
-    // pairs would collide in the map and clobber each other's pending count.
-    auto it = pair_pending_.find(w.pair_id);
-    if (it == pair_pending_.end())
-      return true; // not tracked — release normally
-    if (--it->second == 0) {
-      pair_pending_.erase(it);
-      return true;
-    }
-    return false;
   }
 
   // Enumerate (CL, smem-word, byte-offset, length, oob) tuples — one per
@@ -811,17 +783,15 @@ private:
 
     // notify_done on the LAST block write of the transfer — when the gather
     // reached the last scatter element of the last work item, per receiver.
-    // For a fused pair, only the last-finishing half carries it (the other
-    // half's writes are already in the same FIFO LMEM port ahead of this
-    // write, so both tiles are resident when the release fires).
+    // Fused-pair halves each release: a pair emits two barrier events (one
+    // per tile). The barrier, armed with expect_tx(2), releases only after
+    // both events — i.e. after BOTH tiles are resident.
     bool is_last_elem   = (ee == num_elems);
     bool is_last_work   = lw.last;
     bool is_last_replay = !w.is_multicast || (w.mc_cta_idx + 1 == w.cta_indices.size());
     if (is_last_work && is_last_elem && (w.is_multicast || is_last_replay)) {
-      if (!w.is_pair || pair_note_half_done(w)) {
-        req.flags.dxa_notify_done   = 1;
-        req.flags.dxa_notify_bar_id = w.req.bar_id + (w.is_multicast ? cta_warp_idx : 0u);
-      }
+      req.flags.dxa_notify_done   = 1;
+      req.flags.dxa_notify_bar_id = w.req.bar_id + (w.is_multicast ? cta_warp_idx : 0u);
     }
 
     lmem_ch.send(req);
@@ -887,10 +857,6 @@ private:
   std::array<Descriptor, VX_DCR_DXA_DESC_COUNT> descriptors_;
   std::deque<DxaReq>     queue_;
   std::vector<Worker>    workers_;
-  // Fused-pair completion: uuid → number of halves still in flight (starts
-  // at 2). The half that decrements it to 0 carries the barrier release.
-  std::unordered_map<uint64_t, uint32_t> pair_pending_;
-  uint64_t               pair_id_ = 0;  // monotonically increasing pair key
   uint32_t               rr_req_ = 0;
   uint64_t               cycle_;
   DxaCore::PerfStats     perf_stats_;

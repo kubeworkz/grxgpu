@@ -84,11 +84,12 @@ inline void vx_dxa_issue_2d_wg(uint32_t desc_slot,
       : "memory");
 }
 
-// Fused A+B pair (2D): one issue fetches BOTH WGMMA operands as a single
-// atomic transfer. rs1 lanes carry A (smem, meta|PAIR, coord0, coord1);
-// rs2 lanes carry B (smem, meta, coord0, coord1). meta_a[31] = pair flag.
-// The DXA core enumerates both tiles into one work list, interleaves their
-// GMEM reads, and releases the barrier once when both are resident.
+// Fused A+B pair (2D): one issue fetches BOTH WGMMA operands. rs1 lanes
+// carry A (smem, meta|PAIR, coord0, coord1); rs2 lanes carry B (smem, meta,
+// coord0, coord1). meta_a[31] = pair flag. The DXA core fetches the two
+// tiles as independent sibling transfers (parallel GMEM pipes); each half
+// releases the barrier once, so arm expect_tx(2) — the barrier then fires
+// only when both tiles are resident.
 inline void vx_dxa_issue_2d_wg_pair(uint32_t desc_slot_a,
                                     uint32_t desc_slot_b,
                                     uint32_t barrier_id,
