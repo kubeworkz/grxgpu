@@ -24,7 +24,13 @@ module VX_mem_bus_arb import VX_gpu_pkg::*; #(
     parameter `STRING ARBITER = "R",
     parameter STICKY         = 0,
     parameter ADDR_WIDTH     = (`VX_CFG_MEM_ADDR_WIDTH-`CLOG2(DATA_SIZE)),
-    parameter ATTR_WIDTH     = MEM_ATTR_WIDTH
+    parameter ATTR_WIDTH     = MEM_ATTR_WIDTH,
+    // DATA_OOB=1 routes only the request control plane (rw+addr+attr+tag)
+    // through the arbiter; the write-data plane (data+byteen) travels through
+    // a parallel bufferless VX_stream_switch driven by the same grant sel_out.
+    // For read-dominated traffic (GEMM/DXA) the arbitration network never
+    // touches the 576-bit write payload, cutting arbiter data-path area ~91%.
+    parameter DATA_OOB       = 0
 ) (
     input wire              clk,
     input wire              reset,
@@ -37,6 +43,10 @@ module VX_mem_bus_arb import VX_gpu_pkg::*; #(
     localparam REQ_DATAW    = 1 + ADDR_WIDTH + DATA_WIDTH + DATA_SIZE + ATTR_WIDTH + TAG_WIDTH;
     localparam RSP_DATAW    = DATA_WIDTH + TAG_WIDTH;
     localparam SEL_COUNT    = `MIN(NUM_INPUTS, NUM_OUTPUTS);
+    // Request control plane (what arbitration actually needs to route/prioritize)
+    localparam REQ_CTRL_DATAW = 1 + ADDR_WIDTH + ATTR_WIDTH + TAG_WIDTH;
+    // Write-data plane (data + byteen), carried out-of-band when DATA_OOB=1
+    localparam REQ_DATA_PLANE_W = DATA_WIDTH + DATA_SIZE;
 
     wire [NUM_INPUTS-1:0]                 req_valid_in;
     wire [NUM_INPUTS-1:0][REQ_DATAW-1:0]  req_data_in;
@@ -52,6 +62,63 @@ module VX_mem_bus_arb import VX_gpu_pkg::*; #(
         assign req_data_in[i]  = bus_in_if[i].req_data;
         assign bus_in_if[i].req_ready = req_ready_in[i];
     end
+
+    if (DATA_OOB) begin : g_req_data_oob
+
+        // Split each request into control + write-data planes.
+        wire [NUM_INPUTS-1:0][REQ_CTRL_DATAW-1:0]    req_ctrl_in;
+        wire [NUM_INPUTS-1:0][REQ_DATA_PLANE_W-1:0]  req_dplane_in;
+
+        for (genvar i = 0; i < NUM_INPUTS; ++i) begin : g_req_split
+            assign {req_ctrl_in[i], req_dplane_in[i]} = req_data_in[i];
+        end
+
+        // Control plane through the arbiter (54b instead of 630b).
+        wire [NUM_OUTPUTS-1:0][REQ_CTRL_DATAW-1:0]   req_ctrl_out;
+        wire [NUM_OUTPUTS-1:0][REQ_DATA_PLANE_W-1:0] req_dplane_out;
+
+        VX_stream_arb #(
+            .NUM_INPUTS  (NUM_INPUTS),
+            .NUM_OUTPUTS (NUM_OUTPUTS),
+            .DATAW       (REQ_CTRL_DATAW),
+            .ARBITER     (ARBITER),
+            .STICKY      (STICKY),
+            .OUT_BUF     (REQ_OUT_BUF)
+        ) req_arb (
+            .clk       (clk),
+            .reset     (reset),
+            .valid_in  (req_valid_in),
+            .ready_in  (req_ready_in),
+            .data_in   (req_ctrl_in),
+            .data_out  (req_ctrl_out),
+            .sel_out   (req_sel_out),
+            .valid_out (req_valid_out),
+            .ready_out (req_ready_out)
+        );
+
+        // Write-data plane follows the same grant through a bufferless switch.
+        VX_stream_switch #(
+            .NUM_INPUTS  (NUM_INPUTS),
+            .NUM_OUTPUTS (NUM_OUTPUTS),
+            .DATAW       (REQ_DATA_PLANE_W),
+            .OUT_BUF     (0)
+        ) req_data_switch (
+            .clk       (clk),
+            .reset     (reset),
+            .sel_in    (req_sel_out),
+            .valid_in  (req_valid_in),
+            .ready_in  (/* unused: arb governs flow */),
+            .data_in   (req_dplane_in),
+            .data_out  (req_dplane_out),
+            .valid_out (/* unused */),
+            .ready_out (req_ready_out)
+        );
+
+        for (genvar i = 0; i < NUM_OUTPUTS; ++i) begin : g_req_recombine
+            assign req_data_out[i] = {req_ctrl_out[i], req_dplane_out[i]};
+        end
+
+    end else begin : g_req_data_inline
 
     VX_stream_arb #(
         .NUM_INPUTS  (NUM_INPUTS),
@@ -71,6 +138,8 @@ module VX_mem_bus_arb import VX_gpu_pkg::*; #(
         .valid_out (req_valid_out),
         .ready_out (req_ready_out)
     );
+
+    end // g_req_data_inline
 
     for (genvar i = 0; i < NUM_OUTPUTS; ++i) begin : g_bus_out_if
         wire [TAG_WIDTH-1:0] req_tag_out;
