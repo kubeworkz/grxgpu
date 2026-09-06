@@ -1,8 +1,10 @@
 # grxgpu Tensor Engine — Self-Pipelining Operand Delivery
 
 **Status:** Proposal — Phase 1 (fused A+B descriptor) implemented in SimX
-**Scope:** `sim/simx/dxa/`, `sim/simx/tcu/`, `sw/kernel/include/vx_dxa.h`,
-`sw/kernel/include/vx_tensor.h`, `tests/regression/sgemm_tcu_wg_dxa/`
+**and RTL** (rtlsim-verified, Sept 2026)
+**Scope:** `sim/simx/dxa/`, `sim/simx/tcu/`, `hw/rtl/dxa/`,
+`sw/kernel/include/vx_dxa.h`, `sw/kernel/include/vx_tensor.h`,
+`tests/regression/sgemm_tcu_wg_dxa/`
 **Baseline:** K=512 GEMM, 512×512×512 fp16, G100 config (8 clusters × 16 cores):
 28,080,063 cycles, IPC 1.345, TCU gate 100% B-only stall, scrb 92%, sfu 96%.
 **Related:** [mmu_optimization_proposal.md](mmu_optimization_proposal.md)
@@ -91,9 +93,10 @@ instructions.
 
 One DXA issue fetches **both** operands of a WGMMA group as a single atomic
 transfer. The kernel issues one instruction instead of two; the fetch engine
-enumerates both tiles' work lists into one transfer, interleaves their GMEM
-reads through the inflight window, writes both to LMEM, and releases the
-barrier exactly once when both tiles are resident.
+splits the pair into two sibling single-tile transfers (A and B) that run in
+parallel through independent GMEM pipes, writes both to LMEM, and releases
+the barrier for each half — the barrier (armed with `expect_tx(2)`) opens
+only when both tiles are resident.
 
 Why this kills the B-only stall by construction:
 
@@ -103,9 +106,14 @@ Why this kills the B-only stall by construction:
   one worker holds both tiles' reads in its inflight window simultaneously —
   B's first read issues in the same window as A's, so B's larger footprint
   stops being a *second serialized* transfer and becomes a *wider* one.
-- **One barrier event.** `expect_tx(1)` + one release instead of
-  `expect_tx(2)` + two releases. The gate cannot observe "A ready, B not" —
-  the barrier opens only when both tiles are resident.
+- **Barrier opens only when both tiles are resident.** Each half releases
+  the barrier once (`expect_tx(2)`, two sibling releases). The second
+  release fires only after both tiles drain, so the gate cannot observe
+  "A ready, B not" — the barrier still opens exactly when A and B are both
+  resident, with identical timing to a single end-of-pair release. (Two
+  releases are used rather than one so simx and RTL share one contract:
+  the RTL DXA has no cross-worker coordination, so per-request release is
+  the only portable semantics; see §8.6.)
 - **Halved issue overhead.** One DXA instruction, one wgather pair per stage
   instead of two. Directly attacks the 62% ALU setup-uop mix.
 - **Architectural headroom.** On real hardware the fused descriptor maps to a
@@ -200,20 +208,27 @@ single `DxaReq` carrying:
   desc_slot / desc_slot_b      (A and B descriptor table indices)
   smem_addr / smem_addr_b      (A and B LMEM destinations)
   coords[5] / coords_b[5]      (A and B tile offsets)
-  bar_id                       (shared; released once)
+  bar_id                       (shared; released twice — once per half)
 ```
 
 ### 3.3 DXA core worker
 
-`start_worker()` enumerates the work list for A, then for B, into one
-combined `work_list`. The `last` flag lands on B's final line, so:
+The worker dispatches the pair's halves to two independent workers, each of
+which enumerates its tile's work list and runs the ordinary single-request
+pipeline (A on worker 0, B on worker 1):
 
-- GMEM reads for A and B interleave through the shared inflight window
-  (bounded by `VX_CFG_DXA_MAX_INFLIGHT`).
-- `notify_done` fires only after B's last write → one barrier release.
-- `release_all_barriers()` is called once (not once per descriptor).
+- A and B fetch in parallel through independent GMEM pipes.
+- Each half's final smem write carries `notify_done` → **two barrier
+  releases per pair**, one per tile. `release_all_barriers()` runs once per
+  half; the barrier's `expect_tx(2)` keeps the phase closed until both
+  events land.
 
-Non-pair requests take the existing single-descriptor path unchanged.
+In RTL (`VX_dxa_unit.sv`) the pair is split at the unit boundary into two
+sibling single-tile requests flowing through the same per-request pipeline,
+with a small FSM (A → B → SFU rsp) and one SFU writeback freeing the warp
+after both requests are accepted — the same two-release semantics with zero
+cross-worker state. Non-pair requests take the existing single-descriptor
+path unchanged in both implementations.
 
 ### 3.4 Kernel changes (`sgemm_tcu_wg_dxa`)
 
@@ -225,14 +240,17 @@ bar_nxt.expect_tx(2);
 vx_dxa_issue_2d_wg(kDescA, bar_nxt.id(), nxt_a, next_k, tile_row);
 vx_dxa_issue_2d_wg(kDescB, bar_nxt.id(), nxt_b, tile_col, next_k);
 
-// After (1 issue, expect_tx(1)):
-bar_nxt.expect_tx(1);
+// After (1 issue, expect_tx(2) — two sibling releases, one per tile):
+bar_nxt.expect_tx(2);
 vx_dxa_issue_2d_wg_pair(kDescA, kDescB, bar_nxt.id(),
                         nxt_a, nxt_b, next_k, tile_row, tile_col, next_k);
 ```
 
-Prologue and epilogue updated to match. `main.cpp` descriptor programming is
-unchanged (A = slot 0 row-major, B = slot 1 block-major).
+Prologue and epilogue updated to match. The arming stays `expect_tx(2)`
+because a pair emits two releases (one per sibling transfer); the benefit
+vs the two-issue baseline is the single issue and the parallel fetch, not
+fewer barrier events. `main.cpp` descriptor programming is unchanged (A =
+slot 0 row-major, B = slot 1 block-major).
 
 ### 3.5 Config
 
@@ -247,7 +265,7 @@ multicast).
 | Metric | Baseline | Target | Mechanism |
 |--------|----------|--------|-----------|
 | DXA issues per stage | 2 | 1 | Pair encoding |
-| Barrier events per stage | 2 | 1 | Single release |
+| Barrier events per stage | 2 | 2 | Two sibling releases (opens once both tiles land) |
 | DXA instructions (kernel) | ~62% ALU mix | ↓ | Fewer setup-uops |
 | b_only gate stall | 100% | ↓ | B reads start with A's |
 | Cycles (K=512) | 28,080,063 | ↓ | Fewer stalls, fewer instrs |
@@ -376,6 +394,34 @@ when complete.
   `NDEBUG` is defined; `pair_pending_[uuid]` collided across concurrent pairs.
   Fixed by replacing uuid-keyed map with a DXA-internal monotonically-increasing
   `pair_id_` counter.
+
+### 8.6 RTL gap: fused pair was simx-only (Sept 2026)
+
+**Finding:** the fused A+B pair existed in simx only — the RTL DXA never
+implemented it. On the Verilated rtlsim driver, `VX_dxa_unit` read the
+pair's rs2 lanes (B's smem/meta/coords) as *extra coordinates* and the
+multicast mask, so the DB WGMMA kernel (which issues a pair every stage)
+fetched garbage on RTL while simx stayed correct.
+
+**Fix — two-sibling-release contract.** Aligned simx and RTL on a shared,
+per-request semantics: a fused pair is two independent single-tile transfers
+(A then B), each releasing its barrier once; the barrier armed with
+`expect_tx(2)` opens only after both tiles drain — identical timing to the
+old one-release contract. `hw/rtl/dxa/VX_dxa_unit.sv` splits the pair into
+two sibling requests through the existing single-request pipeline with a
+small 3-state FSM (A → B → SFU rsp) and one SFU writeback; simx drops its
+`pair_pending_` last-only release gate so each half releases independently.
+
+**Verified on rtlsim (1-cluster × 4-core), bit-identical to simx:**
+
+| Test | Result | Instrs / Cycles / IPC |
+|------|--------|----------------------|
+| DB kernel K=64 | **PASSED** | 69,056 / 48,349 / 1.428 |
+| DB kernel K=512 | **PASSED** | 483,008 / 277,492 / 1.741 |
+
+Build note: the rtlsim Makefile pins `-O1` — the new RTL triggers a
+Verilator `V3FuncOpt` crash at default `-O2` (a known flaky Verilator bug),
+and `-O0` trips a separate csa_tree codegen bug. `-O1` dodges both.
 
 ---
 
@@ -595,7 +641,7 @@ The double-buffered kernel (Section 8.1) executes this loop per K-iteration:
 
 ```c
 // Each iteration: 7+ instructions, 62% ALU mix
-bar_nxt.expect_tx(1);                          // 1 ALU
+bar_nxt.expect_tx(2);                          // 1 ALU (fused pair: two releases)
 vx_dxa_issue_2d_wg_pair(...);                   // 1 SFU
 bar_cur.arrive_and_wait();                      // 1 ALU (barrier)
 // WGMMA compute — 1 TCU instruction → 9 uops
@@ -708,7 +754,7 @@ K-tile to 1 instruction for the entire K-range. This eliminates the
 ```c
 for (uint32_t k = 0; k < K; k += tileK) {
   if (k + tileK < K && is_dxa_warp) {
-    bar_nxt.expect_tx(1);
+    bar_nxt.expect_tx(2);   // fused pair: A and B halves each release
     vx_dxa_issue_2d_wg_pair(kDescA, kDescB, bar_nxt.id(),
                             nxt_a, nxt_b, k+tileK, tile_row, tile_col, k+tileK);
   }
