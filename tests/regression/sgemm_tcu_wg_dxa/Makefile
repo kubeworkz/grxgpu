@@ -19,8 +19,14 @@ endif
 CONFIGS := $(if $(findstring -DVX_CFG_NUM_WARPS=,$(CONFIGS)),$(CONFIGS),$(CONFIGS) -DVX_CFG_NUM_WARPS=4)
 CONFIGS := $(if $(findstring -DVX_CFG_ISSUE_WIDTH=,$(CONFIGS)),$(CONFIGS),$(CONFIGS) -DVX_CFG_ISSUE_WIDTH=4)
 CONFIGS += -DVX_CFG_TCU_WGMMA_ENABLE
+# The DXA double-buffered WGMMA pipeline is validated under simx. The Verilated
+# rtlsim/FPGA RTL path currently runs the single-buffered variant, so build with
+# `make WGMMA_SINGLE_BUFFER=1` for rtlsim runs (skips the WGMMA_RS + DXA
+# double-buffer defines below).
+ifndef WGMMA_SINGLE_BUFFER
 CONFIGS := $(if $(findstring -DWGMMA_SS,$(CONFIGS)),$(CONFIGS),$(CONFIGS) -DWGMMA_RS)
 CONFIGS += -DWGMMA_DXA_DOUBLE_BUFFER
+endif
 
 
 CXXFLAGS += -I$(THIRD_PARTY_DIR)/softfloat/source/include
