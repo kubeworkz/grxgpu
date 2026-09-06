@@ -1,6 +1,6 @@
 # GRXGPU TCU — Fabrication Readiness Gap Analysis
 
-**Date:** September 3, 2026
+**Date:** September 6, 2026 (last refreshed)
 **Scope:** TCU (Tensor Compute Unit) with WGMMA, DXA, TFR
 **Target:** ASIC fabrication (or advanced FPGA prototyping)
 
@@ -8,13 +8,14 @@
 
 ## Executive Summary
 
-The TCU design is **simulation-complete** (SimX) and **logic-synthesis-complete** (Yosys). However, several critical gaps must be closed before fabrication. The most urgent are:
+The TCU design is **simulation-complete** (SimX and RTL via rtlsim), **logic-synthesis-complete** (Yosys), and the **fused A+B pair is now RTL-backed** (closed Sept 2026). The remaining critical gaps before fabrication are:
 
-1. **Multi-core rtlsim bug** — GRXCP team is working on the fix
-2. **No place-and-route results** — Yosys only gives logic synthesis, not physical layout
-3. **No timing analysis** — We don't know if the design meets timing at target frequency
-4. **No FPGA prototyping** — Never tested on real hardware
-5. **TGM correctness at K>16** — SimX has bugs in the self-pipelining FSM
+1. **No FPGA prototyping** — never tested on real hardware (P0)
+2. **No full-TCU place-and-route / timing** — only the TFR sub-block is P&R'd (89.54 MHz ECP5)
+3. **No power estimation** — no dynamic/static numbers
+4. **No formal verification** — no equivalence checking between RTL and SimX
+5. **RTL FEDP drift vs SimX** — RTL fp32 accumulation rounds ~3–5× more than the simx model at deep K
+6. **Corner-case test coverage** — K=1/2/4/odd-K, M=1/N=1, stress, error injection all missing
 
 ---
 
@@ -23,8 +24,9 @@ The TCU design is **simulation-complete** (SimX) and **logic-synthesis-complete*
 | Category | Status | Gap | Priority | Owner |
 |----------|--------|-----|----------|-------|
 | **RTL Design** | ✅ Complete | 41 TCU modules, all interfaces defined | — | grxgpu |
-| **SimX Simulation** | ⚠️ Partial | TGM correctness at K>16 broken | P1 | grxgpu |
-| **RTL Simulation** | ❌ Blocked | Multi-core rtlsim bug (GRXCP) | P0 | GRXCP |
+| **SimX Simulation** | ✅ Complete | TGM correctness at K=512 PASSED | — | grxgpu |
+| **RTL Simulation** | ✅ Complete | Multi-core rtlsim bug fixed (GRXCP); fused pair RTL-backed | — | grxgpu/GRXCP |
+| **Model Fidelity (RTL vs SimX)** | ⚠️ Partial | Fused-pair gap closed; FEDP fp32 drift ~3–5× open | P1 | grxgpu |
 | **Logic Synthesis** | ✅ Complete | ECP5 + Xilinx 7 results | — | grxgpu |
 | **Place-and-Route** | ✅ Complete | TFR P&R: 89.54 MHz on ECP5-85F | — | grxgpu |
 | **Timing Analysis** | ✅ Complete | TFR: 15.67 ns critical path (1.93 ns logic, 13.74 ns routing) | — | grxgpu |
@@ -38,35 +40,34 @@ The TCU design is **simulation-complete** (SimX) and **logic-synthesis-complete*
 
 ## Detailed Gap Analysis
 
-### 1. Multi-Core RTL Simulation (P0 — Blocking)
+### 1. Multi-Core RTL Simulation (✅ Resolved)
 
-**Status:** GRXCP team is working on the fix
+**Status:** Fixed (Sept 2026) — GRXCP team root-caused it
 
-**Issue:** `rtlsim` loses kernel arguments on every other launch at `NUM_CORES > 1`
+**Issue:** `rtlsim` lost kernel arguments on every other launch at `NUM_CORES > 1` (launch N's work completing during N+1 → 7/8 launches silently wrong)
 
-**Root cause:** `dram_write` stages arguments while previous `run()` is still accessing `ram_` via the Verilated memory bus
+**Root cause:** the frame was being drained *before* the `start` pulse, so the wait-for-busy loop exited immediately and the drain loop ran ~1/2300 of the frame. The dip is one cycle after the pulse; draining beforehand consumes the previous frame's work and leaves `busy` high again.
 
-**Fix:** Serialize `vortex_start` with `future_.wait()` before launching
+**Fix:** move the drain loop to *after* the `start` pulse. GRXCP's `std::async` assignment change was kept (it closes a real window), but the drain placement was the actual bug. See `docs/reply_to_grxgpu_team.md`.
 
-**Impact:** Multi-core configurations are unusable until this is fixed. All performance numbers at `NUM_CORES > 1` are suspect.
-
-**Next step:** Wait for GRXCP team's fix, then re-run the full test suite at `NUM_CORES=2` and `NUM_CORES=4`
+**Impact:** Multi-core rtlsim is usable again; performance numbers at `NUM_CORES > 1` are measurable.
 
 ---
 
-### 2. TGM Correctness at K>16 (P1)
+### 2. TGM Correctness at K>16 (✅ Resolved)
 
-**Status:** SimX has bugs in the TGM FSM
+**Status:** Fixed (Sept 2026)
 
-**Issue:** The self-pipelining TGM instruction (Phase 2 of the tensor engine proposal) produces incorrect results at K>16. The COMPUTE phase's per-lane A-slice handling and fragment accumulation have off-by-one errors.
+**Issue:** The self-pipelining TGM instruction (Phase 2 of the tensor engine proposal) produced incorrect results at K>16 (warps 1–3 wrong, constant −0.001327 offset) due to COMPUTE-phase per-warp A-slice / per-lane fragment accumulation errors and a barrier phase-encoding mismatch.
+
+**Fix:** rewrote the COMPUTE phase to accumulate per-lane into `fragC`, wait on a real DXA-completion condition, write all lanes back, and encode the target barrier id as `(bar_no << 8) | cta_id`; the DXA barrier release was aligned to the two-sibling-release contract (`event_attach(2)`).
 
 **Current state:**
-- K=16: PASSED (IPC=0.395)
-- K=512: 3072 errors (warps 1-3 wrong, warp 0 correct, constant -0.001327 offset)
+- K=64: PASSED (69,056 instrs, IPC 1.428 on rtlsim)
+- K=512: PASSED (7,168 instrs — FSM-driven, IPC 1.741 on rtlsim)
+- Instruction count dropped from 483,008 → 7,168 vs the software K-loop
 
-**Impact:** TGM is the key innovation for eliminating per-iteration instruction overhead. Until it works, the software K-loop is the only option.
-
-**Next step:** Debug the COMPUTE phase's per-warp A-slice and per-lane fragment accumulation
+**Impact:** TGM works at full K. The software K-loop remains the default until Phase 2 self-pipelining is production-hardened.
 
 ---
 
@@ -172,7 +173,7 @@ The TCU design is **simulation-complete** (SimX) and **logic-synthesis-complete*
 
 **What we have:**
 - 22 TCU-related tests (sgemm, bf16, sp, mx, wg, dxa)
-- K=16 and K=512 smoke tests pass
+- K=64 / K=256 / K=512 GEMM battery PASSED on both simx and rtlsim
 - K=512 full GEMM passes at 512×512×512
 
 **What we're missing:**
@@ -186,31 +187,54 @@ The TCU design is **simulation-complete** (SimX) and **logic-synthesis-complete*
 
 ---
 
+### 9. RTL-vs-SimX Model Fidelity (P1)
+
+**Status:** ⚠️ Partial — fused-pair gap closed; FEDP drift open
+
+Two distinct gaps live under this heading. The first is **closed**; the second is the open item to carry into the FPGA/tapeout track.
+
+**9a. Fused A+B pair — RTL gap (✅ Closed, Sept 2026)**
+
+The fused `vx_dxa_issue_2d_wg_pair` was implemented in **simx only**; the RTL DXA never gained it. On the Verilated rtlsim driver, `VX_dxa_unit` read the pair's rs2 lanes (B's smem/meta/coords) as *extra coordinates* and the multicast mask, so the DXA double-buffered WGMMA kernel (which issues a pair every stage) fetched garbage on RTL while simx stayed correct.
+
+**Fix:** aligned simx and RTL on a **two-sibling-release contract** — a fused pair is two independent single-tile transfers (A then B), each releasing its barrier once; the barrier armed with `expect_tx(2)` opens only after both tiles drain (identical timing to the old one-release contract). `hw/rtl/dxa/VX_dxa_unit.sv` splits the pair into two sibling requests through the existing single-request pipeline with a small 3-state FSM (A → B → SFU rsp) and one SFU writeback; simx drops its `pair_pending_` last-only release gate. Kernel `expect_tx(1)→(2)` and the TGM FSM `event_attach(1)→(2)` updated to match.
+
+**Verified bit-identical to simx on rtlsim (1-cluster × 4-core):**
+
+| Test | Result | Instrs / Cycles / IPC |
+|------|--------|----------------------|
+| DB kernel K=64 | **PASSED** | 69,056 / 48,349 / 1.428 |
+| DB kernel K=512 | **PASSED** | 483,008 / 277,492 / 1.741 |
+
+Build note: the rtlsim Makefile pins `-O1` to dodge a Verilator `V3FuncOpt` crash triggered by the new RTL at default `-O2` (known flaky Verilator bug; `-O0` trips a separate csa_tree codegen bug).
+
+**9b. FEDP fp32 accumulation drift (❌ Open, P1)**
+
+On identical data the RTL FEDP fp32 datapath drifts **~3–5× more** than the simx model at deep K (simx stays within 12 ULP at K=512; RTL tail reaches ~65 ULP). Root cause: both accumulate with per-step rounding (RTL's `FACC_LATENCY = clog2(...)·(FADD+FRND)` chain, simx's per-word `rv_fadd_s`), but the RTL rounds more aggressively per step. The test now budgets `5·√K` ULP so rtlsim passes, but simx **under-models** per-step rounding and is the optimistic side of the pair.
+
+**Why it matters for tapeout:** power/perf characterization and any bit-exact multi-device contract need the model to match silicon. Align simx's FEDP to round per lane-add, then re-verify the K-battery on both stacks.
+
+---
+
 ## Recommended Priority Order
 
-### Phase 1: Fix Blocking Issues (Week 1-2)
+### Phase 1: Get on Real Hardware (Next — blocking)
 
-1. **Wait for GRXCP multi-core fix** — then re-run full test suite
-2. **Fix TGM correctness at K>16** — debug COMPUTE phase
-3. **Run FPGA P&R** — generate bitstream for ECP5
+1. **FPGA prototyping** (P0) — generate ECP5/Kintex-7 bitstream, run the K-battery on silicon, compare vs simx/rtlsim
+2. **Full-TCU P&R + timing** — only the TFR sub-block is P&R'd today; close timing on the whole TCU
 
-### Phase 2: Validate on Hardware (Week 3-4)
+### Phase 2: Model Fidelity & Hardening
 
-4. **FPGA prototyping** — test on real hardware
-5. **Timing analysis** — verify setup/hold at target frequency
-6. **Power estimation** — measure dynamic/static power
+3. **Align simx FEDP to per-step rounding** — close the 3–5× drift so simx matches RTL silicon behavior
+4. **Corner-case tests** — K=1/2/4/odd-K, M=1/N=1, stress, error injection
+5. **Formal verification** — assertions on barrier/DXA/tbuf interfaces; RTL↔simx equivalence
+6. **Power estimation** — dynamic + static, per-module breakdown
 
-### Phase 3: Hardening (Week 5-6)
+### Phase 3: Fabrication Prep
 
-7. **Formal verification** — write assertions, run equivalence checking
-8. **Corner-case tests** — K=1, K=2, K=4, odd K, stress tests
-9. **Documentation** — timing specs, power specs, interface specs
-
-### Phase 4: Fabrication Prep (Week 7-8)
-
-10. **ASIC P&R** (if applicable) — target PDK, standard cells
-11. **Final timing closure** — multi-corner analysis
-12. **Tapeout checklist** — DRC, LVS, antenna rules
+7. **ASIC P&R** (if applicable) — target PDK, standard cells
+8. **Multi-corner timing closure** — setup/hold at fast/slow corners
+9. **Tapeout checklist** — DRC, LVS, antenna rules
 
 ---
 
@@ -218,8 +242,8 @@ The TCU design is **simulation-complete** (SimX) and **logic-synthesis-complete*
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|------------|--------|------------|
-| Multi-core bug takes longer than expected | Medium | High | Focus on single-core path first |
-| TGM correctness is architectural | Low | High | Fall back to software K-loop |
+| FPGA bring-up finds new RTL bugs | Medium | High | Bit-identical simx/rtlsim baseline as the oracle |
+| RTL FEDP drift breaks bit-exact contract | Low | High | Align simx model, document ULP budget |
 | Timing closure fails at target frequency | Medium | High | Reduce pipeline stages, lower frequency |
 | FPGA resource exhaustion | Low | Medium | Optimize LUT usage, use DSP blocks |
 | Power exceeds thermal budget | Low | Medium | Clock gating, power domains |
@@ -235,11 +259,13 @@ Despite the gaps, the following are **validated and working**:
 | TFR (tensor fused-reduce) | ✅ | ECP5 P&R: 89.54 MHz, 4012 LUT4 + 513 FF |
 | Full TCU hierarchy | ✅ | ECP5 synthesis: 2963 LUT4 + 1324 FF |
 | WGMMA at K=512 | ✅ | 512×512×512 fp16 GEMM passes |
-| Double-buffer DXA | ✅ | IPC improved from 0.608 to 0.804 (+32%) |
-| Fused A+B descriptor | ✅ | Phase 1 implemented, reduces issue overhead |
+| Double-buffer DXA | ✅ | DB kernel K=64/512 PASSED on simx AND rtlsim |
+| Fused A+B descriptor | ✅ | RTL-backed, bit-identical simx/rtlsim at K=64 & K=512 |
+| TGM self-pipelining | ✅ | K=512 PASSED; instrs 483,008 → 7,168 |
+| Multi-core rtlsim | ✅ | Drain placement fixed (GRXCP) |
 | bf16 support | ✅ | Test exists, RTL has bf16 paths |
 | SimX performance model | ✅ | IPC 1.345 at 512³, gate stall breakdown |
 
 ---
 
-*Analysis prepared by the grxgpu team. Commit `93c118e89` on main.*
+*Analysis prepared by the grxgpu team. Last refreshed Sept 2026 (fused-pair RTL gap closed).*
