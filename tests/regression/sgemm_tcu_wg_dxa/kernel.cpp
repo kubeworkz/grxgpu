@@ -69,9 +69,11 @@ __kernel void kernel_main(kernel_arg_t* __UNIFORM__ arg) {
   vortex::barrier bar1(1);
 
   // Prologue: issue the first K-tile into stage 0 (bar0) as one fused
-  // A+B transfer — one expect_tx, one barrier release when both are resident.
+  // A+B transfer — two sibling tile fetches (A and B), each releasing the
+  // barrier once, so arm expect_tx(2). The barrier fires only after both
+  // tiles are resident.
   if (is_dxa_warp) {
-    bar0.expect_tx(1);
+    bar0.expect_tx(2);
     vx_dxa_issue_2d_wg_pair(kDescA, kDescB, bar0.id(),
                             stage_a0, stage_b0, 0, tile_row, tile_col, 0);
   }
@@ -88,7 +90,7 @@ __kernel void kernel_main(kernel_arg_t* __UNIFORM__ arg) {
     // transfer while the WGMMA below consumes the current stage.
     if (k + ctx::tileK < K && is_dxa_warp) {
       vortex::barrier& bar_nxt = (nxt == 0) ? bar0 : bar1;
-      bar_nxt.expect_tx(1);
+      bar_nxt.expect_tx(2);
       vx_dxa_issue_2d_wg_pair(kDescA, kDescB, bar_nxt.id(),
                               nxt_a, nxt_b, k + ctx::tileK, tile_row, tile_col, k + ctx::tileK);
     }
