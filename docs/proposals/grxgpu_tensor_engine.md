@@ -339,12 +339,22 @@ the fused descriptor (Phase 1) is the enabling contract for everything after.
 |--------|--------|-----|---------------|
 | Original double-buffer | 28,203,780 | 1.304 | — |
 | Fused A+B single-worker | 28,203,780 | 1.304 | 0% |
-| **Fused A+B dual-pipe (2 workers)** | **27,747,759** | **1.325** | **−1.62%** |
+| Fused A+B dual-pipe (2 workers) | 27,747,759 | 1.325 | −1.62% |
 | 4-worker (no benefit) | 28,430,761 | 1.293 | +0.8% |
+| **Two-release pair (current HEAD)** | **13,760,999** | **2.244** | **−51.2%** |
 
-Instruction count is identical across all configs (36,767,744). The win is
-purely in the memory path — A and B issue through two independent arbiter
-ports instead of one serialized interleaved list.
+> ⚠️ The top four rows predate the fp16-in/fp32-out path and the
+> config-derivation fix, so their instruction count (36,767,744) is stale —
+> the current HEAD run issues 30,881,792 instructions at IPC 2.244. The win
+> in the last row is NOT from the two-release alignment; it reflects the
+> kernel/config stack that has since landed.
+>
+> **The two-release alignment itself is perf-neutral.** It is a pure
+> correctness/semantics change in SimX (each pair half releases its barrier
+> once, same observable timing). Confirmed by the 64×64 A/B: DB kernel
+> K=64 (69,056 instrs, IPC 1.428) and K=512 (483,008 instrs, IPC 1.741)
+> are **bit-identical** before and after the alignment, on both simx and the
+> Verilated rtlsim driver.
 
 ### 8.2 CORE profile (VORTEX_PROFILING=1)
 
