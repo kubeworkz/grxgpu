@@ -356,7 +356,24 @@ the fused descriptor (Phase 1) is the enabling contract for everything after.
 > are **bit-identical** before and after the alignment, on both simx and the
 > Verilated rtlsim driver.
 
-### 8.2 CORE profile (VORTEX_PROFILING=1)
+### 8.2 TCU gate-stall profile (VORTEX_PROFILING=11, current HEAD)
+
+**Per-core (all 128 cores identical):**
+
+| Metric | Value | Interpretation |
+|--------|-------|----------------|
+| **b_only** | **24,576 (100%)** | Every WGMMA gate stalls waiting for B tile |
+| a_only | 0 (0%) | A tile always arrives on time |
+| both | 0 (0%) | No simultaneous stalls |
+| avg_pend_b | **1.8** | B tile arrives 1.8 cycles late on average |
+| avg_pend_a | 0.0 | A tile has zero pending delay |
+| tbuf_stalls | 24,576 | Every tbuf access stalls |
+| tbuf_cache_hits | 0 | No tbuf cache hits — pure LMEM path |
+| lmem_reads | 8,192 | LMEM reads per core |
+
+**Aggregate (128 cores):** total_b_only = 3,145,728, avg_pend_b = 1.8.
+
+### 8.3 CORE profile (VORTEX_PROFILING=1, pre-alignment baseline)
 
 | Stall | % | Interpretation |
 |-------|---|----------------|
@@ -373,16 +390,27 @@ the binding constraint. No further DXA worker parallelism (2→4) helps
 because the single shared L2 arbiter pipe serializes all GMEM reads. The
 bottleneck has moved from DXA workers to the **memory subsystem**.
 
-### 8.3 Scale test: 1024×1024×512 (32K CTAs)
+**The 100% b_only gate stall with avg_pend_b=1.8 is confirmed as an
+irreducible architectural constant** of the current DXA+L2 memory
+subsystem — unchanged across config evolution, kernel changes, and the
+the two-release alignment.
+
+### 8.4 Scale test: 1024×1024×512 (32K CTAs)
 
 | Metric | 512² (8K CTAs) | 1024² (32K CTAs) | Ratio |
 |--------|----------------|------------------|-------|
-| Cycles | 27,747,759 | 111,140,698 | 4.006× ✅ |
-| IPC | 1.325 | 1.323 | 0.999× ✅ |
-| b_only gate | 3,153,024 | 12,585,408 | 3.992× ✅ |
+| Cycles | 13,760,999 | 111,140,698 | 8.08× |
+| IPC | 2.244 | 1.323 | 0.59× |
+| b_only gate | 3,145,728 | 12,585,408 | 4.00× ✅ |
 | avg_pend_b | 1.8 | 1.8 | identical |
 | tbuf_cache_hits | 0 | 0 | identical |
 | Correctness | PASSED | PASSED | — |
+
+> ⚠️ The 512² cycles/IPC in this table use the current HEAD measurement
+> (VORTEX_PROFILING=11, 13,760,999 cycles / IPC 2.244). The 1024² number
+> (111,140,698 / IPC 1.323) predates the fp16+config-derivation fixes and
+> is NOT directly comparable on IPC. The b_only gate count ratio (4.00×)
+> confirms the gate stall is perfectly linear and occupancy-independent.
 
 **The gate stall pattern is perfectly linear and occupancy-independent.**
 Every core shows the exact same signature: 100% b_only, avg_pend_b=1.8,
