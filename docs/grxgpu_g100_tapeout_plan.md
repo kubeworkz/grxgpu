@@ -414,5 +414,56 @@ generate_ram \
 
 ---
 
-*Document version: 1.0 — September 4, 2026*
+## 10. FPGA Prototyping & TFR Synthesis
+
+### 10.1 TFR ECP5 Synthesis (Yosys 0.68)
+
+The tensor floating-point reduce (TFR) pipeline — the compute core of the TCU — was synthesized standalone for ECP5-85K using Yosys 0.68 (ORFS Docker). The TFR handles fp32/bf16/fp16/fp8/mxfp4/nvfp4 multiply-accumulate, alignment, normalization, and rounding across 16 lanes.
+
+| Resource | Count | ECP5-85K Capacity | Utilization |
+|----------|-------|-------------------|-------------|
+| **LUT4** | 138 | ~40K | 0.35% |
+| **PFUMX** | 12 | ~8K | 0.15% |
+| **L6MUX21** | 5 | ~14K | 0.04% |
+| **CCU2C** | 32 | ~40K | 0.08% |
+| **TRELLIS_FF** | 272 | ~40K | 0.68% |
+| **Total cells** | 2,310 | — | — |
+
+**Synthesis time:** 50 seconds (Yosys 0.68, ECP5 target)
+**Flatten pipeline:** `syn/flatten_tfr_v2.py` — 16 modules, Phase A+B transforms, 100 generate-scoped wire hoists
+
+### 10.2 Full TCU Extrapolation
+
+The remaining TCU modules (abuf, bbuf, tbuf, agu, wgmma, uops, core, unit) depend on SystemVerilog interfaces (`VX_mem_bus_if`) and packed struct types (`tcu_tbuf_req_t`, `tcu_header_t`) that Yosys 0.68 cannot elaborate. Full TCU synthesis requires either:
+1. Yosys SV-ELAB plugin (Synlig) for native interface support
+2. Flattening the interface types to plain wire bundles
+
+**Extrapolated full TCU resource estimate:**
+
+| Module Group | Lines | Est. LUTs | Est. FFs |
+|---|---|---|---|
+| TFR (math pipeline) | 3,000 | **155** | **272** |
+| Buffers (abuf + bbuf + tbuf) | 1,545 | ~200 | ~400 |
+| AGU (address gen) | 304 | ~50 | ~30 |
+| WGMMA (scheduling) | 234 | ~80 | ~50 |
+| UOps (decoder) | 434 | ~100 | ~60 |
+| Core + unit + wrappers | ~1,200 | ~150 | ~80 |
+| Meta + sp_mux + dsm + etc. | ~800 | ~60 | ~40 |
+| **Full TCU estimate** | **~7,700** | **~800** | **~930** |
+
+The full TCU would use approximately **~800 LUTs** and **~930 FFs** — still only **~2%** of an ECP5-85K, leaving plenty of room for the core fabric, L2 cache, and interconnect.
+
+### 10.3 Synthesis Pipeline
+
+| Script | Purpose |
+|--------|---------|
+| `syn/flatten_tfr_v2.py` | TFR flattener: Phase A (ifdef/display stripping) + Phase B (gen-scoped hoisting) |
+| `syn/flatten_tcu.py` | Full TCU flattener (29 modules, pre-expand macros, blocked on SV interfaces) |
+| `syn/preexpand_macros.py` | Lambda-based macro pre-expansion for Yosys compatibility |
+| `syn/clean_removed.py` | Post-processing to strip macro remnants |
+| `syn/tcu_direct_synth.ys` | Direct source file synthesis script (for future Yosys SV support) |
+
+---
+
+*Document version: 1.1 — September 8, 2026*
 *Author: Buffy (Codebuff agent) + GRX GPU team*
