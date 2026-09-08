@@ -1,0 +1,72 @@
+# Synlig FULL TCU synthesis - final with all interfaces + stubs
+read_systemverilog -DIGNORE_UNUSED_BEGIN -DIGNORE_UNUSED_END \
+    /tmp/synth_config.svh \
+    /home/ubuntu/grxgpu/hw/rtl/VX_define.vh \
+    /home/ubuntu/grxgpu/hw/rtl/VX_types.vh \
+    /home/ubuntu/grxgpu/hw/rtl/VX_gpu_pkg.sv \
+    /home/ubuntu/grxgpu/hw/rtl/mem/VX_mem_bus_if.sv \
+    /home/ubuntu/grxgpu/hw/rtl/interfaces/VX_execute_if.sv \
+    /home/ubuntu/grxgpu/hw/rtl/interfaces/VX_result_if.sv \
+    /home/ubuntu/grxgpu/hw/rtl/interfaces/VX_dispatch_if.sv \
+    /home/ubuntu/grxgpu/hw/rtl/interfaces/VX_lsu_sched_if.sv \
+    /home/ubuntu/grxgpu/hw/rtl/interfaces/VX_commit_if.sv \
+    /home/ubuntu/grxgpu/hw/rtl/interfaces/VX_txbar_bus_if.sv \
+    /home/ubuntu/grxgpu/hw/rtl/interfaces/VX_dcr_bus_if.sv \
+    /tmp/vortex_stubs.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_pkg.sv \
+    /home/ubuntu/grxgpu/hw/rtl/dxa/VX_dxa_pkg.sv \
+    /home/ubuntu/grxgpu/hw/rtl/dxa/VX_dxa_worker_req_if.sv \
+    /home/ubuntu/grxgpu/hw/rtl/dxa/VX_dxa_req_bus_if.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_wmul.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_mul_f16.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_mul_f8.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_mul_f4.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_mul_join.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_classifier.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_norm_round.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_acc.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_max_exp.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_shared_mul.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_align.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_pipe_register.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_lane_mask.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_tfr_exc_reduce.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/tfr/VX_tcu_fedp_tfr.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_abuf.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_bbuf.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_tbuf.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_agu.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_meta.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_sp_mux.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_dsm.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_mx_scale.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_lockstep.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_uops.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_wgmma.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_core.sv \
+    /home/ubuntu/grxgpu/hw/rtl/tcu/VX_tcu_unit.sv \
+    /home/ubuntu/grxgpu/hw/rtl/dxa/VX_dxa_addr_gen.sv \
+    /home/ubuntu/grxgpu/hw/rtl/dxa/VX_dxa_completion.sv \
+    /home/ubuntu/grxgpu/hw/rtl/dxa/VX_dxa_desc_table.sv \
+    /home/ubuntu/grxgpu/hw/rtl/dxa/VX_dxa_dispatch.sv \
+    /home/ubuntu/grxgpu/hw/rtl/dxa/VX_dxa_gmem_req.sv \
+    /home/ubuntu/grxgpu/hw/rtl/dxa/VX_dxa_req_arb.sv \
+    /home/ubuntu/grxgpu/hw/rtl/dxa/VX_dxa_setup.sv \
+    /home/ubuntu/grxgpu/hw/rtl/dxa/VX_dxa_smem_wr.sv \
+    /home/ubuntu/grxgpu/hw/rtl/dxa/VX_dxa_watchdog.sv \
+    /home/ubuntu/grxgpu/hw/rtl/dxa/VX_dxa_worker.sv \
+    /home/ubuntu/grxgpu/hw/rtl/dxa/VX_dxa_core.sv \
+    /home/ubuntu/grxgpu/hw/rtl/dxa/VX_dxa_unit.sv \
+    /home/ubuntu/grxgpu/hw/rtl/libs/VX_wallace_mul.sv \
+    /home/ubuntu/grxgpu/hw/rtl/libs/VX_lzc.sv \
+    /home/ubuntu/grxgpu/hw/rtl/libs/VX_find_first.sv \
+    /home/ubuntu/grxgpu/hw/rtl/libs/VX_csa_tree.sv \
+    /home/ubuntu/grxgpu/hw/rtl/libs/VX_csa_32.sv \
+    /home/ubuntu/grxgpu/hw/rtl/libs/VX_csa_42.sv \
+    /home/ubuntu/grxgpu/hw/rtl/libs/VX_csa_mod4.sv \
+    /home/ubuntu/grxgpu/hw/rtl/libs/VX_ks_adder.sv \
+    /home/ubuntu/grxgpu/hw/rtl/libs/VX_popcount.sv \
+    /home/ubuntu/grxgpu/hw/rtl/libs/VX_pipe_register.sv
+
+synth -top VX_tcu_unit -flatten
+stat

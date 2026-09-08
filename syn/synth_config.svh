@@ -1,0 +1,20 @@
+// Synthesis configuration
+`define VX_CFG_XLEN 32
+`define VX_CFG_NUM_THREADS 4
+`define VX_CFG_NUM_TCU_LANES 4
+`define VX_CFG_TCU_ENABLED 1
+`define VX_CFG_TCU_WGMMA_DISABLE
+`define VX_CFG_TCU_FEDP2K
+`define VX_CFG_TCU_FP8_ENABLE
+`define VX_CFG_TCU_MXFP4_ENABLE
+`define VX_CFG_TCU_NVFP4_ENABLE
+`define VX_CFG_TCU_TF32_ENABLE
+`define VX_CFG_TCU_FP16_ENABLE
+`define VX_CFG_TCU_SPARSE_ENABLE
+`define VX_CFG_TCU_SPARSE_ENABLED 1
+`define IGNORE_UNUSED_BEGIN
+`define IGNORE_UNUSED_END
+`define UNUSED_VAR(x)
+`define UNUSED_SPARAM(x)
+`define UNUSED_PIN(x)
+`define RUNTIME_ASSERT(cond, msg)
