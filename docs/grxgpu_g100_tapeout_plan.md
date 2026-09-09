@@ -164,6 +164,18 @@ Key scaling findings:
 - **Functionally validated end-to-end via rtlsim (Sept 2026)** — the RTL split is behaviorally transparent. Built the Verilated model at 1 cluster × 4 cores (TCU+DXA enabled, `DATA_OOB=1` on the L2 arb) and ran the `sgemm_tcu_wg_dxa` GEMM: **K=64 PASSED** (36,672 instrs, 78,886 cycles). A K=512 A/B (rebuild with `DATA_OOB=0`, same config) is **bit-identical**: same 4096/4096 verification deltas, same 230,208 instrs, same 404,949 cycles — the OOB path delivers the exact same data and timing as the inline path. The −63.4% arbiter area win therefore comes with **zero functional delta**.
 - **fp32-accumulation tolerance resolved (Sept 2026)** — the GEMM verify now scales the fp32 ULP budget with the accumulation depth: `fp32_ulp_budget(K) = max(12, ⌈5·√K⌉)` ULP (≈1.4e-5 relative at K=512), keeping the exact double-precision dot-product reference. Root cause: the FEDP fp32 datapath rounds the running sum on **every** accumulation step (per-step FMA-chain semantics — the simx model's per-word `rv_fadd_s` accumulation and the RTL's per-step `FADD+FRND` latency chain), so the deviation from an exact dot product grows ~√K. Measured on rtlsim with the standard data set: **K=64 PASS** (budget 12, was already passing), **K=256 PASS** (tail ~26 ULP vs budget 64), **K=512 PASS** (tail ~65 ULP vs budget 114); all at 4096 elements. A dropped tile/product still lands thousands of ULP above the budget. Two fidelity notes for the tapeout track: (1) the **RTL FEDP drifts ~3–5× more than the simx model** on identical data (simx stays within 12 ULP at K=512) — simx under-models per-step rounding and is the optimistic side of the pair; (2) the DB kernel on rtlsim needed the fused-pair RTL fix above (single-buffered via `make WGMMA_SINGLE_BUFFER=1` remained a fallback for the pre-fix driver).
 
+- **TGM double-buffer correctness battery — full sweep (Sept 2026)** — rebuilt simx with the 128-core flagship config (8 clusters × 16 cores, 4 warps, 4 threads, 4 issue width, `NUM_DXA_CORES=2`) and ran the `sgemm_tcu_wg_dxa` GEMM across K=16→512. **All 5 sizes PASSED.** Critical finding: `WGMMA_DXA_DOUBLE_BUFFER` requires `NUM_DXA_CORES ≥ 2` — the fused A+B pair needs 2 DXA workers; with `NUM_DXA_CORES=1` the TGM FSM deadlocks (stuck at "wait for completion"). With `NUM_DXA_CORES=2` the design is fully functional:
+
+| K | Instrs | Cycles | IPC | Wall Time | Status |
+|---|--------|--------|-----|-----------|--------|
+| 16 | 24,704 | 8,253 | 2.993 | 6.9s | PASSED |
+| 64 | 69,056 | 12,553 | 5.501 | 11.1s | PASSED |
+| 128 | 128,192 | 18,969 | 6.758 | 15.7s | PASSED |
+| 256 | 246,464 | 30,017 | 8.211 | 30.7s | PASSED |
+| 512 | 483,008 | 54,609 | 8.845 | 50.0s | PASSED |
+
+IPC scales from 3.0 at K=16 to 8.8 at K=512, confirming the double-buffer FSM effectively hides DXA latency at scale. Cycles grow 6.6× from K=16→512 while instructions grow 19.6×, indicating DXA bandwidth (2 cores serving 128 compute cores) is the saturation point. The 2-core config shows the same correctness with lower IPC (0.758 at K=512), confirming the DXA bandwidth bottleneck.
+
 > **Scope notes:** (1) `VX_core` instantiates `VX_execute` → `VX_tcu_unit`/`VX_dxa_unit`, so the measured 434K µm²/core **includes** the TCU + DXA tensor logic (verified present in the 613K reference, absent from the stubbed BB runs — the orphan TCU module definitions Yosys drops contribute 0 cells). (2) The 8-cluster G100 row assumes no extra inter-cluster fabric (L3/NoC); add interconnect margin when sizing the full die.
 
 > **Process-node note:** Nangate45 is a **45 nm** library. Scaling to the 28 nm target **shrinks** area by (28/45)² ≈ **0.39×** (it does *not* grow 2.5× as previously stated).
@@ -327,7 +339,7 @@ RTL (SystemVerilog)
 | **DXA fetch** | GMEM→LMEM DMA | Correct tile transfer |
 | **Multi-core** | Barrier test | All 128 cores sync |
 | **Graphics pipeline** | Rasterizer test | Fragment output |
-| **Full SGEMM** | 512×512×512 | PASSED (SimX baseline) |
+| **Full SGEMM** | K=16→512 battery | All 5 sizes PASSED on 128-core SimX (see §2) |
 
 ---
 
