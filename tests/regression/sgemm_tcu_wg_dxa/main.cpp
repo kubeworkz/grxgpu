@@ -333,6 +333,16 @@ int main(int argc, char *argv[]) {
     return -1;
   }
 
+  // WGMMA_DXA_DOUBLE_BUFFER requires >= 2 DXA cores (fused A+B pair needs 2 workers).
+#ifdef WGMMA_DXA_DOUBLE_BUFFER
+  if (VX_CFG_NUM_DXA_CORES < 2) {
+    std::cerr << "Error: WGMMA_DXA_DOUBLE_BUFFER requires NUM_DXA_CORES >= 2, got "
+              << VX_CFG_NUM_DXA_CORES << std::endl;
+    cleanup();
+    return -1;
+  }
+#endif
+
   uint64_t NT;
   RT_CHECK(vx_device_query(device, VX_CAPS_NUM_THREADS, &NT));
   if (NT != VX_CFG_NUM_THREADS) {

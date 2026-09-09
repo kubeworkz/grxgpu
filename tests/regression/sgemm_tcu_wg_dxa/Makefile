@@ -19,7 +19,9 @@ endif
 CONFIGS := $(if $(findstring -DVX_CFG_NUM_WARPS=,$(CONFIGS)),$(CONFIGS),$(CONFIGS) -DVX_CFG_NUM_WARPS=4)
 CONFIGS := $(if $(findstring -DVX_CFG_ISSUE_WIDTH=,$(CONFIGS)),$(CONFIGS),$(CONFIGS) -DVX_CFG_ISSUE_WIDTH=4)
 CONFIGS += -DVX_CFG_TCU_WGMMA_ENABLE
-# The DXA double-buffered WGMMA pipeline is validated under simx. The Verilated
+# The DXA double-buffered WGMMA pipeline is validated under simx. Requires NUM_DXA_CORES >=
+# 2 (the fused A+B pair needs 2 DXA workers; with 1 DXA core the TGM FSM deadlocks).
+# The Verilated
 # rtlsim/FPGA RTL path currently runs the single-buffered variant, so build with
 # `make WGMMA_SINGLE_BUFFER=1` for rtlsim runs (skips the WGMMA_RS + DXA
 # double-buffer defines below).
