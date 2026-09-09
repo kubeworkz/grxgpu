@@ -289,6 +289,8 @@ VX_CFG_TCU_FEDP2K = false
 
 [dxa]
 # Cluster-level DXA engine count, decoupled from cores/socket size.
+# NOTE: WGMMA_DXA_DOUBLE_BUFFER requires NUM_DXA_CORES >= 2 (fused A+B pair
+# needs 2 DXA workers). Override to 2 if enabling DXA double-buffering.
 VX_CFG_NUM_DXA_CORES = "expr: max(1, up($VX_CFG_NUM_CORES / 8))"
 VX_CFG_DXA_MEM_PORTS = "expr: min($VX_CFG_NUM_DXA_CORES, up($VX_CFG_NUM_CORES / $VX_CFG_SOCKET_SIZE) * $VX_CFG_L1_MEM_PORTS)"
 VX_CFG_DXA_QUEUE_SIZE = 16
