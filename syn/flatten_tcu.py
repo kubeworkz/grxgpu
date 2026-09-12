@@ -50,16 +50,15 @@ TCU_CORE_MODULES = [
     "VX_tcu_dsm.sv",            # Distributed shared memory (145 lines)
     "VX_tcu_meta.sv",           # Metadata (227 lines)
     "VX_tcu_sp_mux.sv",         # Special operand mux (186 lines)
-    # "VX_tcu_uops.sv"  # excluded: ibuffer_t typedef port,           # Micro-op decoder (434 lines)
-    # Modules WITH SV interfaces — excluded from flat synthesis
-    # (need interface-to-wire expansion first)
-    # "VX_tcu_tbuf.sv",         # T buffer — has VX_mem_bus_if
-    # "VX_tcu_abuf.sv",         # A buffer — has VX_mem_bus_if
-    # "VX_tcu_bbuf.sv",         # B buffer — has VX_mem_bus_if
-    # "VX_tcu_agu.sv",          # AGU — has VX_mem_bus_if
-    # "VX_tcu_wgmma.sv",        # WGMMA — has VX_mem_bus_if
-    # "VX_tcu_core.sv",         # TCU core — has VX_execute_if, VX_result_if
-    # "VX_tcu_unit.sv",         # TCU unit — has VX_mem_bus_if, VX_dispatch_if, etc.
+    "VX_tcu_uops.sv",           # Micro-op decoder (434 lines)
+    # Modules WITH SV interfaces (expanded post-flatten by expand_interfaces.py)
+    "VX_tcu_tbuf.sv",           # T buffer — has VX_mem_bus_if
+    "VX_tcu_abuf.sv",           # A buffer — has VX_mem_bus_if
+    "VX_tcu_bbuf.sv",           # B buffer — has VX_mem_bus_if
+    "VX_tcu_agu.sv",            # AGU — has VX_mem_bus_if
+    "VX_tcu_wgmma.sv",          # WGMMA — has VX_mem_bus_if
+    "VX_tcu_core.sv",           # TCU core — has VX_execute_if, VX_result_if
+    "VX_tcu_unit.sv",           # TCU unit — has VX_mem_bus_if, VX_dispatch_if, etc.
 ]
 
 ALL_MODULES = TFR_MODULES + TCU_CORE_MODULES
@@ -82,6 +81,7 @@ HEADER = r"""// Yosys-compatible TCU flat file (Phase A+B preprocessed)
 `define VX_MEM_LMEM_BASE_ADDR 32'hFFFF0000
 `define VX_CFG_LMEM_LOG_SIZE 14
 `define VX_CFG_LMEM_NUM_BANKS 4
+`define VX_CFG_SIMD_WIDTH `VX_CFG_NUM_THREADS
 `define VX_CFG_TCU_WGMMA_ENABLE 1
 `define VX_CFG_TCU_FEDP2K 1
 `define VX_CFG_TCU_FP16_ENABLE 1
@@ -123,6 +123,66 @@ HEADER = r"""// Yosys-compatible TCU flat file (Phase A+B preprocessed)
 `define SCOPE_IO_BIND(i)
 `define SCOPE_IO_UNUSED(i)
 `define SCOPE_IO_SWITCH(count)
+
+        // GPU package parameters (from VX_gpu_pkg.sv)
+    localparam UUID_WIDTH = 44;
+    localparam NW_WIDTH = `CLOG2(`VX_CFG_NUM_WARPS);
+    localparam NCTA_WIDTH = 14;
+    localparam SIMD_IDX_W = 1;
+    localparam PC_BITS = `VX_CFG_XLEN;
+    localparam NUM_XREGS = 2;
+    localparam NUM_REGS_BITS = 5;
+    localparam BYTESEL_BITS = 4;
+    localparam INST_OP_BITS = 4;
+    localparam NUM_SRC_OPDS = 3;
+    localparam EX_BITS = 2;
+    localparam ISSUE_WIS_W = 1;
+    localparam ISSUE_WIDTH = `VX_CFG_ISSUE_WIDTH;
+    localparam MEM_ATTR_WIDTH = 3;
+    localparam NUM_REGS = 32;
+    localparam XLENB = 4;
+    localparam XLENB_W = 2;
+    localparam NCTA_BITS = 14;
+    localparam NUM_EX_UNITS = 4;
+    localparam NUM_THREADS = `VX_CFG_NUM_THREADS;
+
+    // op_args_t — packed union, declared as wide logic
+    typedef logic [127:0] op_args_t;
+
+typedef struct packed {
+        logic [UUID_WIDTH-1:0]              uuid;
+        logic [ISSUE_WIS_W-1:0]             wis;
+        logic [NCTA_WIDTH-1:0]              cta_id;
+        logic [SIMD_IDX_W-1:0]              sid;
+        logic [`VX_CFG_SIMD_WIDTH-1:0]             tmask;
+        logic [PC_BITS-1:0]                 PC;
+        logic                               wb;
+        logic [NUM_XREGS-1:0]               wr_xregs;
+        logic [NUM_REGS_BITS-1:0]           rd;
+        logic [BYTESEL_BITS-1:0]            bytesel;
+        logic [INST_OP_BITS-1:0]            op_type;
+        op_args_t                           op_args;
+        logic [`VX_CFG_SIMD_WIDTH-1:0][`VX_CFG_XLEN-1:0]  rs1_data;
+        logic [`VX_CFG_SIMD_WIDTH-1:0][`VX_CFG_XLEN-1:0]  rs2_data;
+        logic [`VX_CFG_SIMD_WIDTH-1:0][`VX_CFG_XLEN-1:0]  rs3_data;
+        logic                               sop;
+        logic                               eop;
+    } dispatch_t;
+typedef struct packed {
+        logic [UUID_WIDTH-1:0]              uuid;
+        logic [NW_WIDTH-1:0]                wid;
+        logic [NCTA_WIDTH-1:0]              cta_id;
+        logic [SIMD_IDX_W-1:0]              sid;
+        logic [`VX_CFG_SIMD_WIDTH-1:0]             tmask;
+        logic [PC_BITS-1:0]                 PC;
+        logic                               wb;
+        logic [NUM_XREGS-1:0]               wr_xregs;
+        logic [NUM_REGS_BITS-1:0]           rd;
+        logic [BYTESEL_BITS-1:0]            bytesel;
+        logic [`VX_CFG_SIMD_WIDTH-1:0][`VX_CFG_XLEN-1:0]  data;
+        logic                               sop;
+        logic                               eop;
+    } commit_t;
 
 // Type definitions from VX_tcu_pkg (packed structs)
 localparam TCU_FP32_ID = 0;
@@ -214,7 +274,7 @@ localparam TCU_RA = 10;
 localparam TCU_RB = (TCU_NRB == 4) ? 28 : 24;
 localparam TCU_UOPS = TCU_M_STEPS * TCU_N_STEPS * TCU_K_STEPS;
 localparam TCU_MAX_INPUTS = TCU_TC_K * TCU_MAX_ELT_RATIO;
-localparam TCU_MX_MAX_SF = mx_max_fedp_sf();
+localparam TCU_MX_MAX_SF = 8;
 localparam TCU_EXP_BITS = 10;
 localparam TCU_EXP_BITS = 10;
 localparam TCU_EXP_BITS = 9;
@@ -223,26 +283,26 @@ typedef struct packed { logic is_zero; logic is_sub; logic is_inf; logic is_nan;
 typedef struct packed { logic is_inf; logic is_nan; logic sign; } fedp_excep_t;
 
 // Format utility functions (from VX_gpu_pkg)
-function automatic logic tcu_fmt_is_int(input logic [4:0] fmt);
+function logic tcu_fmt_is_int(input logic [4:0] fmt);
     tcu_fmt_is_int = fmt[4];
 endfunction
 
-function automatic logic tcu_fmt_is_signed_int(input logic [3:0] int_fmt);
+function logic tcu_fmt_is_signed_int(input logic [3:0] int_fmt);
     tcu_fmt_is_signed_int = int_fmt[0];
 endfunction
 
-function automatic logic tcu_fmt_is_bfloat(input logic [3:0] float_fmt);
+function logic tcu_fmt_is_bfloat(input logic [3:0] float_fmt);
     tcu_fmt_is_bfloat = float_fmt[0];
 endfunction
 
-function automatic logic tcu_fmt_is_mx(input logic [4:0] fmt);
+function logic tcu_fmt_is_mx(input logic [4:0] fmt);
     case (fmt)
         5'd10, 5'd11, 5'd8, 5'd9: tcu_fmt_is_mx = 1'b1;
         default: tcu_fmt_is_mx = 1'b0;
     endcase
 endfunction
 
-function automatic int unsigned tcu_fmt_width(input logic [4:0] fmt);
+function int unsigned tcu_fmt_width(input logic [4:0] fmt);
     case (fmt)
         5'd2, 5'd3: tcu_fmt_width = 16;
         5'd10, 5'd11, 5'd19, 5'd20: tcu_fmt_width = 4;
@@ -252,7 +312,7 @@ function automatic int unsigned tcu_fmt_width(input logic [4:0] fmt);
     endcase
 endfunction
 
-function automatic int unsigned tcu_int_fmt_width(input logic [3:0] fmt);
+function int unsigned tcu_int_fmt_width(input logic [3:0] fmt);
     case (fmt)
         4'd0: tcu_int_fmt_width = 8;
         4'd1: tcu_int_fmt_width = 16;
@@ -382,6 +442,24 @@ endfunction
         automatic int unsigned rowb = TCU_TC_K * 2 * elr;
         return (TCU_TC_M * rowb + 31) / 32;
     endfunction
+
+localparam NW_WIDTH = `UP(NW_BITS);
+localparam NCTA_WIDTH = `UP(NCTA_BITS);
+localparam BYTESEL_BITS = (XLENB_W + XLENB_W);
+localparam NUM_REGS_BITS = `CLOG2(NUM_REGS);
+localparam NUM_XREGS = 2;
+localparam SIMD_IDX_W = `UP(SIMD_IDX_BITS);
+localparam UUID_WIDTH = 44;
+localparam UUID_WIDTH = 44;
+localparam UUID_WIDTH = 1;
+localparam PC_BITS = `VX_CFG_XLEN;
+localparam PC_BITS = (`VX_CFG_XLEN-1);
+localparam PC_BITS = (`VX_CFG_XLEN-2);
+localparam MEM_ATTR_WIDTH = $bits(mem_bus_attr_t);
+localparam INST_OP_BITS = 4;
+localparam ISSUE_WIS_W = `UP(ISSUE_WIS_BITS);
+localparam INST_ARGS_BITS = 3 + ALU_TYPE_BITS + 20 + 2;
+localparam LMEM_DMA_DATA_SIZE = `VX_CFG_LMEM_NUM_BANKS * LSU_WORD_SIZE;
 
 localparam TCU_MAX_INPUTS = 16;
 
