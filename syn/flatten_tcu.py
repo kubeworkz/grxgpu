@@ -44,19 +44,22 @@ TFR_MODULES = [
 
 TCU_CORE_MODULES = [
     # Core TCU modules — dependency order
+    # Modules WITHOUT SV interfaces (can synthesize directly)
     "VX_tcu_mx_scale.sv",       # MX scaling (tiny, 90 lines)
     "VX_tcu_lockstep.sv",       # Lockstep (128 lines)
     "VX_tcu_dsm.sv",            # Distributed shared memory (145 lines)
     "VX_tcu_meta.sv",           # Metadata (227 lines)
     "VX_tcu_sp_mux.sv",         # Special operand mux (186 lines)
-    "VX_tcu_tbuf.sv",           # T buffer (354 lines)
-    "VX_tcu_abuf.sv",           # A buffer (484 lines)
-    "VX_tcu_bbuf.sv",           # B buffer (707 lines)
-    "VX_tcu_agu.sv",            # Address generation unit (304 lines)
-    "VX_tcu_wgmma.sv",          # WGMMA warp-group MMA (234 lines)
-    "VX_tcu_uops.sv",           # Micro-op decoder (434 lines)
-    "VX_tcu_core.sv",           # TCU core (711 lines) — instantiates fedp_tfr
-    "VX_tcu_unit.sv",           # TCU unit top (262 lines)
+    # "VX_tcu_uops.sv"  # excluded: ibuffer_t typedef port,           # Micro-op decoder (434 lines)
+    # Modules WITH SV interfaces — excluded from flat synthesis
+    # (need interface-to-wire expansion first)
+    # "VX_tcu_tbuf.sv",         # T buffer — has VX_mem_bus_if
+    # "VX_tcu_abuf.sv",         # A buffer — has VX_mem_bus_if
+    # "VX_tcu_bbuf.sv",         # B buffer — has VX_mem_bus_if
+    # "VX_tcu_agu.sv",          # AGU — has VX_mem_bus_if
+    # "VX_tcu_wgmma.sv",        # WGMMA — has VX_mem_bus_if
+    # "VX_tcu_core.sv",         # TCU core — has VX_execute_if, VX_result_if
+    # "VX_tcu_unit.sv",         # TCU unit — has VX_mem_bus_if, VX_dispatch_if, etc.
 ]
 
 ALL_MODULES = TFR_MODULES + TCU_CORE_MODULES
@@ -79,6 +82,26 @@ HEADER = r"""// Yosys-compatible TCU flat file (Phase A+B preprocessed)
 `define VX_MEM_LMEM_BASE_ADDR 32'hFFFF0000
 `define VX_CFG_LMEM_LOG_SIZE 14
 `define VX_CFG_LMEM_NUM_BANKS 4
+`define VX_CFG_TCU_WGMMA_ENABLE 1
+`define VX_CFG_TCU_FEDP2K 1
+`define VX_CFG_TCU_FP16_ENABLE 1
+`define VX_CFG_TCU_INT8_ENABLE 1
+`define VX_CFG_TCU_INT4_ENABLE 1
+`define VX_CFG_TCU_FP8_ENABLE 1
+`define VX_CFG_TCU_FP4_ENABLE 1
+`define VX_CFG_TCU_TF32_ENABLE 1
+`define VX_CFG_TCU_MX_ENABLE 1
+`define VX_CFG_TCU_MXFP4_ENABLE 1
+`define VX_CFG_TCU_NVFP4_ENABLE 1
+`define VX_CFG_TCU_SPARSE_ENABLE 1
+`define VX_CFG_TCU_DSM_ENABLE 1
+`define VX_CFG_TCU_WGMMA_ENABLED 1
+`define VX_CFG_TCU_SPARSE_ENABLED 0
+`define VX_CFG_TCU_FP16_ENABLED 1
+`define VX_CFG_TCU_TYPE_TFR 1
+
+`define VX_CFG_TCU_TYPE_TFR 1
+
 `define CLOG2(x) ($clog2(x))
 `define LOG2UP(x) ($clog2(x))
 `define UP(x) (((x) > 0) ? (x) : 1)
@@ -89,7 +112,7 @@ HEADER = r"""// Yosys-compatible TCU flat file (Phase A+B preprocessed)
 `define UNUSEDWire(w)
 `define STATIC_ASSERT(cond, msg)
 `define TRACING_OFF
-`define TRACE_ARRAY(tag, scope, mod, idx, ...)
+`define TRACE_ARRAY(tag, scope, mod, idx)
 // Verilator lint suppression macros
 `define UNUSED_VAR(x)
 `define UNUSED_SPARAM(x)
@@ -102,6 +125,100 @@ HEADER = r"""// Yosys-compatible TCU flat file (Phase A+B preprocessed)
 `define SCOPE_IO_SWITCH(count)
 
 // Type definitions from VX_tcu_pkg (packed structs)
+localparam TCU_FP32_ID = 0;
+localparam TCU_TF32_ID = 1;
+localparam TCU_FP16_ID = 2;
+localparam TCU_BF16_ID = 3;
+localparam TCU_FP8_ID = 4;
+localparam TCU_BF8_ID = 5;
+localparam TCU_MXFP8_ID = 8;
+localparam TCU_MXBF8_ID = 9;
+localparam TCU_MXFP4_ID = 10;
+localparam TCU_NVFP4_ID = 11;
+localparam TCU_I32_ID = 16;
+localparam TCU_I8_ID = 17;
+localparam TCU_U8_ID = 18;
+localparam TCU_I4_ID = 19;
+localparam TCU_U4_ID = 20;
+localparam TCU_FMT_WIDTH = 5;
+localparam TCU_NT = `VX_CFG_NUM_THREADS;
+localparam TCU_WG_NRA = 4;
+localparam TCU_WG_NR = 32;
+localparam TCU_NR = 8;
+localparam TCU_DK = 0;
+localparam TCU_DP = 0;
+localparam TCU_TILE_CAP = TCU_NT * TCU_NR;
+localparam TCU_LG_TILE_CAP = $clog2(TCU_TILE_CAP);
+localparam TCU_TILE_EN = TCU_LG_TILE_CAP / 2;
+localparam TCU_TILE_EM = TCU_LG_TILE_CAP - TCU_TILE_EN;
+localparam TCU_TILE_M = 1 << TCU_TILE_EM;
+localparam TCU_TILE_N = 1 << TCU_TILE_EN;
+localparam TCU_TILE_K = (TCU_DK != 0) ? TCU_DK : (TCU_DP != 0) ? TCU_DP : (TCU_TILE_CAP / ((TCU_TILE_M > TCU_TILE_N) ? TCU_TILE_M : TCU_TILE_N));
+localparam TCU_BLOCK_CAP = TCU_NT;
+localparam TCU_LG_BLOCK_CAP = $clog2(TCU_BLOCK_CAP);
+localparam TCU_BLOCK_EN = TCU_LG_BLOCK_CAP / 2;
+localparam TCU_BLOCK_EM = TCU_LG_BLOCK_CAP - TCU_BLOCK_EN;
+localparam TCU_TC_M = 1 << TCU_BLOCK_EM;
+localparam TCU_TC_N = 1 << TCU_BLOCK_EN;
+localparam TCU_TC_K = (TCU_DP != 0) ? TCU_DP : (TCU_BLOCK_CAP / ((TCU_TC_M > TCU_TC_N) ? TCU_TC_M : TCU_TC_N));
+localparam TCU_M_STEPS = TCU_TILE_M / TCU_TC_M;
+localparam TCU_N_STEPS = TCU_TILE_N / TCU_TC_N;
+localparam TCU_K_STEPS = TCU_TILE_K / TCU_TC_K;
+localparam TCU_A_BLOCK_SIZE = TCU_TC_M * TCU_TC_K;
+localparam TCU_A_SUB_BLOCKS = TCU_BLOCK_CAP / TCU_A_BLOCK_SIZE;
+localparam TCU_B_BLOCK_SIZE = TCU_TC_K * TCU_TC_N;
+localparam TCU_B_SUB_BLOCKS = TCU_BLOCK_CAP / TCU_B_BLOCK_SIZE;
+localparam TCU_WG_TILE_M = 2 * TCU_TC_M;
+localparam TCU_WG_TILE_K = 2 * TCU_TC_K;
+localparam TCU_WG_FEDP_K = 2 * TCU_TC_K;
+localparam TCU_WG_FEDP_K = TCU_TC_K;
+localparam TCU_WG_TILE_N = (TCU_WG_NR * TCU_NT) / TCU_WG_TILE_M;
+localparam TCU_WG_M_STEPS = TCU_WG_TILE_M / TCU_TC_M;
+localparam TCU_WG_N_STEPS = TCU_WG_TILE_N / TCU_TC_N;
+localparam TCU_WG_K_STEPS = TCU_WG_TILE_K / TCU_WG_FEDP_K;
+localparam TCU_WG_UOPS = TCU_WG_M_STEPS * TCU_WG_N_STEPS * TCU_WG_K_STEPS;
+localparam TCU_WG_A_BLOCK_SIZE = TCU_TC_M * TCU_TC_K;
+localparam TCU_WG_A_DATA_SIZE = TCU_TC_M * TCU_WG_FEDP_K;
+localparam TCU_WG_A_SUB_BLOCKS = TCU_BLOCK_CAP / TCU_WG_A_BLOCK_SIZE;
+localparam TCU_WG_B_BLOCK_SIZE = TCU_WG_FEDP_K * TCU_TC_N;
+localparam TCU_WG_B_SUB_BLOCKS = TCU_BLOCK_CAP / TCU_WG_B_BLOCK_SIZE;
+localparam SYM_SPARSE = `VX_CFG_TCU_WGMMA_ENABLED ? 0 : (TCU_BLOCK_EM == TCU_BLOCK_EN);
+localparam TCU_B_BLOCK_SIZE_SP = SYM_SPARSE ? TCU_BLOCK_CAP : (TCU_TC_K * TCU_TC_N) * 2;
+localparam TCU_B_SUB_BLOCKS_SP = TCU_BLOCK_CAP / TCU_B_BLOCK_SIZE_SP;
+localparam TCU_WG_B_BLOCK_SIZE_SP = TCU_TC_K * TCU_TC_N * 2;
+localparam TCU_WG_RS2_WIDTH_DENSE = (TCU_WG_B_BLOCK_SIZE > TCU_BLOCK_CAP) ? TCU_WG_B_BLOCK_SIZE : TCU_BLOCK_CAP;
+localparam TCU_WG_RS2_WIDTH = `VX_CFG_TCU_SPARSE_ENABLED
+        ? ((TCU_WG_B_BLOCK_SIZE_SP > TCU_WG_RS2_WIDTH_DENSE) ? TCU_WG_B_BLOCK_SIZE_SP : TCU_WG_RS2_WIDTH_DENSE)
+        : TCU_WG_RS2_WIDTH_DENSE;
+localparam TCU_MIN_FMT_WIDTH = 4;
+localparam TCU_MAX_ELT_RATIO = 32 / TCU_MIN_FMT_WIDTH;
+localparam TCU_MAX_META_ROW_WIDTH = TCU_TC_K * 2 * TCU_MAX_ELT_RATIO;
+localparam TCU_MAX_META_BLOCK_WIDTH = TCU_NT   * 2 * TCU_MAX_ELT_RATIO;
+localparam TCU_META_PER_WARP_DEPTH = TCU_M_STEPS * (TCU_K_STEPS / 2);
+localparam TCU_META_COLS_PER_LOAD = (TCU_BLOCK_CAP >= TCU_META_PER_WARP_DEPTH)
+        ? (TCU_BLOCK_CAP / TCU_META_PER_WARP_DEPTH) : 1;
+localparam TCU_BANKS_PER_STORE = (TCU_NT < TCU_META_PER_WARP_DEPTH)
+        ? TCU_NT : TCU_META_PER_WARP_DEPTH;
+localparam TCU_STORES_PER_COL = (TCU_META_PER_WARP_DEPTH + TCU_NT - 1) / TCU_NT;
+localparam TCU_WG_META_PER_WARP_DEPTH = TCU_WG_M_STEPS * (TCU_WG_K_STEPS / 2);
+localparam TCU_WG_META_COLS_PER_LOAD = (TCU_BLOCK_CAP >= TCU_WG_META_PER_WARP_DEPTH)
+        ? (TCU_BLOCK_CAP / TCU_WG_META_PER_WARP_DEPTH) : 1;
+localparam TCU_WG_STORES_PER_COL = (TCU_WG_META_PER_WARP_DEPTH + TCU_NT - 1) / TCU_NT;
+localparam TCU_NRA = (TCU_TILE_M * TCU_TILE_K) / TCU_NT;
+localparam TCU_NRB = (TCU_TILE_N * TCU_TILE_K) / TCU_NT;
+localparam TCU_NRC = (TCU_TILE_M * TCU_TILE_N) / TCU_NT;
+localparam TCU_RC = 0;
+localparam TCU_WG_RC = TCU_RC;
+localparam TCU_WG_RA = 24;
+localparam TCU_RA = 10;
+localparam TCU_RB = (TCU_NRB == 4) ? 28 : 24;
+localparam TCU_UOPS = TCU_M_STEPS * TCU_N_STEPS * TCU_K_STEPS;
+localparam TCU_MAX_INPUTS = TCU_TC_K * TCU_MAX_ELT_RATIO;
+localparam TCU_MX_MAX_SF = mx_max_fedp_sf();
+localparam TCU_EXP_BITS = 10;
+localparam TCU_EXP_BITS = 10;
+localparam TCU_EXP_BITS = 9;
+
 typedef struct packed { logic is_zero; logic is_sub; logic is_inf; logic is_nan; } fedp_class_t;
 typedef struct packed { logic is_inf; logic is_nan; logic sign; } fedp_excep_t;
 
@@ -144,6 +261,128 @@ function automatic int unsigned tcu_int_fmt_width(input logic [3:0] fmt);
     endcase
 endfunction
 
+    function int unsigned mx_fedp_sf_count(
+        input int unsigned data_bits,
+        input int unsigned block_elems
+    );
+        automatic int unsigned sparse_ratio = `VX_CFG_TCU_SPARSE_ENABLED ? 2 : 1;
+        automatic int unsigned fedp_elems = TCU_WG_FEDP_K * (32 / data_bits) * sparse_ratio;
+        return (fedp_elems + block_elems - 1) / block_elems;
+    endfunction
+    function int unsigned mx_max_fedp_sf();
+        automatic int unsigned max_sf = 1;
+    `ifdef VX_CFG_TCU_FP8_ENABLE
+        max_sf = `MAX(max_sf, mx_fedp_sf_count(8, 32));
+    `endif
+    `ifdef VX_CFG_TCU_MXFP4_ENABLE
+        max_sf = `MAX(max_sf, mx_fedp_sf_count(4, 32));
+    `endif
+    `ifdef VX_CFG_TCU_NVFP4_ENABLE
+        max_sf = `MAX(max_sf, mx_fedp_sf_count(4, 16));
+    `endif
+        return max_sf;
+    endfunction
+    function int exp_bits(input int fmt);
+        case (fmt)
+            TCU_FP32_ID: return 8;
+            TCU_FP16_ID: return 5;
+            TCU_BF16_ID: return 8;
+            TCU_FP8_ID:  return 4;
+            TCU_BF8_ID:  return 5;
+            TCU_TF32_ID: return 8;
+            default:     return 0;
+        endcase
+    endfunction
+    function int sig_bits(input int fmt);
+        case (fmt)
+            TCU_FP32_ID: return 23;
+            TCU_FP16_ID: return 10;
+            TCU_BF16_ID: return 7;
+            TCU_FP8_ID:  return 3;
+            TCU_BF8_ID:  return 2;
+            TCU_TF32_ID: return 10;
+            default:     return 0;
+        endcase
+    endfunction
+    function int sign_pos(input int fmt);
+        case (fmt)
+            TCU_FP32_ID: return 31;
+            TCU_FP16_ID: return 15;
+            TCU_BF16_ID: return 15;
+            TCU_FP8_ID:  return 7;
+            TCU_BF8_ID:  return 7;
+            TCU_TF32_ID: return 18;
+            default:     return 0;
+        endcase
+    endfunction
+    function int unsigned tcu_fmt_width(input logic [TCU_FMT_WIDTH-1:0] fmt);
+        case (fmt)
+            TCU_FP16_ID, TCU_BF16_ID:
+                return 16;
+            TCU_MXFP4_ID, TCU_NVFP4_ID, TCU_I4_ID, TCU_U4_ID:
+                return 4;
+            TCU_FP8_ID,
+            TCU_BF8_ID,
+            TCU_I8_ID,
+            TCU_U8_ID,
+            TCU_MXFP8_ID,
+            TCU_MXBF8_ID:
+                return 8;
+            TCU_FP32_ID,
+            TCU_I32_ID,
+            TCU_TF32_ID:
+                return 32;
+            default:
+                return 0;
+        endcase
+    endfunction
+    function logic tcu_fmt_is_int(input logic [TCU_FMT_WIDTH-1:0] fmt);
+        return fmt[TCU_FMT_WIDTH-1];
+    endfunction
+    function logic tcu_fmt_is_signed_int(input logic [TCU_FMT_WIDTH-2:0] int_fmt);
+        return int_fmt[0];
+    endfunction
+    function logic tcu_fmt_is_bfloat(input logic [TCU_FMT_WIDTH-2:0] float_fmt);
+        return float_fmt[0];
+    endfunction
+    function logic tcu_fmt_is_mx(input logic [TCU_FMT_WIDTH-1:0] fmt);
+        case (fmt)
+            TCU_MXFP8_ID, TCU_MXBF8_ID, TCU_MXFP4_ID, TCU_NVFP4_ID:
+                return 1'b1;
+            default:
+                return 1'b0;
+        endcase
+    endfunction
+    function int unsigned mx_scale_block_size(input logic [TCU_FMT_WIDTH-1:0] fmt);
+        case (fmt)
+            TCU_MXFP8_ID, TCU_MXBF8_ID, TCU_MXFP4_ID: return 32;
+            TCU_NVFP4_ID:                                          return 16;
+            default:                                               return 1;
+        endcase
+    endfunction
+    function int unsigned mx_scale_blocks_k_words(
+        input logic [TCU_FMT_WIDTH-1:0] fmt,
+        input int unsigned tile_k_words
+    );
+        automatic int unsigned data_bits = tcu_fmt_width(fmt);
+        automatic int unsigned block_elems = mx_scale_block_size(fmt);
+        automatic int unsigned tile_elems = (data_bits != 0) ? tile_k_words * (32 / data_bits) : 0;
+        return (tile_elems + block_elems - 1) / block_elems;
+    endfunction
+    function int unsigned mx_scale_blocks_k(input logic [TCU_FMT_WIDTH-1:0] fmt);
+        return mx_scale_blocks_k_words(fmt, TCU_TILE_K);
+    endfunction
+    function logic [4:0] meta_num_cols(input logic [TCU_FMT_WIDTH-1:0] fmt);
+        automatic int hw = tcu_fmt_width(fmt) / 2;
+        return 5'((TCU_BLOCK_CAP + hw - 1) / hw);
+    endfunction
+    function int unsigned tcu_meta_stride_words(input logic [TCU_FMT_WIDTH-1:0] fmt);
+        automatic int unsigned fb   = tcu_fmt_width(fmt);
+        automatic int unsigned elr  = (fb != 0) ? (32 / fb) : 1; // input ratio
+        automatic int unsigned rowb = TCU_TC_K * 2 * elr;
+        return (TCU_TC_M * rowb + 31) / 32;
+    endfunction
+
 localparam TCU_MAX_INPUTS = 16;
 
 // ─── Behavioral blackboxes for external dependencies ─────────────────────
@@ -176,22 +415,7 @@ module VX_pipe_register #(
     assign data_out = r[DEPTH];
 endmodule
 
-// VX_tcu_tfr_wmul — mantissa multiplier (behavioral)
-module VX_tcu_tfr_wmul #(
-    parameter N = 4, M = 4, LANES = 1, SHARED_B = 0, P = 8, USE_DSP = 0
-) (
-    input  wire [LANES*N-1:0] a,
-    input  wire [LANES*M-1:0] b,
-    output wire [LANES*P-1:0] p
-);
-    genvar i;
-    generate
-        for (i = 0; i < LANES; i = i + 1) begin : g_mul
-            localparam BI = (SHARED_B != 0) ? 0 : i;
-            assign p[i*P +: P] = a[i*N +: N] * b[BI*M +: M];
-        end
-    endgenerate
-endmodule
+// VX_tcu_tfr_wmul stub removed — use source file version
 
 // VX_ks_adder — carry-select adder (behavioral)
 module VX_ks_adder #(
@@ -416,19 +640,18 @@ def strip_simulation_macros(content):
                 result.append(content[i:])
                 break
             result.append(content[i:idx])
-            paren_start = content.find('(', idx + len(pat))
-            if paren_start < 0:
-                i = idx + len(pat)
-                continue
-            depth = 1
-            j = paren_start + 1
-            while j < len(content) and depth > 0:
-                if content[j] == '(':
-                    depth += 1
-                elif content[j] == ')':
-                    depth -= 1
+            j = idx + len(pat)
+            while j < len(content) and content[j] in (' ', '\t'):
                 j += 1
-            # Also skip trailing semicolon
+            if j < len(content) and content[j] == '(':
+                depth = 1
+                j += 1
+                while j < len(content) and depth > 0:
+                    if content[j] == '(':
+                        depth += 1
+                    elif content[j] == ')':
+                        depth -= 1
+                    j += 1
             while j < len(content) and content[j] in (' ', '\t'):
                 j += 1
             if j < len(content) and content[j] == ';':
@@ -436,8 +659,8 @@ def strip_simulation_macros(content):
             i = j
         content = "".join(result)
 
-    # Strip TRACE / TRACE_ARRAY
-    for pat in ["`TRACE", "`TRACE_ARRAY"]:
+    # Strip TRACE / TRACE_ARRAY (balanced-paren)
+    for pat in ["`TRACE_ARRAY1D", "`TRACE_ARRAY", "`TRACE"]:
         result = []
         i = 0
         while i < len(content):
@@ -446,18 +669,18 @@ def strip_simulation_macros(content):
                 result.append(content[i:])
                 break
             result.append(content[i:idx])
-            paren_start = content.find('(', idx + len(pat))
-            if paren_start < 0:
-                i = idx + len(pat)
-                continue
-            depth = 1
-            j = paren_start + 1
-            while j < len(content) and depth > 0:
-                if content[j] == '(':
-                    depth += 1
-                elif content[j] == ')':
-                    depth -= 1
+            j = idx + len(pat)
+            while j < len(content) and content[j] in (' ', '\t'):
                 j += 1
+            if j < len(content) and content[j] == '(':
+                depth = 1
+                j += 1
+                while j < len(content) and depth > 0:
+                    if content[j] == '(':
+                        depth += 1
+                    elif content[j] == ')':
+                        depth -= 1
+                    j += 1
             while j < len(content) and content[j] in (' ', '\t', ';'):
                 j += 1
             i = j
@@ -532,19 +755,85 @@ def transform(content):
     # UNUSED_PARAM / UNUSEDWire / UNUSED_VAR / UNUSED_SPARAM / UNUSED_PIN → empty
     for macro_name in ['UNUSED_PARAM', 'UNUSEDWire', 'STATIC_ASSERT',
                        'UNUSED_VAR', 'UNUSED_SPARAM', 'UNUSED_PIN']:
-        content = re.sub(rf'`{macro_name}\s*\([^)]*\)', '', content)
+        result = []
+        i = 0
+        while i < len(content):
+            pat = f"`{macro_name}"
+            idx = content.find(pat, i)
+            if idx < 0:
+                result.append(content[i:])
+                break
+            result.append(content[i:idx])
+            # Skip whitespace after macro name
+            j = idx + len(pat)
+            while j < len(content) and content[j] in (' ', '\t'):
+                j += 1
+            if j < len(content) and content[j] == '(':
+                depth = 1
+                j += 1
+                while j < len(content) and depth > 0:
+                    if content[j] == '(':
+                        depth += 1
+                    elif content[j] == ')':
+                        depth -= 1
+                    j += 1
+            i = j
+        content = "".join(result)
     # SFORMATF → empty string
     content = re.sub(r'`SFORMATF\s*\([^)]*\)', '""', content)
     # SCOPE_IO_* → empty
     for macro_name in ['SCOPE_IO_DECL', 'SCOPE_IO_BIND', 'SCOPE_IO_UNUSED', 'SCOPE_IO_SWITCH']:
-        content = re.sub(rf'`{macro_name}\s*\([^)]*\)', '', content)
-        content = re.sub(rf'`{macro_name}', '', content)
+        result = []
+        i = 0
+        while i < len(content):
+            pat = f"`{macro_name}"
+            idx = content.find(pat, i)
+            if idx < 0:
+                result.append(content[i:])
+                break
+            result.append(content[i:idx])
+            j = idx + len(pat)
+            while j < len(content) and content[j] in (' ', '\t'):
+                j += 1
+            if j < len(content) and content[j] == '(':
+                depth = 1
+                j += 1
+                while j < len(content) and depth > 0:
+                    if content[j] == '(':
+                        depth += 1
+                    elif content[j] == ')':
+                        depth -= 1
+                    j += 1
+            i = j
+        content = "".join(result)
     # STRING → reg (used as parameter type)
     content = re.sub(r'`STRING\s+', 'reg ', content)
     content = re.sub(r'`STRING', 'reg', content)
     # RUNTIME_ASSERT / ASSIGN_VX_MEM_BUS_IF → empty (debug/synthesis macros)
-    content = re.sub(r'`RUNTIME_ASSERT\s*\([^)]*\)', '', content)
-    content = re.sub(r'`ASSIGN_VX_MEM_BUS_IF\s*\([^)]*\)', '', content)
+    for macro_name in ['RUNTIME_ASSERT', 'ASSIGN_VX_MEM_BUS_IF']:
+        result = []
+        i = 0
+        while i < len(content):
+            pat = f"`{macro_name}"
+            idx = content.find(pat, i)
+            if idx < 0:
+                result.append(content[i:])
+                break
+            result.append(content[i:idx])
+            j = idx + len(pat)
+            while j < len(content) and content[j] in (' ', '\t'):
+                j += 1
+            if j < len(content) and content[j] == '(':
+                depth = 1
+                j += 1
+                while j < len(content) and depth > 0:
+                    if content[j] == '(':
+                        depth += 1
+                    elif content[j] == ')':
+                        depth -= 1
+                    j += 1
+            i = j
+        content = "".join(result)
     # MAX(a,b) → ((a) > (b) ? (a) : (b))
     content = re.sub(r'`MAX\s*\(([^,]+),\s*([^)]+)\)', r'((\1) > (\2) ? (\1) : (\2))', content)
 
