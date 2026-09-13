@@ -92,6 +92,47 @@ def fix_empty_ifs(text):
         result.append(line)
     return '\n'.join(result)
 
+def fix_ifdef_orphans(text):
+    """Remove orphaned fragments left by ifdef block stripping.
+    
+    These include:
+    - Stray ')' on its own line (orphaned closing parens)
+    - Stray '-1:0])' fragments (orphaned array ranges)
+    - Stray '])' fragments (orphaned brackets)
+    - Duplicate localparam declarations
+    """
+    lines = text.split('\n')
+    result = []
+    seen_localparams = set()
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        
+        # Skip stray ')' on its own line (orphaned from ifdef blocks)
+        if stripped == ')':
+            continue
+        
+        # Skip stray '-1:0])' (orphaned array range fragments)
+        if re.match(r'^-1:0\]\)$', stripped):
+            continue
+        
+        # Skip stray '])' (orphaned closing brackets)
+        if stripped == '])':
+            continue
+        
+        # Remove duplicate localparam declarations
+        if stripped.startswith('localparam '):
+            # Extract the name
+            m = re.match(r'localparam\s+(?:\w+\s+)?(\w+)\s*=', stripped)
+            if m:
+                name = m.group(1)
+                if name in seen_localparams:
+                    continue
+                seen_localparams.add(name)
+        
+        result.append(line)
+    
+    return '\n'.join(result)
+
 def relocate_expanded_wires(text):
     lines = text.split('\n')
     result = []
@@ -132,6 +173,8 @@ def preprocess(input_sv, output_sv):
     with open(input_sv) as f:
         text = f.read()
     
+    # Preserve all `define lines from the HEADER
+    define_lines = [l for l in text.split('\n') if l.strip().startswith('`define ')]
     text = '`define MAX(a,b) ((a) > (b) ? (a) : (b))\n' + text
     text = fix_all_casts(text)
     # Direct fix for any remaining casts
@@ -146,8 +189,14 @@ def preprocess(input_sv, output_sv):
     text = re.sub(r'`(?!define|ifdef|endif|else|include|undef|ifndef|pragma)\(', '(', text)
     BT = chr(96)
     text = text.replace(BT + '(', '(')
+    text = fix_ifdef_orphans(text)
     text = relocate_expanded_wires(text)
     
+    # Re-add preserved `define lines at the top (they may have been stripped by processing)
+    for dl in reversed(define_lines):
+        if dl not in text:
+            text = dl + '\n' + text
+
     with open(output_sv, 'w') as f:
         f.write(text)
     
