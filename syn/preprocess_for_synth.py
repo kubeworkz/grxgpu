@@ -180,7 +180,14 @@ def preprocess(input_sv, output_sv):
     # Direct fix for any remaining casts
     text = re.sub(r"int'\(", '(', text)
     text = fix_sized_literals(text)
-    text = re.sub(r'function\s+automatic\s+\[[^\]]*\]\s+\w+\s*\([^)]*\)[^;]*;.*?endfunction', '', text, flags=re.DOTALL)
+    # Strip function automatic declarations, but skip HEADER functions (marked with SYNTHESIS_HEADER)
+    def strip_function(m):
+        # Don't strip if preceded by SYNTHESIS_HEADER comment
+        start = m.start()
+        if start > 0 and 'SYNTHESIS_HEADER' in text[max(0, start-100):start]:
+            return m.group(0)
+        return ''
+    text = re.sub(r'function\s+automatic\s+\[[^\]]*\]\s+\w+\s*\([^)]*\)[^;]*;.*?endfunction', strip_function, text, flags=re.DOTALL)
     text = fix_hash_parens(text)
     text = fix_stray_commas(text)
     text = fix_empty_portlists(text)
