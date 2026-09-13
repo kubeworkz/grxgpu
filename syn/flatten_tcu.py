@@ -100,6 +100,44 @@ HEADER = r"""// Yosys-compatible TCU flat file (Phase A+B preprocessed)
 `define SCOPE_IO_BIND(i)
 `define SCOPE_IO_UNUSED(i)
 `define SCOPE_IO_SWITCH(count)
+`default_nettype wire
+
+// NW_WIDTH and other header-level constants
+localparam NW_WIDTH = 2;
+localparam NC_BITS = 0;
+localparam NC_WIDTH = 1;
+localparam NT_BITS = 2;
+localparam NT_WIDTH = 2;
+localparam NB_BITS = 0;
+localparam NB_WIDTH = 1;
+localparam OFF_W = 3;          // $clog2(TCU_BLOCK_CAP=4) = 2, +1 for sign = 3
+localparam WG_B_OFF_W = 8;     // $clog2(TCU_WG_RS2_WIDTH)
+localparam MX_MAX_MN = 4;      // max(TILE_M=2, TILE_N=2) = 2, but ceil = 4
+localparam MX_IDX_W = 2;       // $clog2(MX_MAX_MN=4) = 2
+localparam MX_K_IDX_W = 6;     // $clog2(MX_TILE_K_MAX=8 * TCU_MAX_ELT_RATIO=8) = $clog2(64) = 6
+localparam MX_SCALE_BLOCKS_MAX = 2;  // (TCU_TILE_K=4 * 8 + 15) / 16 = 2
+localparam MX_SCALE_IDX_W = 3; // $clog2(MX_MAX_MN=4 * MX_SCALE_BLOCKS_MAX=2) = $clog2(8) = 3
+
+// mx_scale_at function (from VX_tcu_core.sv ifdef block)
+function automatic [7:0] mx_scale_at(
+    input logic [TCU_BLOCK_CAP-1:0][31:0] meta,
+    input logic [4:0] fmt,
+    input logic [MX_SCALE_IDX_W-1:0] scale_blocks_k,
+    input logic [MX_IDX_W-1:0] mn_idx,
+    input logic [MX_K_IDX_W-1:0] k_base_idx
+);
+    logic [MX_SCALE_IDX_W-1:0] scale_k;
+    logic [MX_SCALE_IDX_W-1:0] scale_idx;
+    logic [$clog2(TCU_BLOCK_CAP)-1:0] word_idx;
+    logic [1:0] byte_idx;
+    begin
+        scale_k = k_base_idx / mx_scale_block_size(fmt);
+        scale_idx = mn_idx * scale_blocks_k + scale_k;
+        word_idx = scale_idx >> 2;
+        byte_idx = scale_idx[1:0];
+        mx_scale_at = meta[word_idx][byte_idx * 8 +: 8];
+    end
+endfunction
 
 // Type definitions from VX_tcu_pkg (packed structs)
 typedef struct packed { logic is_zero; logic is_sub; logic is_inf; logic is_nan; } fedp_class_t;
@@ -145,6 +183,224 @@ function automatic int unsigned tcu_int_fmt_width(input logic [3:0] fmt);
 endfunction
 
 localparam TCU_MAX_INPUTS = 16;
+
+// ─── GPU instruction constants (from VX_gpu_pkg.sv) ──────────────────────
+localparam INST_TCU_WMMA     = 4'h0;
+localparam INST_TCU_WGMMA    = 4'h1;
+localparam INST_TCU_WMMA_SP  = 4'h3;
+localparam INST_TCU_WGMMA_SP = 4'h4;
+localparam INST_TCU_LD       = 4'h5;
+
+// ─── TCU package constants (from VX_tcu_pkg.sv) ─────────────────────────
+localparam TCU_FP32_ID  = 0;
+localparam TCU_TF32_ID  = 1;
+localparam TCU_FP16_ID  = 2;
+localparam TCU_BF16_ID  = 3;
+localparam TCU_FP8_ID   = 4;
+localparam TCU_BF8_ID   = 5;
+localparam TCU_MXFP8_ID = 8;
+localparam TCU_MXBF8_ID = 9;
+localparam TCU_MXFP4_ID = 10;
+localparam TCU_NVFP4_ID = 11;
+localparam TCU_I32_ID   = 16;
+localparam TCU_I8_ID    = 17;
+localparam TCU_U8_ID    = 18;
+localparam TCU_I4_ID    = 19;
+localparam TCU_U4_ID    = 20;
+localparam TCU_FMT_WIDTH= 5;
+localparam TCU_NT = `VX_CFG_NUM_THREADS;
+localparam TCU_NR = 8;
+localparam TCU_DK = 0;
+localparam TCU_DP = 0;
+localparam TCU_TILE_CAP = TCU_NT * TCU_NR;
+localparam TCU_LG_TILE_CAP = $clog2(TCU_TILE_CAP);
+localparam TCU_TILE_EN = TCU_LG_TILE_CAP / 2;
+localparam TCU_TILE_EM = TCU_LG_TILE_CAP - TCU_TILE_EN;
+localparam TCU_TILE_M = 1 << TCU_TILE_EM;
+localparam TCU_TILE_N = 1 << TCU_TILE_EN;
+localparam TCU_TILE_K = (TCU_DK != 0) ? TCU_DK : (TCU_DP != 0) ? TCU_DP : (TCU_TILE_CAP / ((TCU_TILE_M > TCU_TILE_N) ? TCU_TILE_M : TCU_TILE_N));
+localparam TCU_BLOCK_CAP = TCU_NT;
+localparam TCU_LG_BLOCK_CAP = $clog2(TCU_BLOCK_CAP);
+localparam TCU_BLOCK_EN = TCU_LG_BLOCK_CAP / 2;
+localparam TCU_BLOCK_EM = TCU_LG_BLOCK_CAP - TCU_BLOCK_EN;
+localparam TCU_TC_M = 1 << TCU_BLOCK_EM;
+localparam TCU_TC_N = 1 << TCU_BLOCK_EN;
+localparam TCU_TC_K = (TCU_DP != 0) ? TCU_DP : (TCU_BLOCK_CAP / ((TCU_TC_M > TCU_TC_N) ? TCU_TC_M : TCU_TC_N));
+localparam TCU_M_STEPS = TCU_TILE_M / TCU_TC_M;
+localparam TCU_N_STEPS = TCU_TILE_N / TCU_TC_N;
+localparam TCU_K_STEPS = TCU_TILE_K / TCU_TC_K;
+localparam TCU_WG_NRA = 4;
+localparam TCU_WG_NR = 32;
+localparam TCU_WG_TILE_M = 2 * TCU_TC_M;
+localparam TCU_WG_TILE_K = 2 * TCU_TC_K;
+localparam TCU_WG_FEDP_K = TCU_TC_K;
+localparam TCU_WG_TILE_N = (TCU_WG_NR * TCU_NT) / TCU_WG_TILE_M;
+localparam TCU_WG_M_STEPS = TCU_WG_TILE_M / TCU_TC_M;
+localparam TCU_WG_N_STEPS = TCU_WG_TILE_N / TCU_TC_N;
+localparam TCU_WG_K_STEPS = TCU_WG_TILE_K / TCU_WG_FEDP_K;
+localparam TCU_MAX_ELT_RATIO = 8;
+localparam TCU_MX_MAX_SF = 4;
+localparam TCU_A_BLOCK_SIZE = TCU_TC_M * TCU_TC_K;
+localparam TCU_A_SUB_BLOCKS = TCU_BLOCK_CAP / TCU_A_BLOCK_SIZE;
+localparam TCU_B_BLOCK_SIZE = TCU_TC_K * TCU_TC_N;
+localparam TCU_B_SUB_BLOCKS = TCU_BLOCK_CAP / TCU_B_BLOCK_SIZE;
+localparam TCU_WG_A_BLOCK_SIZE = TCU_TC_M * TCU_TC_K;
+localparam TCU_WG_A_DATA_SIZE = TCU_TC_M * TCU_WG_FEDP_K;
+localparam TCU_WG_A_SUB_BLOCKS = TCU_BLOCK_CAP / TCU_WG_A_BLOCK_SIZE;
+localparam TCU_WG_B_BLOCK_SIZE = TCU_WG_FEDP_K * TCU_TC_N;
+localparam TCU_WG_B_SUB_BLOCKS = TCU_BLOCK_CAP / TCU_WG_B_BLOCK_SIZE;
+localparam SYM_SPARSE = (TCU_BLOCK_EM == TCU_BLOCK_EN);
+localparam TCU_B_BLOCK_SIZE_SP = SYM_SPARSE ? TCU_BLOCK_CAP : (TCU_TC_K * TCU_TC_N) * 2;
+localparam TCU_B_SUB_BLOCKS_SP = TCU_BLOCK_CAP / TCU_B_BLOCK_SIZE_SP;
+localparam TCU_WG_B_BLOCK_SIZE_SP = TCU_TC_K * TCU_TC_N * 2;
+localparam TCU_WG_RS2_WIDTH_DENSE = (TCU_WG_B_BLOCK_SIZE > TCU_BLOCK_CAP) ? TCU_WG_B_BLOCK_SIZE : TCU_BLOCK_CAP;
+localparam TCU_WG_RS2_WIDTH = (TCU_WG_B_BLOCK_SIZE_SP > TCU_WG_RS2_WIDTH_DENSE) ? TCU_WG_B_BLOCK_SIZE_SP : TCU_WG_RS2_WIDTH_DENSE;
+localparam TCU_MAX_META_BLOCK_WIDTH = 32;
+localparam TCU_META_PER_WARP_DEPTH = 4;
+localparam FEDP_SF = TCU_MX_MAX_SF;
+localparam FEDP_LATENCY = 20;
+localparam TCU_META_COLS_PER_LOAD = (TCU_BLOCK_CAP >= TCU_META_PER_WARP_DEPTH) ? (TCU_BLOCK_CAP / TCU_META_PER_WARP_DEPTH) : 1;
+localparam TCU_BANKS_PER_STORE = (TCU_NT < TCU_META_PER_WARP_DEPTH) ? TCU_NT : TCU_META_PER_WARP_DEPTH;
+localparam TCU_STORES_PER_COL = (TCU_META_PER_WARP_DEPTH + TCU_NT - 1) / TCU_NT;
+localparam TCU_WG_META_PER_WARP_DEPTH = TCU_WG_M_STEPS * (TCU_WG_K_STEPS / 2);
+localparam TCU_WG_META_COLS_PER_LOAD = (TCU_BLOCK_CAP >= TCU_WG_META_PER_WARP_DEPTH) ? (TCU_BLOCK_CAP / TCU_WG_META_PER_WARP_DEPTH) : 1;
+
+// tcu_header_t and tcu_execute_t (from DECL_EXECUTE_T(tcu, VX_CFG_NUM_TCU_LANES))
+typedef struct packed {
+    logic [43:0]              uuid;
+    logic [1:0]               wid;
+    logic [0:0]               cta_id;
+    logic [3:0]               tmask;
+    logic [1:0]               pid;
+    logic                     sop;
+    logic                     eop;
+    logic [31:0]              PC;
+    logic                     wb;
+    logic [1:0]               wr_xregs;
+    logic [5:0]               rd;
+    logic [1:0]               bytesel;
+} tcu_header_t;
+
+// tcu_args_t (27 bits, from VX_gpu_pkg)
+typedef struct packed {
+    logic [3:0] step_m;
+    logic [3:0] step_n;
+    logic [3:0] step_k;
+    logic [4:0] fmt_s;
+    logic [4:0] fmt_d;
+    logic [1:0] cd_nregs;
+    logic       a_from_smem;
+    logic       is_first_uop;
+    logic       is_last_uop;
+} tcu_args_t;
+
+// op_args_t union (INST_ARGS_BITS wide)
+typedef union packed {
+    tcu_args_t tcu;
+} op_args_t;
+
+typedef struct packed {
+    tcu_header_t              header;
+    logic [3:0]               op_type;
+    op_args_t                 op_args;
+    logic [3:0][31:0]         rs1_data;
+    logic [3:0][31:0]         rs2_data;
+    logic [3:0][31:0]         rs3_data;
+} tcu_execute_t;
+
+typedef struct packed {
+    tcu_header_t              header;
+    logic [3:0][31:0]         data;
+} tcu_result_t;
+
+// ─── MX scale utility functions (from VX_tcu_pkg.sv) ─────────────────────
+function automatic int unsigned mx_scale_block_size(input logic [4:0] fmt);
+    case (fmt)
+        TCU_MXFP8_ID, TCU_MXBF8_ID, TCU_MXFP4_ID: return 32;
+        TCU_NVFP4_ID: return 16;
+        default: return 1;
+    endcase
+endfunction
+
+function automatic int unsigned mx_scale_blocks_k_words(
+    input logic [4:0] fmt,
+    input int unsigned tile_k_words
+);
+    automatic int unsigned data_bits = tcu_fmt_width(fmt);
+    automatic int unsigned block_elems = mx_scale_block_size(fmt);
+    automatic int unsigned tile_elems = (data_bits != 0) ? tile_k_words * (32 / data_bits) : 0;
+    return (tile_elems + block_elems - 1) / block_elems;
+endfunction
+
+function automatic int unsigned mx_scale_blocks_k(input logic [4:0] fmt);
+    return mx_scale_blocks_k_words(fmt, TCU_TILE_K);
+endfunction
+
+function automatic logic [4:0] meta_num_cols(input logic [4:0] fmt);
+    automatic int hw = tcu_fmt_width(fmt) / 2;
+    return 5'((TCU_BLOCK_CAP + hw - 1) / hw);
+endfunction
+
+function automatic int unsigned tcu_meta_stride_words(input logic [4:0] fmt);
+    automatic int unsigned fb   = tcu_fmt_width(fmt);
+    automatic int unsigned elr  = (fb != 0) ? (32 / fb) : 1;
+    automatic int unsigned rowb = TCU_TC_K * 2 * elr;
+    return (TCU_TC_M * rowb + 31) / 32;
+endfunction
+
+function automatic int exp_bits(input int fmt);
+    case (fmt)
+        TCU_FP32_ID: return 8;
+        TCU_FP16_ID: return 5;
+        TCU_BF16_ID: return 8;
+        TCU_FP8_ID:  return 4;
+        TCU_BF8_ID:  return 5;
+        TCU_TF32_ID: return 8;
+        default:     return 0;
+    endcase
+endfunction
+
+function automatic int sig_bits(input int fmt);
+    case (fmt)
+        TCU_FP32_ID: return 23;
+        TCU_FP16_ID: return 10;
+        TCU_BF16_ID: return 7;
+        TCU_FP8_ID:  return 3;
+        TCU_BF8_ID:  return 2;
+        TCU_TF32_ID: return 10;
+        default:     return 0;
+    endcase
+endfunction
+
+function automatic int sign_pos(input int fmt);
+    case (fmt)
+        TCU_FP32_ID: return 31;
+        TCU_FP16_ID: return 15;
+        TCU_BF16_ID: return 15;
+        TCU_FP8_ID:  return 7;
+        TCU_BF8_ID:  return 7;
+        TCU_TF32_ID: return 18;
+        default:     return 0;
+    endcase
+endfunction
+
+function automatic int unsigned mx_fedp_sf_count(
+    input int unsigned data_bits,
+    input int unsigned block_elems
+);
+    automatic int unsigned fedp_elems = TCU_WG_FEDP_K * (32 / data_bits);
+    return (fedp_elems + block_elems - 1) / block_elems;
+endfunction
+
+function automatic int unsigned mx_max_fedp_sf();
+    automatic int unsigned max_sf = 1;
+    max_sf = (mx_fedp_sf_count(8, 32) > max_sf) ? mx_fedp_sf_count(8, 32) : max_sf;
+    max_sf = (mx_fedp_sf_count(4, 32) > max_sf) ? mx_fedp_sf_count(4, 32) : max_sf;
+    max_sf = (mx_fedp_sf_count(4, 16) > max_sf) ? mx_fedp_sf_count(4, 16) : max_sf;
+    return max_sf;
+endfunction
+
+localparam MX_TILE_K_MAX = ((TCU_TILE_K) > (TCU_WG_K_STEPS * TCU_WG_FEDP_K) ? (TCU_TILE_K) : (TCU_WG_K_STEPS * TCU_WG_FEDP_K));
 
 // ─── Behavioral blackboxes for external dependencies ─────────────────────
 
@@ -303,7 +559,8 @@ module VX_fifo_queue #(
     parameter DATAW = 1,
     parameter DEPTH = 1,
     parameter ALM_FULL = 0,
-    parameter ALM_EMPTY = 0
+    parameter ALM_EMPTY = 0,
+    parameter OUT_REG = 0
 ) (
     input  wire              clk,
     input  wire              reset,
@@ -353,6 +610,135 @@ module VX_tcu_tfr_pipe_register #(
 );
     VX_pipe_register #(.DATAW(DATAW), .RESETW(RESETW), .DEPTH(DEPTH), .INIT_VALUE(INIT_VALUE))
     u_pipe (.clk(clk), .reset(reset), .enable(enable), .data_in(data_in), .data_out(data_out));
+endmodule
+
+// ─── Blackbox stubs for unused FEDP implementations ──────────────────────
+// These modules are inside ifdef branches that aren't active for TFR,
+// but Surelog still needs them to resolve references.
+module VX_tcu_fedp_dpi import VX_tcu_pkg::*; #(
+    parameter INSTANCE_ID = "",
+    parameter LATENCY = 0,
+    parameter N = 4,
+    parameter SF = 1
+) (
+    input  wire clk,
+    input  wire reset,
+    input  wire enable,
+    input  wire [4:0] fmt_s,
+    input  wire [4:0] fmt_d,
+    input  wire [N-1:0][31:0] a_row,
+    input  wire [N-1:0][31:0] b_col,
+    input  wire [SF-1:0][7:0] sf_a,
+    input  wire [SF-1:0][7:0] sf_b,
+    input  wire [31:0] c_val,
+    output wire [31:0] d_val
+);
+endmodule
+
+module VX_tcu_fedp_bhf import VX_tcu_pkg::*; #(
+    parameter INSTANCE_ID = "",
+    parameter LATENCY = 0,
+    parameter N = 4
+) (
+    input  wire clk,
+    input  wire reset,
+    input  wire enable,
+    input  wire [4:0] fmt_s,
+    input  wire [4:0] fmt_d,
+    input  wire [N-1:0][31:0] a_row,
+    input  wire [N-1:0][31:0] b_col,
+    input  wire [31:0] c_val,
+    output wire [31:0] d_val
+);
+endmodule
+
+module VX_tcu_fedp_fpnew import VX_tcu_pkg::*; #(
+    parameter INSTANCE_ID = "",
+    parameter LATENCY = 0,
+    parameter N = 4
+) (
+    input  wire clk,
+    input  wire reset,
+    input  wire enable,
+    input  wire [4:0] fmt_s,
+    input  wire [4:0] fmt_d,
+    input  wire [N-1:0][31:0] a_row,
+    input  wire [N-1:0][31:0] b_col,
+    input  wire [31:0] c_val,
+    output wire [31:0] d_val
+);
+endmodule
+
+module VX_tcu_fedp_dsp import VX_tcu_pkg::*; #(
+    parameter INSTANCE_ID = "",
+    parameter LATENCY = 0,
+    parameter N = 4
+) (
+    input  wire clk,
+    input  wire reset,
+    input  wire enable,
+    input  wire [4:0] fmt_s,
+    input  wire [4:0] fmt_d,
+    input  wire [N-1:0][31:0] a_row,
+    input  wire [N-1:0][31:0] b_col,
+    input  wire [31:0] c_val,
+    output wire [31:0] d_val
+);
+endmodule
+
+module fp16_to_fp32 (
+    input  wire [15:0] fp16_in,
+    output wire [31:0] fp32_out
+);
+endmodule
+
+module bf16_to_fp32 (
+    input  wire [15:0] bf16_in,
+    output wire [31:0] fp32_out
+);
+endmodule
+
+// VX_dp_ram — dual-port RAM (behavioral blackbox)
+module VX_dp_ram #(
+    parameter DATAW       = 1,
+    parameter SIZE        = 1,
+    parameter WRENW       = 1,
+    parameter OUT_REG     = 0,
+    parameter LUTRAM      = 0,
+    parameter RDW_MODE    = "W",
+    parameter RADDR_REG   = 0,
+    parameter RADDR_RESET = 0,
+    parameter RESET_RAM   = 0,
+    parameter INIT_ENABLE = 0,
+    parameter INIT_FILE   = "",
+    parameter [DATAW-1:0] INIT_VALUE = 0,
+    parameter ADDRW       = $clog2(SIZE)
+) (
+    input  wire               clk,
+    input  wire               reset,
+    input  wire               read,
+    input  wire               write,
+    input  wire [WRENW-1:0]   wren,
+    input  wire [ADDRW-1:0]   waddr,
+    input  wire [DATAW-1:0]   wdata,
+    input  wire [ADDRW-1:0]   raddr,
+    output wire [DATAW-1:0]   rdata
+);
+    localparam WSELW = DATAW / WRENW;
+    reg [DATAW-1:0] ram [0:SIZE-1];
+    reg [DATAW-1:0] rdata_r;
+    integer i;
+    always_ff @(posedge clk) begin
+        if (write) begin
+            for (i = 0; i < WRENW; i = i + 1) begin
+                if (wren[i])
+                    ram[waddr][i*WSELW +: WSELW] <= wdata[i*WSELW +: WSELW];
+            end
+        end
+        if (read)
+            rdata_r <= ram[raddr];
+    end
+    assign rdata = (OUT_REG != 0) ? rdata_r : ram[raddr];
 endmodule
 
 """
@@ -530,9 +916,36 @@ def transform(content):
     content = re.sub(r'\$bits\(([^)]+)\)', r'32', content)
 
     # UNUSED_PARAM / UNUSEDWire / UNUSED_VAR / UNUSED_SPARAM / UNUSED_PIN → empty
+    # Use balanced-paren matching to handle nested parens like UNUSED_VAR (x[`UP(CTR_W)-1:5])
+    def strip_balanced_macro(content, macro_name):
+        result = []
+        i = 0
+        while i < len(content):
+            pat = f'`{macro_name}'
+            idx = content.find(pat, i)
+            if idx < 0:
+                result.append(content[i:])
+                break
+            result.append(content[i:idx])
+            # Find the opening paren
+            j = idx + len(pat)
+            while j < len(content) and content[j] in (' ', '\t'):
+                j += 1
+            if j < len(content) and content[j] == '(':
+                depth = 1
+                j += 1
+                while j < len(content) and depth > 0:
+                    if content[j] == '(':
+                        depth += 1
+                    elif content[j] == ')':
+                        depth -= 1
+                    j += 1
+            i = j
+        return ''.join(result)
+
     for macro_name in ['UNUSED_PARAM', 'UNUSEDWire', 'STATIC_ASSERT',
                        'UNUSED_VAR', 'UNUSED_SPARAM', 'UNUSED_PIN']:
-        content = re.sub(rf'`{macro_name}\s*\([^)]*\)', '', content)
+        content = strip_balanced_macro(content, macro_name)
     # SFORMATF → empty string
     content = re.sub(r'`SFORMATF\s*\([^)]*\)', '""', content)
     # SCOPE_IO_* → empty
@@ -547,6 +960,10 @@ def transform(content):
     content = re.sub(r'`ASSIGN_VX_MEM_BUS_IF\s*\([^)]*\)', '', content)
     # MAX(a,b) → ((a) > (b) ? (a) : (b))
     content = re.sub(r'`MAX\s*\(([^,]+),\s*([^)]+)\)', r'((\1) > (\2) ? (\1) : (\2))', content)
+
+    # Strip VX_tcu_pkg:: and VX_gpu_pkg:: prefixes (all functions/types are in HEADER)
+    content = content.replace('VX_tcu_pkg::', '')
+    content = content.replace('VX_gpu_pkg::', '')
 
     # `include "..." → remove
     content = re.sub(r'^\s*`include\s+"[^"]*"\s*$', '', content, flags=re.MULTILINE)
@@ -673,7 +1090,8 @@ def hoist_gen_scoped(mod_text, max_loop=16):
             for j in range(scope_start, scope_end + 1):
                 if j == line_idx:
                     continue
-                lines[j] = re.sub(rf'(?<!_)\b{re.escape(name)}\b', f'{hname}[{var}]', lines[j])
+                # Don't rename port connections (.name(...)) — only wire references
+                lines[j] = re.sub(rf'(?<!\.)(?<!_)\b{re.escape(name)}\b', f'{hname}[{var}]', lines[j])
         lines[line_idx] = ''
 
     hoisted = []
