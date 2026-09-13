@@ -118,6 +118,7 @@ localparam MX_K_IDX_W = 6;     // $clog2(MX_TILE_K_MAX=8 * TCU_MAX_ELT_RATIO=8) 
 localparam MX_SCALE_BLOCKS_MAX = 2;  // (TCU_TILE_K=4 * 8 + 15) / 16 = 2
 localparam MX_SCALE_IDX_W = 3; // $clog2(MX_MAX_MN=4 * MX_SCALE_BLOCKS_MAX=2) = $clog2(8) = 3
 
+// SYNTHESIS_HEADER
 // mx_scale_at function (from VX_tcu_core.sv ifdef block)
 function automatic [7:0] mx_scale_at(
     input logic [TCU_BLOCK_CAP-1:0][31:0] meta,
@@ -143,6 +144,7 @@ endfunction
 typedef struct packed { logic is_zero; logic is_sub; logic is_inf; logic is_nan; } fedp_class_t;
 typedef struct packed { logic is_inf; logic is_nan; logic sign; } fedp_excep_t;
 
+// SYNTHESIS_HEADER
 // Format utility functions (from VX_gpu_pkg)
 function automatic logic tcu_fmt_is_int(input logic [4:0] fmt);
     tcu_fmt_is_int = fmt[4];
