@@ -1,109 +1,103 @@
 #!/usr/bin/env python3
 """
-expand_interfaces.py v3 — Post-process flat TCU SV file.
-
-Strategy:
-- Replace SV interface port declarations with flat wire declarations
-- Replace ifname.signal with ifname__signal
-- Replace ifname.data.field with ifname__data__field (flatten nested struct)
-- Replace ifname.data.header.field with ifname__data__header__field
-- Replace .ifname(ifname) instantiation connections with individual port wiring
-
-The data signals are declared as wide logic vectors. Yosys will
-optimize away unused bits.
+expand_interfaces.py FINAL — Put expanded wires in module body, not port list.
+This avoids all comma/semicolon issues.
 """
 import re, sys
 
+IF_SIGNALS = {
+    'VX_mem_bus_if': [
+        ('req_valid', 'output', 'logic'),
+        ('req_data', 'output', '[63:0]'),
+        ('req_ready', 'input', 'logic'),
+        ('rsp_valid', 'input', 'logic'),
+        ('rsp_data', 'input', '[63:0]'),
+        ('rsp_ready', 'output', 'logic'),
+    ],
+    'VX_execute_if': [
+        ('valid', 'input', 'logic'),
+        ('data', 'input', '[511:0]'),
+        ('ready', 'output', 'logic'),
+    ],
+    'VX_result_if': [
+        ('valid', 'output', 'logic'),
+        ('data', 'output', '[511:0]'),
+        ('ready', 'input', 'logic'),
+    ],
+    'VX_dispatch_if': [
+        ('valid', 'input', 'logic'),
+        ('data', 'input', '[511:0]'),
+        ('ready', 'output', 'logic'),
+    ],
+    'VX_commit_if': [
+        ('valid', 'output', 'logic'),
+        ('data', 'output', '[511:0]'),
+        ('ready', 'input', 'logic'),
+    ],
+    'VX_lsu_sched_if': [
+        ('req_valid', 'output', 'logic'),
+        ('req_data', 'output', '[255:0]'),
+        ('req_ready', 'input', 'logic'),
+        ('rsp_valid', 'input', 'logic'),
+        ('rsp_data', 'input', '[255:0]'),
+        ('rsp_ready', 'output', 'logic'),
+    ],
+}
 
-def expand_interfaces(content):
+IF_PATTERN = re.compile(
+    r'(VX_(?:mem_bus_if|execute_if|result_if|dispatch_if|commit_if|lsu_sched_if))'
+    r'\s*\.\s*\w+\s+(\w+)(?:\s*\[([^\]]+)\])?\s*,?\s*$'
+)
+
+def expand(content):
     lines = content.split('\n')
-    result = []
-    expanded = {}  # inst_name → if_type
+    expanded = {}
+    module_expanded = {}  # port_list_end_idx -> {inst_name: if_type}
+    to_remove = set()
+    current_module_ifs = {}
 
-    for line in lines:
+    for i, line in enumerate(lines):
         stripped = line.strip()
-        indent = line[:len(line) - len(line.lstrip())]
-
-        # Match: VX_<type>.<modport> <inst_name> [<dim>],
-        m = re.match(
-            r'(VX_(?:mem_bus_if|execute_if|result_if|dispatch_if|commit_if))'
-            r'\s*\.\s*\w+\s+(\w+)(?:\s*\[([^\]]+)\])?\s*,?\s*$',
-            stripped
-        )
+        m = IF_PATTERN.match(stripped)
         if m:
-            if_type = m.group(1)
-            inst_name = m.group(2)
-            dim = m.group(3)
-            expanded[inst_name] = if_type
-
-            if if_type == 'VX_mem_bus_if':
-                for sig in ['req_valid', 'req_ready', 'rsp_valid', 'rsp_ready']:
-                    result.append(f'{indent}logic {inst_name}__{sig};')
-                result.append(f'{indent}logic [63:0] {inst_name}__req_data;')
-                result.append(f'{indent}logic [63:0] {inst_name}__rsp_data;')
-            elif if_type in ('VX_execute_if', 'VX_result_if'):
-                result.append(f'{indent}logic {inst_name}__valid;')
-                result.append(f'{indent}logic {inst_name}__ready;')
-                result.append(f'{indent}logic [511:0] {inst_name}__data;')
-            elif if_type in ('VX_dispatch_if', 'VX_commit_if'):
-                result.append(f'{indent}logic {inst_name}__valid;')
-                result.append(f'{indent}logic {inst_name}__ready;')
-                result.append(f'{indent}logic [511:0] {inst_name}__data;')
+            current_module_ifs[m.group(2)] = m.group(1)
+            expanded[m.group(2)] = m.group(1)
+            to_remove.add(i)
             continue
+        if stripped.startswith(');') and current_module_ifs:
+            module_expanded[i] = current_module_ifs.copy()
+            current_module_ifs = {}
 
+    # Build output: remove interface lines, add wires AFTER );
+    result = []
+    for i, line in enumerate(lines):
+        if i in to_remove:
+            continue  # remove interface port line
         result.append(line)
+        if i in module_expanded:
+            # Insert expanded wires after );
+            indent = '    '
+            for ename, etype in module_expanded[i].items():
+                for sig_name, direction, width in IF_SIGNALS[etype]:
+                    result.append(f'{indent}{direction} {width} {ename}__{sig_name};')
 
     content = '\n'.join(result)
 
-    # ─── Step 2: Expand member accesses (longest name first) ───
+    # Replace member accesses
     for inst_name in sorted(expanded.keys(), key=len, reverse=True):
-        if_type = expanded[inst_name]
         ename = re.escape(inst_name)
+        content = re.sub(rf'\b{ename}\.(\w+)', rf'{inst_name}__\1', content)
+        content = re.sub(rf'\b{ename}\[([^\]]+)\]\.(\w+)',
+                         rf'{inst_name}__\2[\1]', content)
 
-        if if_type == 'VX_mem_bus_if':
-            for sig in ['req_valid', 'req_ready', 'rsp_valid', 'rsp_ready']:
-                content = re.sub(rf'\b{ename}\.{sig}\b', f'{inst_name}__{sig}', content)
-            # req_data.field → req_data__field
-            content = re.sub(rf'\b{ename}\.req_data\.(\w+)',
-                             f'{inst_name}__req_data__\\1', content)
-            content = re.sub(rf'\b{ename}\.rsp_data\.(\w+)',
-                             f'{inst_name}__rsp_data__\\1', content)
-        elif if_type in ('VX_execute_if', 'VX_result_if', 'VX_dispatch_if', 'VX_commit_if'):
-            content = re.sub(rf'\b{ename}\.valid\b', f'{inst_name}__valid', content)
-            content = re.sub(rf'\b{ename}\.ready\b', f'{inst_name}__ready', content)
-            # data.field → data__field (flatten nested struct)
-            content = re.sub(rf'\b{ename}\.data\.(\w+)',
-                             f'{inst_name}__data__\\1', content)
-
-    # ─── Step 3: Handle instantiation connections ───
-    # .port_name(ifname) where ifname is expanded → comment out
-    # These will be connected by matching port names in sub-modules
-    lines = content.split('\n')
-    result = []
-    for line in lines:
-        stripped = line.strip()
-        m = re.match(r'\s*\.(\w+)\s*\(\s*(\w+)\s*\)', stripped)
-        if m and m.group(2) in expanded:
-            result.append(f'{line.rstrip()}  // IF-EXPANDED')
-            continue
-        result.append(line)
-
-    return '\n'.join(result), expanded
-
+    return content, expanded
 
 if __name__ == '__main__':
-    if len(sys.argv) < 3:
-        print("Usage: expand_interfaces.py <input.sv> <output.sv>")
-        sys.exit(1)
-
     with open(sys.argv[1]) as f:
         content = f.read()
-
-    content, expanded = expand_interfaces(content)
-
+    content, expanded = expand(content)
     with open(sys.argv[2], 'w') as f:
         f.write(content)
-
     print(f"Expanded {len(expanded)} interfaces:")
-    for name, iftype in sorted(expanded.items()):
-        print(f"  {name}: {iftype}")
+    for n, t in sorted(expanded.items()):
+        print(f"  {n}: {t}")
