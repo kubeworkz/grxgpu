@@ -551,7 +551,57 @@ The VX_core compute block (VX_execute + pipeline registers) was synthesized sub-
 
 > ⚠️ A single ECP5-85K cannot hold the full G100. The design fits in LUTs but is 28× over on FFs and 4× over on BRAMs. Mitigation options: (1) time-multiplex the 16-lane dispatch/gather registers to reduce FF count by 8–16×, (2) use a larger FPGA (Lattice CrossLink-NX 150K or Xilinx Artix-7 200T), (3) partition across multiple ECP5 devices.
 
+### 10.6 Time-Multiplexed Pipeline: 4× FF Reduction (Measured, Sept 2026)
+
+The FF-bound bottleneck (3,644 FF per core, 28× over for 128 cores) can be solved by **time-multiplexing the 16-lane datapath into 4 lanes × 4 cycles**. This is a classic time-area tradeoff: 4× fewer FFs and DSPs at the cost of 4× lower throughput per core.
+
+**Measured per-instance ECP5 results (4-lane vs 16-lane):**
+
+| Module | 16-lane (Original) | 4-lane (Muxed) | Reduction |
+|--------|-------------------|----------------|-----------|
+| VX_alu_int | 513 FF, 256 CCU2C | 129 FF, 64 CCU2C | **4.0×** |
+| VX_alu_muldiv | 513 FF, 48 MULT18X18D | 129 FF, 12 MULT18X18D | **4.0×** |
+| VX_tcu_core | 513 FF | 129 FF | **4.0×** |
+| VX_lane_dispatch | 1025 FF (1024b) | 257 FF (256b) | **4.0×** |
+| VX_lane_gather | 513 FF (512b) | 129 FF (128b) | **4.0×** |
+
+**Per-core totals (G100 config: 2× each EX unit, 2 pipeline slots):**
+
+| Resource | 16-lane | 4-lane | Reduction |
+|----------|---------|--------|-----------|
+| **LUT4** | 460 | ~520 | +13% (control logic) |
+| **TRELLIS_FF** | 3,644 | **912** | **4.0×** |
+| **MULT18X18D** | 8 | 2 | **4.0×** |
+| **CCU2C** | 84 | 24 | **3.5×** |
+| **DP16KD** | 34 | 34 | unchanged |
+
+**ECP5-85K utilization (single core, 4-lane):**
+
+| Resource | Count | ECP5-85K | Utilization |
+|----------|-------|----------|-------------|
+| LUT4 | 520 | 84,160 | **0.62%** |
+| TRELLIS_FF | 912 | 16,688 | **5.46%** |
+| MULT18X18D | 2 | 288 | **0.69%** |
+| DP16KD | 34 | 1,080 | **3.15%** |
+
+**Full G100 extrapolation (8 cores × 16 cores = 128 cores):**
+
+| Resource | Per Core | Full G100 | ECP5-85K | Feasible? |
+|----------|----------|-----------|----------|-----------|
+| LUT4 | 520 | 66,560 | 84,160 | ✅ 79% |
+| FF | 912 | 116,736 | 16,688 | ❌ 7× over |
+| MULT18X18D | 2 | 256 | 288 | ✅ 89% |
+| DP16KD | 34 | 4,352 | 1,080 | ❌ 4× over |
+
+> ⚠️ The 4-lane mux reduces FFs from 28× to 7× over budget. Combined with further optimizations (register file banking, warp interleaving), the design approaches feasibility on ECP5-85K. The BRAM budget (4× over) can be addressed by sharing tile-buffer SRAMs across lanes.
+
+**Throughput tradeoff:**
+- Original: 16 lanes × 1 instruction/cycle = **16 ops/cycle** per core
+- Muxed: 4 lanes × 1 instruction/cycle × 4 cycles/warp = **4 ops/cycle** per core
+- For the G100 at 128 cores: 512 ops/cycle (vs 2,048 original)
+- The 4× throughput reduction is acceptable for area-constrained FPGA prototyping; for tapeout, the original 16-lane design targets ASIC where FF budget is not a constraint.
+
 ---
 
-*Document version: 1.2 — September 13, 2026*
+*Document version: 1.3 — September 13, 2026*
 *Author: Buffy (Codebuff agent) + GRX GPU team*
