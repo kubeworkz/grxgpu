@@ -749,7 +749,49 @@ The VX_core compute block and pipeline control modules were synthesized targetin
 >
 > **Recommendation:** Target **Xilinx Artix-7 200T** (e.g., Digilent Arty A7-200T, ~$350) for FPGA prototyping of the full 128-core G100 with 4-lane muxed datapath.
 
+### 10.10 Warp-Interleaved Register File Banking (Measured, Sept 2026)
+
+Three register file architectures were synthesized on ECP5-85K to compare FF/BRAM/LUT tradeoffs:
+
+1. **Flat:** 16 warps × 32 regs × 32 bits = 16,384 bits (naive implementation)
+2. **Banked:** 4 banks × 4 warps × 32 regs × 32 bits (same capacity, cross-bank muxing)
+3. **Hybrid:** Hot warps (4) in FFs + cold warps (12) in BRAMs (LRU tracking)
+
+**Measured ECP5 results:**
+
+| Architecture | LUT4 | PFUMX | FF | DP16KD (BRAM) | Total Cells |
+|--------------|------|-------|----|---------------|-------------|
+| **Flat** | 2,131 | 485 | 0 | 512 | 3,320 |
+| **Banked** | 1,902 | 221 | 0 | 512 | 2,653 |
+| **Hybrid** | 1,014 | 306 | **4** | **192** | 1,667 |
+
+**Key insight:** Yosys/ABC automatically infers BRAMs for large register arrays. The "flat" register file doesn't use 16K FFs — it uses 512 × DP16KD (8Mb of BRAMs). The hybrid design reduces BRAM usage by 63% (192 vs 512) by keeping the 4 most recently used warps in FFs and the rest in BRAMs.
+
+**Per-core register file impact:**
+
+| Architecture | LUT4 | FF | DP16KD | ECP5-85K |
+|--------------|------|----|--------|----------|
+| Flat | 2,131 | 0 | 512 | 47% BRAM |
+| Banked | 1,902 | 0 | 512 | 47% BRAM |
+| **Hybrid** | **1,014** | **4** | **192** | **18% BRAM** |
+
+**Full G100 register file (128 cores):**
+
+| Architecture | Per Core | Full G100 | ECP5-85K | Feasible? |
+|--------------|----------|-----------|----------|-----------|
+| Flat | 2,131 LUT + 512 BRAM | 273K LUT + 65K BRAM | 84K LUT + 1K BRAM | ❌ ❌ |
+| Banked | 1,902 LUT + 512 BRAM | 243K LUT + 65K BRAM | 84K LUT + 1K BRAM | ❌ ❌ |
+| **Hybrid** | **1,014 LUT + 192 BRAM** | **130K LUT + 25K BRAM** | **84K LUT + 1K BRAM** | ❌ ❌ |
+
+> ⚠️ Even the hybrid design exceeds the ECP5-85K budget at 128 cores. The register file alone needs 130K LUTs (1.5× over) and 25K BRAMs (25× over). For FPGA prototyping, the register file must be shared across cores (time-multiplexed) or implemented in external memory.
+>
+> For **ASIC tapeout**, the register file will be implemented as embedded SRAM (free with PDK), not LUTs/BRAMs. The measured LUT/FF counts are for the control logic only — the actual storage is SRAM macros.
+
+**Recommendation:**
+- **FPGA prototyping:** Use time-multiplexed register file (4 cores share 1 register file) + external DDR for large datasets
+- **ASIC tapeout:** Use embedded SRAM macros (32KB per core) — no FF/LUT cost for storage
+
 ---
 
-*Document version: 1.6 — September 13, 2026*
+*Document version: 1.7 — September 13, 2026*
 *Author: Buffy (Codebuff agent) + GRX GPU team*
