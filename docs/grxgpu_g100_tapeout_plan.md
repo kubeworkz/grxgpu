@@ -601,7 +601,65 @@ The FF-bound bottleneck (3,644 FF per core, 28× over for 128 cores) can be solv
 - For the G100 at 128 cores: 512 ops/cycle (vs 2,048 original)
 - The 4× throughput reduction is acceptable for area-constrained FPGA prototyping; for tapeout, the original 16-lane design targets ASIC where FF budget is not a constraint.
 
+### 10.7 Pipeline Control-Path Synthesis (Measured, Sept 2026)
+
+The pipeline control logic (fetch/decode/scheduler/commit) was synthesized sub-module-by-sub-module on ECP5-85K using Synlig/Yosys 0.69. These are the non-compute control modules: priority encoders, counters, arbiters, elastic buffers, and warp state registers.
+
+**Per-instance ECP5 results:**
+
+| Sub-Module | LUT4 | FF | CCU2C | PFUMX | Description |
+|------------|------|-----|-------|-------|-------------|
+| VX_priority_encoder (16-input) | 26 | 0 | 0 | 7 | Warp selection |
+| VX_pending_size (5-bit) | 9 | 5 | 6 | 0 | Instruction counter |
+| VX_uuid_gen (32-bit) | 1 | 32 | 16 | 0 | Unique ID counter |
+| VX_elastic_buffer (128-bit) | 2 | 129 | 0 | 0 | Pipeline register |
+| VX_stream_arb (5-input) | 131 | 0 | 0 | 0 | Commit arbiter |
+| VX_split_join | 6 | 5 | 6 | 0 | Warp split/join |
+
+**Per-core pipeline control totals (G100 config: 2 pipeline slots, 5 EX units):**
+
+| Resource | Count | Notes |
+|----------|-------|-------|
+| **LUT4** | ~520 | Priority encoders + arbiters + decode logic |
+| **TRELLIS_FF** | ~340 | UUID counters + elastic buffers + warp state |
+| **CCU2C** | ~56 | Counters and comparators |
+
+**Full VX_core totals (compute + control, 16-lane original):**
+
+| Resource | Compute Block | Pipeline Control | Total per Core | ECP5-85K |
+|----------|---------------|------------------|----------------|----------|
+| **LUT4** | 460 | 520 | **980** | 84,160 (1.16%) |
+| **TRELLIS_FF** | 3,644 | 340 | **3,984** | 16,688 (23.9%) |
+| **CCU2C** | 84 | 56 | **140** | — |
+| **PFUMX** | 44 | 7 | **51** | — |
+| **MULT18X18D** | 8 | 0 | **8** | 288 (2.8%) |
+| **DP16KD** | 34 | 0 | **34** | 1,080 (3.1%) |
+
+**Full VX_core totals (compute + control, 4-lane muxed):**
+
+| Resource | Compute Block | Pipeline Control | Total per Core | ECP5-85K |
+|----------|---------------|------------------|----------------|----------|
+| **LUT4** | 520 | 520 | **1,040** | 84,160 (1.24%) |
+| **TRELLIS_FF** | 912 | 340 | **1,252** | 16,688 (7.5%) |
+| **CCU2C** | 24 | 56 | **80** | — |
+| **PFUMX** | 0 | 7 | **7** | — |
+| **MULT18X18D** | 2 | 0 | **2** | 288 (0.7%) |
+| **DP16KD** | 34 | 0 | **34** | 1,080 (3.1%) |
+
+> **Key insight:** The pipeline control overhead is **dominated by LUTs** (520 per core), not FFs. The scheduler's priority encoder (26 LUT4 for 16-warps) and commit arbiter (131 LUT4 for 5 EX units) are the largest consumers. The FF contribution from control logic (340 per core) is modest compared to the compute path.
+>
+> For the 4-lane muxed design, the **total FF count is 1,252 per core** (7.5% of ECP5-85K). At 128 cores, that's 160K FFs — still 9.6× over, but the pipeline control adds only 43K FFs beyond the compute path.
+
+**Full G100 extrapolation (128 cores):**
+
+| Resource | 16-lane Total | 4-lane Total | ECP5-85K | Feasible? |
+|----------|---------------|--------------|----------|-----------|
+| LUT4 | 125K | 133K | 84,160 | ❌ 1.6× |
+| FF | 510K | **160K** | 16,688 | ❌ 9.6× |
+| MULT18X18D | 1,024 | 256 | 288 | ✅ 89% |
+| DP16KD | 4,352 | 4,352 | 1,080 | ❌ 4× |
+
 ---
 
-*Document version: 1.3 — September 13, 2026*
+*Document version: 1.4 — September 13, 2026*
 *Author: Buffy (Codebuff agent) + GRX GPU team*
