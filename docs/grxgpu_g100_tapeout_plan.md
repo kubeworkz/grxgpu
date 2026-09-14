@@ -510,7 +510,48 @@ The DXA address generator (`VX_dxa_addr_gen`) was synthesized end-to-end using S
 | `syn/synth_config.svh` | VX_CFG_* macros for synthesis |
 | `syn/vortex_stubs.sv` | Blackbox stubs for Vortex core infrastructure (12 modules) |
 
+### 10.5 VX_core Compute-Block ECP5 Synthesis (Measured, Sept 2026)
+
+The VX_core compute block (VX_execute + pipeline registers) was synthesized sub-block-by-sub-block on ECP5-85K using Synlig/Yosys 0.69. Each EX unit and pipeline register bank was synthesized independently, then summed for the G100 config (NUM_ISSUE_WIDTH=2, NUM_TCU_BLOCKS=2, NUM_LANES=16, XLEN=32).
+
+**Per-instance ECP5 results:**
+
+| Sub-Block | LUT4 | FF | CCU2C | PFUMX | MULT18X18D | DP16KD |
+|-----------|------|-----|-------|-------|------------|--------|
+| VX_tcu_core (flattened, 29 modules) | 179 | 143 | 12 | 44 | 0 | 16 |
+| VX_alu_int (16-lane ALU) | 4 | 35 | 16 | 0 | 0 | 0 |
+| VX_alu_muldiv (16-lane MUL) | 2 | 33 | 14 | 0 | 3 | 0 |
+| VX_sfu_unit (CSR + scoreboard) | 41 | 73 | 0 | 1 | 0 | 1 |
+| VX_lane_dispatch (1024b pipeline reg) | 2 | 1025 | 0 | 0 | 0 | 0 |
+| VX_lane_gather (512b pipeline reg) | 2 | 513 | 0 | 0 | 0 | 0 |
+
+**Per-core totals (G100 config: 2× each EX unit, 2 pipeline slots):**
+
+| Resource | Per Core | ECP5-85K | Utilization |
+|----------|----------|----------|-------------|
+| **LUT4** | **460** | 84,160 | **0.55%** |
+| **TRELLIS_FF** | **3,644** | 16,688 | **21.84%** |
+| **CCU2C** (carry chains) | 84 | — | adders |
+| **MULT18X18D** (DSP) | 8 | 288 | **2.78%** |
+| **DP16KD** (BRAM) | 34 | 1,080 | **3.15%** |
+
+**Key findings:**
+- The design is **FF-bound**, not LUT-bound. The 16-lane dispatch/gather register banks (1024b and 512b wide) dominate: each dispatch slot requires 1025 FFs per pipeline register bank. With 2 slots × 2 EX units (ALU + TCU) × 2 pipeline stages, that's 8,100 FFs just for pipeline registers.
+- **LUT4 is trivial** (0.55%) because the compute is arithmetic-heavy — carry chains (CCU2C) and DSP blocks (MULT18X18D) handle the actual math.
+- The TCU core (179 LUT4, 143 FF) is the most complex sub-module in LUTs, but the ALU muldiv's 18×18 DSP blocks are the most expensive resource per-instance.
+
+**Full G100 extrapolation (8 cores × 16 cores = 128 cores):**
+
+| Resource | Per Core | Full G100 | ECP5-85K | Feasible? |
+|----------|----------|-----------|----------|-----------|
+| LUT4 | 460 | 58,880 | 84,160 | ✅ 70% |
+| FF | 3,644 | 466,432 | 16,688 | ❌ 28× over |
+| MULT18X18D | 8 | 1,024 | 288 | ❌ 3.6× over |
+| DP16KD | 34 | 4,352 | 1,080 | ❌ 4.0× over |
+
+> ⚠️ A single ECP5-85K cannot hold the full G100. The design fits in LUTs but is 28× over on FFs and 4× over on BRAMs. Mitigation options: (1) time-multiplex the 16-lane dispatch/gather registers to reduce FF count by 8–16×, (2) use a larger FPGA (Lattice CrossLink-NX 150K or Xilinx Artix-7 200T), (3) partition across multiple ECP5 devices.
+
 ---
 
-*Document version: 1.1 — September 8, 2026*
+*Document version: 1.2 — September 13, 2026*
 *Author: Buffy (Codebuff agent) + GRX GPU team*
