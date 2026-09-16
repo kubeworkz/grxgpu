@@ -66,6 +66,17 @@ class Spec:
         self.touches = list(entry.get("touches", defaults.get("touches", [])))
         self.xlens = [int(x) for x in entry.get("xlen", defaults.get("xlen", [32, 64]))]
         self.configs = _merge_configs(defaults.get("configs", ""), entry)
+        # Runner-safe Verilated model size for RTL sims: testcases that set
+        # neither NUM_CLUSTERS nor NUM_CORES resolve to the TOML default
+        # (8x16 = 128 cores), which exceeds a standard runner's 16 GB when
+        # Verilated -- the runner service gets OOM-killed ("runner shutdown
+        # signal" mid-Verilator). simx is a C++ model (cheap at any config),
+        # so only RTL drivers get the bound.
+        if self.driver in ("rtlsim", "xrtsim", "opaesim") and \
+                "-DVX_CFG_NUM_CLUSTERS=" not in (self.configs or "") and \
+                "-DVX_CFG_NUM_CORES=" not in (self.configs or ""):
+            bound = "-DVX_CFG_NUM_CLUSTERS=1 -DVX_CFG_NUM_CORES=4"
+            self.configs = (self.configs + " " + bound).strip() if self.configs else bound
         # Known-issue marker: a non-empty reason flags this case as a tracked
         # expected-failure (pytest xfail). The case still runs and reports, but
         # its failure does not fail CI. Falls back to the file-level default so a
