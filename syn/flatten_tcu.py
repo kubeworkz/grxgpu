@@ -762,11 +762,7 @@ def strip_preprocessor_blocks(content):
 
         # Track preprocessor state but REMOVE all directive lines from output
         if stripped.startswith("`ifdef "):
-            # Nested ifdef inside a skip region should also be skipped
-            if stack and stack[-1] == 'skip':
-                stack.append('skip')
-            else:
-                stack.append('keep')
+            stack.append('keep')
             i += 1
             continue
         elif stripped.startswith("`ifndef "):
