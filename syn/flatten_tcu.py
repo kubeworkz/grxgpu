@@ -4,6 +4,25 @@ Flatten ALL TCU modules (TFR + DXA + WGMMA + core + buffers + scheduler)
 into a single Yosys-compatible SystemVerilog file for ECP5/Xilinx synthesis.
 
 Extends flatten_tfr_v2.py's infrastructure with the full TCU module list.
+
+CANONICAL LINEAGE -- DO NOT TAKE THE OTHER SIDE IN A MERGE BLINDLY.
+This file exists in two historical lineages (dev's 29-module pipeline and
+main's earlier 927-line variant). Branch reconciliation has silently
+reverted the nested-ifdef fix here twice (75b1f8f7c, 33c5bf464). Before
+merging, diff against the lineage tips and keep every fix:
+
+  1. strip_preprocessor_blocks(): a nested `ifdef inside a skip region
+     must push 'skip' onto the stack, NOT 'keep' (else orphaned ternary
+     fragments leak through -> 7 Surelog errors). See c8e109489 / 33c5bf464.
+  2. Pipeline contract: flatten_tcu.py + preprocess_for_synth.py +
+     expand_struct_refs.py + fix_tcu_core_interfaces.py +
+     inline_all_functions.py + synth_fixup.py must produce output whose
+     Surelog summary shows [FATAL]: 0, [SYNTAX]: 0, [ERROR]: 0.
+  3. Golden output: dev-final commit b1bbfec19's /tmp/tcu_final.v
+     (regenerable via the 6-stage pipeline above).
+
+Self-test: python3 syn/flatten_tcu.py --self-test
+(exits non-zero on regression of invariant 1).
 """
 import re, sys, os
 
@@ -1187,5 +1206,38 @@ def main():
     print(f"  Total lines: {total_lines}")
 
 
+def _self_test():
+    """Regression check for the nested-ifdef skip-region invariant.
+
+    A nested `ifdef inside a skip region must push 'skip', not 'keep'.
+    Returns 0 if the invariant holds, 1 otherwise.
+    """
+    # The stripper assumes every `ifdef is TRUE (keep) and every `ifndef
+    # is FALSE (skip). The invariant under test: a nested `ifdef inside a
+    # SKIP region must propagate 'skip', not restart with 'keep'.
+    probe = (
+        "module t;\n"
+        "`ifndef X\n"      # -> skip region
+        "wire bad1;\n"      # must be dropped
+        "`ifdef Y\n"       # nested inside skip: must stay skipped
+        "wire bad2;\n"      # must be dropped (leaks if nested pushes keep)
+        "`endif\n"
+        "`endif\n"
+        "wire good;\n"      # must survive
+        "endmodule\n"
+    )
+    out = strip_preprocessor_blocks(probe)
+    leaked = ('bad1' in out) or ('bad2' in out)
+    kept = 'wire good' in out
+    if leaked or not kept:
+        print("SELF-TEST FAIL: nested ifdef skip-region invariant violated:")
+        print(out)
+        return 1
+    print("flatten_tcu.py self-test OK (nested-ifdef skip invariant holds)")
+    return 0
+
+
 if __name__ == '__main__':
+    if '--self-test' in sys.argv:
+        sys.exit(_self_test())
     main()
