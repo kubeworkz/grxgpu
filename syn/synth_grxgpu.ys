@@ -1,0 +1,130 @@
+# GRX G100 Yosys Synthesis Script
+# Target: SkyWater sky130nm (sky130hd)
+
+# Read technology library
+read_liberty /OpenROAD/test/sky130hd/sky130hd_tt.lib
+read_lef /OpenROAD/test/sky130hd/sky130hd.tlef
+read_lef /OpenROAD/test/sky130hd/sky130_fd_sc_hd_merged.lef
+
+# Read all RTL sources
+# Packages first (defines types used by all modules)
+read_verilog -sv /grxgpu/hw/rtl/VX_gpu_pkg.sv
+read_verilog -sv /grxgpu/hw/rtl/VX_trace_pkg.sv
+read_verilog -sv /grxgpu/hw/rtl/tcu/VX_tcu_pkg.sv
+read_verilog -sv /grxgpu/hw/rtl/dxa/VX_dxa_pkg.sv
+
+# Cache modules
+read_verilog -sv /grxgpu/hw/rtl/cache/VX_cache.sv
+read_verilog -sv /grxgpu/hw/rtl/cache/VX_cache_bank.sv
+read_verilog -sv /grxgpu/hw/rtl/cache/VX_cache_data.sv
+read_verilog -sv /grxgpu/hw/rtl/cache/VX_cache_tags.sv
+read_verilog -sv /grxgpu/hw/rtl/cache/VX_cache_mshr.sv
+read_verilog -sv /grxgpu/hw/rtl/cache/VX_cache_repl.sv
+read_verilog -sv /grxgpu/hw/rtl/cache/VX_cache_init.sv
+read_verilog -sv /grxgpu/hw/rtl/cache/VX_cache_flush.sv
+read_verilog -sv /grxgpu/hw/rtl/cache/VX_cache_amo.sv
+read_verilog -sv /grxgpu/hw/rtl/cache/VX_cache_bypass.sv
+read_verilog -sv /grxgpu/hw/rtl/cache/VX_cache_cluster.sv
+read_verilog -sv /grxgpu/hw/rtl/cache/VX_cache_wrap.sv
+read_verilog -sv /grxgpu/hw/rtl/cache/VX_amo_alu.sv
+read_verilog -sv /grxgpu/hw/rtl/cache/VX_amo_unit.sv
+
+# Core modules
+read_verilog -sv /grxgpu/hw/rtl/core/VX_core.sv
+read_verilog -sv /grxgpu/hw/rtl/core/VX_fetch.sv
+read_verilog -sv /grxgpu/hw/rtl/core/VX_decode.sv
+read_verilog -sv /grxgpu/hw/rtl/core/VX_issue.sv
+read_verilog -sv /grxgpu/hw/rtl/core/VX_issue_slice.sv
+read_verilog -sv /grxgpu/hw/rtl/core/VX_execute.sv
+read_verilog -sv /grxgpu/hw/rtl/core/VX_commit.sv
+read_verilog -sv /grxgpu/hw/rtl/core/VX_scheduler.sv
+read_verilog -sv /grxgpu/hw/rtl/core/VX_scoreboard.sv
+read_verilog -sv /grxgpu/hw/rtl/core/VX_operands.sv
+read_verilog -sv /grxgpu/hw/rtl/core/VX_alu_unit.sv
+read_verilog -sv /grxgpu/hw/rtl/core/VX_alu_int.sv
+read_verilog -sv /grxgpu/hw/rtl/core/VX_alu_muldiv.sv
+read_verilog -sv /grxgpu/hw/rtl/core/VX_lsu_unit.sv
+read_verilog -sv /grxgpu/hw/rtl/core/VX_lsu_slice.sv
+read_verilog -sv /grxgpu/hw/rtl/core/VX_lsu_agu.sv
+read_verilog -sv /grxgpu/hw/rtl/core/VX_lsu_scheduler.sv
+read_verilog -sv /grxgpu/hw/rtl/core/VX_csr_unit.sv
+read_verilog -sv /grxgpu/hw/rtl/core/VX_csr_data.sv
+read_verilog -sv /grxgpu/hw/rtl/core/VX_sfu_unit.sv
+read_verilog -sv /grxgpu/hw/rtl/core/VX_bar_unit.sv
+read_verilog -sv /grxgpu/hw/rtl/core/VX_mem_unit.sv
+read_verilog -sv /grxgpu/hw/rtl/core/VX_opc_unit.sv
+read_verilog -sv /grxgpu/hw/rtl/core/VX_ibuffer.sv
+read_verilog -sv /grxgpu/hw/rtl/core/VX_split_join.sv
+read_verilog -sv /grxgpu/hw/rtl/core/VX_ipdom_stack.sv
+read_verilog -sv /grxgpu/hw/rtl/core/VX_cta_dispatch.sv
+read_verilog -sv /grxgpu/hw/rtl/core/VX_dispatcher.sv
+read_verilog -sv /grxgpu/hw/rtl/core/VX_decompressor.sv
+read_verilog -sv /grxgpu/hw/rtl/core/VX_dcr_arb.sv
+read_verilog -sv /grxgpu/hw/rtl/core/VX_dcr_data.sv
+read_verilog -sv /grxgpu/hw/rtl/core/VX_dcr_flush.sv
+read_verilog -sv /grxgpu/hw/rtl/core/VX_lane_dispatch.sv
+read_verilog -sv /grxgpu/hw/rtl/core/VX_lane_gather.sv
+read_verilog -sv /grxgpu/hw/rtl/core/VX_pe_switch.sv
+read_verilog -sv /grxgpu/hw/rtl/core/VX_kmu_arb.sv
+read_verilog -sv /grxgpu/hw/rtl/core/VX_txbar_arb.sv
+read_verilog -sv /grxgpu/hw/rtl/core/VX_uop_packld.sv
+read_verilog -sv /grxgpu/hw/rtl/core/VX_uop_sequencer.sv
+
+# TCU modules
+read_verilog -sv /grxgpu/hw/rtl/tcu/VX_tcu_core.sv
+read_verilog -sv /grxgpu/hw/rtl/tcu/VX_tcu_agu.sv
+read_verilog -sv /grxgpu/hw/rtl/tcu/VX_tcu_abuf.sv
+read_verilog -sv /grxgpu/hw/rtl/tcu/VX_tcu_bbuf.sv
+read_verilog -sv /grxgpu/hw/rtl/tcu/VX_tcu_dsm.sv
+read_verilog -sv /grxgpu/hw/rtl/tcu/VX_tcu_lockstep.sv
+read_verilog -sv /grxgpu/hw/rtl/tcu/VX_tcu_meta.sv
+read_verilog -sv /grxgpu/hw/rtl/tcu/VX_tcu_mx_scale.sv
+read_verilog -sv /grxgpu/hw/rtl/tcu/VX_tcu_sp_mux.sv
+read_verilog -sv /grxgpu/hw/rtl/tcu/VX_tcu_wgmma.sv
+
+# DXA modules
+read_verilog -sv /grxgpu/hw/rtl/dxa/VX_dxa_core.sv
+read_verilog -sv /grxgpu/hw/rtl/dxa/VX_dxa_addr_gen.sv
+read_verilog -sv /grxgpu/hw/rtl/dxa/VX_dxa_completion.sv
+read_verilog -sv /grxgpu/hw/rtl/dxa/VX_dxa_desc_table.sv
+read_verilog -sv /grxgpu/hw/rtl/dxa/VX_dxa_dispatch.sv
+read_verilog -sv /grxgpu/hw/rtl/dxa/VX_dxa_gmem_req.sv
+read_verilog -sv /grxgpu/hw/rtl/dxa/VX_dxa_req_arb.sv
+read_verilog -sv /grxgpu/hw/rtl/dxa/VX_dxa_setup.sv
+read_verilog -sv /grxgpu/hw/rtl/dxa/VX_dxa_smem_wr.sv
+
+# KMU (kernel management unit)
+read_verilog -sv /grxgpu/hw/rtl/VX_kmu.sv
+
+# Socket and cluster
+read_verilog -sv /grxgpu/hw/rtl/VX_socket.sv
+read_verilog -sv /grxgpu/hw/rtl/VX_cluster.sv
+
+# Top-level
+read_verilog -sv /grxgpu/hw/rtl/Vortex.sv
+read_verilog -sv /grxgpu/hw/rtl/Vortex_axi.sv
+
+# Graphics pipeline (stub modules if not fully available)
+# read_verilog -sv /grxgpu/hw/rtl/VX_graphics.sv
+
+# Hierarchy and elaborate
+hierarchy -top Vortex_axi
+
+# Process design hierarchy
+proc
+opt
+opt_clean -purge
+
+# Generic synthesis
+synth -top Vortex_axi
+
+# Map to sky130hd cells
+techmap
+opt
+
+# Print statistics
+stat
+
+# Write gate-level netlist
+write_verilog /out/grxgpu_g100_netlist.v
+write_blif /out/grxgpu_g100.blif
