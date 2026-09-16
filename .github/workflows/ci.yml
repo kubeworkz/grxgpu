@@ -37,6 +37,7 @@ jobs:
       cells: ${{ steps.q.outputs.cells }}
       run: ${{ steps.q.outputs.run }}
       profile: ${{ steps.q.outputs.profile }}
+      sims: ${{ steps.q.outputs.sims }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -113,6 +114,20 @@ jobs:
           cells=$(python3 ci/testcase.py matrix $F)
           echo "cells=$cells" >> "$GITHUB_OUTPUT"
           [ "$cells" = "[]" ] && echo "run=false" >> "$GITHUB_OUTPUT" || echo "run=true" >> "$GITHUB_OUTPUT"
+          # Driver set implied by the selected cells (provenance/debug aid).
+          # The build job no longer pre-builds driver libs: Verilating the
+          # full rtlsim model for every event OOM-kills standard runners
+          # (16 GB) at the TOML-default 128-core config. Test cells build
+          # their own drivers at test time via blackbox.sh with that
+          # testcase's CONFIGS.
+          sims=$(python3 ci/testcase.py sims --cells "$cells")
+          echo "sims=$sims" >> "$GITHUB_OUTPUT"
+          if echo "$sims" | grep -q rtlsim; then
+            echo "WARNING: rtlsim cells selected. Driver libs build at TEST time with"
+            echo "per-testcase CONFIGS; cells without explicit -DVX_CFG_NUM_* bounds"
+            echo "Verilate the TOML-default 128-core design and OOM 16 GB standard"
+            echo "runners. Bound clusters/cores in the testcase yaml or use a larger runner."
+          fi
           # full toolchain (SST build + gem5) only when sst/gem5 are selected
           if echo "$cells" | grep -qE '"(sst|gem5)"'; then echo "profile=full" >> "$GITHUB_OUTPUT"; else echo "profile=lite" >> "$GITHUB_OUTPUT"; fi
           python3 ci/testcase.py lint
@@ -161,7 +176,14 @@ jobs:
           mkdir -p build${{ matrix.xlen }} && cd build${{ matrix.xlen }}
           ../configure --tooldir=$TOOLDIR --xlen=${{ matrix.xlen }}
           make software -s
-          make tests -s
+          # Test binaries only — not `make tests`, whose `hardware` dep builds
+          # all four sim drivers (Verilating rtlsim at the TOML-default
+          # 128-core config OOM-kills 16 GB standard runners). Driver libs
+          # are built per-test by blackbox.sh with each testcase's CONFIGS.
+          # Export CONFIGS so test binaries match the device default config
+          # (the simx banner cross-checks test vs device config).
+          export CONFIGS="-DVX_CFG_NUM_CLUSTERS=8 -DVX_CFG_NUM_CORES=16"
+          make -C tests -s
       - uses: actions/upload-artifact@v4
         with:
           name: build-${{ matrix.xlen }}

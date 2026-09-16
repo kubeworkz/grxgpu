@@ -391,6 +391,17 @@ def cmd_lint(args):
     return 0
 
 
+def cmd_sims(args):
+    """Emit the sorted driver set implied by a cells JSON array.
+
+    Used by the CI plan job to report which sim drivers the selected test
+    cells need (host cells need no driver lib and are excluded).
+    """
+    cells = json.loads(args.cells) if args.cells else []
+    drivers = sorted({c["driver"] for c in cells if c.get("driver") and c["driver"] != "host"})
+    print(",".join(drivers))
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(description="Vortex test-case planner")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -411,6 +422,10 @@ def main(argv=None):
     d = sub.add_parser("drivers", help="drivers a diff forces in (path->driver)")
     d.add_argument("--changed-from", dest="changed_from")
     d.set_defaults(func=cmd_drivers)
+
+    m2 = sub.add_parser("sims", help="driver set implied by a cells JSON array")
+    m2.add_argument("--cells", default="[]")
+    m2.set_defaults(func=cmd_sims)
 
     sub.add_parser("lint", help="validate the test cases").set_defaults(func=cmd_lint)
 
