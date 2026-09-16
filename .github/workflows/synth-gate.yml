@@ -1,0 +1,68 @@
+# Synthesis pipeline gate.
+#
+# Guards the TCU synthesis preprocessing chain (syn/flatten_tcu.py and friends)
+# against regressions: the nested-ifdef fix has been silently reverted by
+# branch merges twice, and preprocessing bugs previously surfaced only as
+# Surelog FATAL/SYNTAX/ERROR during manual synthesis runs.
+#
+# What it runs: syn/ci_gate.sh
+#   Stage 0: flatten_tcu.py --self-test (nested-ifdef invariant)
+#   Stage 1: the 6-stage preprocessing pipeline
+#   Stage 2: Surelog elaboration via synlig — fails on any non-zero
+#            [FATAL]/[SYNTAX]/[ERROR] summary counter or a parse abort.
+#
+# Path filter: only synth-affecting changes trigger the full gate. The gate
+# degrades to self-test-only when synlig is unavailable (see ci_gate.sh), so
+# the workflow still exercises the self-test on unrelated changes.
+name: Synth Gate
+
+on:
+  push:
+    paths:
+      - 'syn/flatten_tcu.py'
+      - 'syn/preprocess_for_synth.py'
+      - 'syn/expand_struct_refs.py'
+      - 'syn/fix_tcu_core_interfaces.py'
+      - 'syn/inline_all_functions.py'
+      - 'syn/synth_fixup.py'
+      - 'syn/ci_gate.sh'
+      - 'hw/rtl/tcu/**'
+      - '.github/workflows/synth-gate.yml'
+  pull_request:
+    paths:
+      - 'syn/flatten_tcu.py'
+      - 'syn/preprocess_for_synth.py'
+      - 'syn/expand_struct_refs.py'
+      - 'syn/fix_tcu_core_interfaces.py'
+      - 'syn/inline_all_functions.py'
+      - 'syn/synth_fixup.py'
+      - 'syn/ci_gate.sh'
+      - 'hw/rtl/tcu/**'
+      - '.github/workflows/synth-gate.yml'
+  workflow_dispatch:
+
+jobs:
+  gate:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install synlig systemverilog plugin
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq yosys yosys-dev jq curl tar wget >/dev/null
+          yosys --version
+          curl -sSf https://api.github.com/repos/chipsalliance/systemverilog-plugin/releases/latest \
+            | jq .assets | grep browser_download_url | grep -Eo 'https://[^"]*' \
+            | xargs wget -qO- | tar -xz
+          # install_plugin.sh copies the plugin .so into yosys's plugin dir.
+          sudo ./install_plugin.sh
+          yosys -p "plugin -i systemverilog" -p "help read_systemverilog" | head -5
+
+      - name: Run synthesis gate
+        run: |
+          chmod +x syn/ci_gate.sh
+          # yosys with the systemverilog plugin is resolved inside the gate.
+          ./syn/ci_gate.sh
