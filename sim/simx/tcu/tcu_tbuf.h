@@ -55,6 +55,7 @@ public:
   // Outstanding (pending + in-flight) line counts per role — profiler probes
   // for the WGMMA operand-gate diagnosis.
   uint64_t pending_a(uint32_t b) const;
+  uint64_t lost_rsps() const;
   uint64_t pending_b() const;
 
   std::shared_ptr<mem_block_t> read_a(uint32_t b, uint64_t line_addr) const;

@@ -40,6 +40,8 @@ struct LineBuf {
   std::unordered_map<uint64_t, std::shared_ptr<mem_block_t>> resident_;
   uint32_t next_tag_ = 0;
   uint64_t reads_ = 0;
+  uint64_t lost_rsp_ = 0;
+  uint64_t last_lost_line_ = 0;
 
   void plan(const std::vector<uint64_t>& line_addrs) {
     std::unordered_set<uint64_t> inflight_set;
@@ -105,6 +107,12 @@ public:
     return bufs_.at(source).ready();
   }
 
+  uint64_t lost_rsps() const {
+    uint64_t total = 0;
+    for (auto& b : bufs_) total += b.lost_rsp_;
+    return total;
+  }
+
   uint64_t pending(uint32_t source) const {
     const auto& buf = bufs_.at(source);
     return buf.pending_q_.size() + buf.inflight_.size();
@@ -137,6 +145,9 @@ public:
         if (it != buf.inflight_.end()) {
           if (r.data) buf.resident_[it->second] = r.data;
           buf.inflight_.erase(it);
+        } else {
+          ++buf.lost_rsp_;
+          buf.last_lost_line_ = r.tag;
         }
       }
       rsp.pop();
@@ -192,6 +203,7 @@ bool TcuTbuf::ready_a(uint32_t b) const { return impl_->ready(kAOffset + b); }
 bool TcuTbuf::ready_b() const           { return impl_->ready(kBOffset); }
 
 uint64_t TcuTbuf::pending_a(uint32_t b) const { return impl_->pending(kAOffset + b); }
+uint64_t TcuTbuf::lost_rsps() const { return impl_->lost_rsps(); }
 uint64_t TcuTbuf::pending_b() const           { return impl_->pending(kBOffset); }
 
 std::shared_ptr<mem_block_t> TcuTbuf::read_a(uint32_t b, uint64_t line_addr) const {

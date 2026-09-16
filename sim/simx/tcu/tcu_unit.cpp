@@ -908,6 +908,26 @@ public:
       }
       if (ready_mask != wgmma_active) {
         ++perf_stats_.tbuf_stalls;
+        // --- K512 livelock probe: dump state on long gates ---
+        static uint64_t s_gate_ticks = 0;
+        static bool s_gate_dumped = false;
+        ++s_gate_ticks;
+        if (s_gate_ticks > 2000000 && !s_gate_dumped) {
+          s_gate_dumped = true;
+          fprintf(stderr, "TCU-LIVELOCK: gate held %llu ticks\n",
+                  (unsigned long long)s_gate_ticks);
+          for (uint32_t b2 = 0; b2 < VX_CFG_NUM_TCU_BLOCKS; ++b2) {
+            if (!((wgmma_active >> b2) & 1u)) continue;
+            fprintf(stderr, "  blk%u: pendA=%llu pendB=%llu inWgmma=%u\n",
+                    b2,
+                    (unsigned long long)tbuf->pending_a(b2),
+                    (unsigned long long)tbuf->pending_b(),
+                    in_wgmma_.at(b2) ? 1u : 0u);
+          }
+          fprintf(stderr, "  tbuf lost_rsps=%llu\n",
+                  (unsigned long long)tbuf->lost_rsps());
+        }
+        if (ready_mask == 0) s_gate_ticks = 0;
         // Classify which operand(s) hold the gate, and sample the outstanding
         // line counts on the single shared LMEM port.
         if (any_a_pending && any_b_pending) ++perf_stats_.tbuf_stall_ab;
