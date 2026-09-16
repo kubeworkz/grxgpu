@@ -528,6 +528,7 @@ VX_CSR_WARP_ID = 0xCC1
 VX_CSR_CORE_ID = 0xCC2
 VX_CSR_ACTIVE_WARPS = 0xCC3
 VX_CSR_ACTIVE_THREADS = 0xCC4  # warning! this value is also used in LLVM
+VX_CSR_MAILBOX       = 0xCC5  # per-core mailbox for cross-core sync
 VX_CSR_NUM_THREADS = 0xFC0
 VX_CSR_NUM_WARPS = 0xFC1
 VX_CSR_NUM_CORES = 0xFC2
