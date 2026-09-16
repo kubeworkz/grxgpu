@@ -261,6 +261,11 @@ uint32_t xk = 64;
 // to match the hardware's TCU BLOCK_SIZE (= ISSUE_WIDTH), so it's not a
 // user-facing knob.
 uint32_t warps = 0;
+// Completion wait timeout in seconds (bounded wait instead of infinite).
+// A hang here on a multi-core config almost always means the loaded
+// libsimx.so was built without VX_CFG_L2_ENABLED=1 (DXA deadlocks with no
+// L2 route). Override with -t.
+uint32_t wait_timeout_s = 14400;
 
 vx_device_h device = nullptr;
 vx_buffer_h A_buffer = nullptr;
@@ -276,16 +281,17 @@ constexpr uint32_t kDescB = 1;
 
 static void show_usage() {
   std::cout << "Vortex SGEMM TCU WGMMA+DXA Test." << std::endl;
-  std::cout << "Usage: [-m M] [-n N] [-k K] [-h help]" << std::endl;
+  std::cout << "Usage: [-m M] [-n N] [-k K] [-t wait_timeout_sec] [-h help]" << std::endl;
 }
 
 static void parse_args(int argc, char **argv) {
   int c;
-  while ((c = getopt(argc, argv, "m:n:k:h")) != -1) {
+  while ((c = getopt(argc, argv, "m:n:k:t:h")) != -1) {
     switch (c) {
     case 'm': xm = atoi(optarg); break;
     case 'n': xn = atoi(optarg); break;
     case 'k': xk = atoi(optarg); break;
+    case 't': wait_timeout_s = atoi(optarg); break;
     case 'h': show_usage(); exit(0); break;
     default:  show_usage(); exit(-1);
     }
@@ -331,6 +337,36 @@ int main(int argc, char *argv[]) {
     std::cerr << "Error: DXA ISA extension is disabled." << std::endl;
     cleanup();
     return -1;
+  }
+
+  // --- Config banner + runtime cross-check ----------------------------------
+  // Print the test's compile-time config alongside the loaded backend's
+  // runtime-reported config. A clusters/cores mismatch means the loaded
+  // library was built for a different VX_CFG_* config (stale library).
+  {
+    uint64_t dev_clusters = 0, dev_cores = 0;
+    vx_device_query(device, VX_CAPS_NUM_CLUSTERS, &dev_clusters);
+    vx_device_query(device, VX_CAPS_NUM_CORES, &dev_cores);
+
+    std::cout << "config: test=(" << VX_CFG_NUM_CLUSTERS << " clusters x "
+              << VX_CFG_NUM_CORES << " cores"
+              << ", DXA=" << VX_CFG_NUM_DXA_CORES
+              << ") device=(" << dev_clusters << " clusters x "
+              << dev_cores << " cores)"
+              << ", wait timeout=" << wait_timeout_s << "s" << std::endl;
+
+    // VX_CAPS_NUM_CORES is the device-wide total; VX_CFG_NUM_CORES is per cluster.
+    if ((uint32_t)dev_clusters != VX_CFG_NUM_CLUSTERS ||
+        (uint32_t)dev_cores != (uint32_t)(VX_CFG_NUM_CLUSTERS * VX_CFG_NUM_CORES)) {
+      std::cerr << "Error: runtime library config mismatch! Loaded backend is "
+                << dev_clusters << " clusters x " << dev_cores
+                << " cores but this test was built for "
+                << VX_CFG_NUM_CLUSTERS << " clusters x " << VX_CFG_NUM_CORES
+                << " cores. Rebuild the runtime with matching CONFIGS."
+                << std::endl;
+      cleanup();
+      return -1;
+    }
   }
 
   // WGMMA_DXA_DOUBLE_BUFFER requires >= 2 DXA cores (fused A+B pair needs 2 workers).
@@ -497,8 +533,26 @@ int main(int argc, char *argv[]) {
   vx_event_h read_ev = nullptr;
   RT_CHECK(vx_enqueue_read(queue, h_C.data(), C_buffer, 0, sizeC * sizeof(otype_t), 1, &launch_ev, &read_ev));
 
-  std::cout << "wait for completion" << std::endl;
-  RT_CHECK(vx_event_wait_value(read_ev, 1, VX_TIMEOUT_INFINITE));
+  std::cout << "wait for completion (timeout " << wait_timeout_s << "s)" << std::endl;
+  {
+    uint64_t timeout_ns = (uint64_t)wait_timeout_s * 1000000000ull;
+    auto wait_rc = vx_event_wait_value(read_ev, 1, timeout_ns);
+    if (wait_rc != 0) {
+      std::cerr << "Error: kernel did not complete within " << wait_timeout_s
+                << "s. On a multi-core config the most likely cause is a stale"
+                << " libsimx.so built without VX_CFG_L2_ENABLED=1: the DXA path"
+                << " deadlocks with no L2 route (K=64..256 still pass, hiding"
+                << " it). Rebuild the runtime driver with matching CONFIGS:"
+                << std::endl
+                << "  make -C sw/runtime/simx driver CONFIGS='-DVX_CFG_NUM_CLUSTERS=... "
+                << "-DVX_CFG_NUM_CORES=... -DVX_CFG_L2_ENABLED=1 -DVX_CFG_NUM_DXA_CORES=...'"
+                << std::endl;
+      // The device worker threads are wedged mid-simulation — a normal
+      // device release would block forever joining them. Bail out now.
+      std::cerr.flush();
+      _exit(-1);
+    }
+  }
   vx_event_release(read_ev);
   vx_event_release(launch_ev);
 
