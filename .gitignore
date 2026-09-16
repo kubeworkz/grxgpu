@@ -7,3 +7,6 @@ docs/archives/
 
 # Source export artifact (never tracked)
 grxgpu-src.tar.gz
+
+# Freebuff harness workspace state (never tracked; gitlink here breaks CI submodule checkout)
+/.freebuff/
