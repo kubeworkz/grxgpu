@@ -48,18 +48,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install synlig systemverilog plugin
+      - name: Install yosys 0.18 + systemverilog plugin
         run: |
           set -euo pipefail
           sudo apt-get update -qq
-          sudo apt-get install -y -qq yosys yosys-dev jq curl tar wget >/dev/null
-          yosys --version
-          curl -sSf https://api.github.com/repos/chipsalliance/systemverilog-plugin/releases/latest \
-            | jq .assets | grep browser_download_url | grep -Eo 'https://[^"]*' \
-            | xargs wget -qO- | tar -xz
+          sudo apt-get install -y -qq wget jq curl tar >/dev/null
+          # The plugin's prebuilt binaries target the yosys 0.18-1 launchpad
+          # build (this is the pairing the systemverilog-plugin README uses);
+          # the runner's default apt yosys (0.9) is too old for them.
+          wget -q https://launchpad.net/ubuntu/+source/yosys/0.18-1/+build/24132080/+files/yosys_0.18-1_amd64.deb
+          wget -q https://launchpad.net/ubuntu/+source/yosys/0.18-1/+build/24132080/+files/yosys-dev_0.18-1_amd64.deb
+          sudo apt-get install -y -qq ./yosys_0.18-1_amd64.deb ./yosys-dev_0.18-1_amd64.deb >/dev/null
+          yosys -V
+          # Prefer an ubuntu-22.04 plugin asset; fall back to the release's
+          # second asset (assets[1]) as the plugin README prescribes.
+          URL=$(curl -sSf https://api.github.com/repos/chipsalliance/systemverilog-plugin/releases/latest \
+            | jq -r '[.assets[].browser_download_url] | (map(select(contains("ubuntu-22.04"))) | first) // .[1]')
+          echo "plugin asset: $URL"
+          curl -sSfL "$URL" | tar -xz
           # install_plugin.sh copies the plugin .so into yosys's plugin dir.
           sudo ./install_plugin.sh
-          yosys -p "plugin -i systemverilog" -p "help read_systemverilog" | head -5
+          # No pipe to head: under pipefail a SIGPIPE'd yosys would fail the step.
+          yosys -p "plugin -i systemverilog" -p "help read_systemverilog" >/dev/null 2>&1 \
+            && echo "systemverilog plugin OK"
 
       - name: Run synthesis gate
         run: |
