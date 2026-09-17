@@ -159,6 +159,17 @@ run_app() {
 
 main() {
     parse_args "$@"
+
+    # CI_RTL_BOUND: standard runners have 16 GB RAM; Verilating the TOML-default
+    # 128-core model is OOM-killed mid-elaboration ("runner shutdown signal").
+    # Bound unbounded RTL-driver configs to a runner-safe size in CI only.
+    # Testcases that set --clusters/--cores/--warps/--threads are respected.
+    if [ "$CI" = "true" ] && { [ "$DRIVER" = "rtlsim" ] || [ "$DRIVER" = "opae" ]; }; then
+        case "$CONFIGS" in
+            *VX_CFG_NUM_CLUSTERS*|*VX_CFG_NUM_CORES*) ;;
+            *) CONFIGS="$CONFIGS -DVX_CFG_NUM_CLUSTERS=1 -DVX_CFG_NUM_CORES=4" ;;
+        esac
+    fi
     set_driver_path
     set_app_path
 
