@@ -143,7 +143,11 @@ RTL_PKGS += $(RTL_DIR)/cp/VX_cp_pkg.sv
 TOP = vortex_afu_shim
 
 VL_FLAGS += --language 1800-2012 --assert -Wall -Wpedantic
-VL_FLAGS += -Wno-DECLFILENAME -Wno-REDEFMACRO
+# Keep lint warnings visible but non-fatal, matching rtlsim: newer Verilator
+# surfaces latent UNUSED*/PINCONNECTEMPTY/WIDTHTRUNC warnings in existing IP
+# (e.g. VX_dxa_unit lane-width selections at threads>4) that older releases
+# did not, and opae cells must not fail on lint style.
+VL_FLAGS += -Wno-DECLFILENAME -Wno-REDEFMACRO -Wno-fatal
 VL_FLAGS += --x-initial unique --x-assign unique
 VL_FLAGS += verilator.vlt
 VL_FLAGS += -DVX_CFG_XLEN=$(XLEN) -DVX_CFG_XLEN_$(XLEN)
