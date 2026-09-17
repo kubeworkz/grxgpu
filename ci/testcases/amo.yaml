@@ -10,33 +10,47 @@ defaults:
   touches: [hw/rtl/cache, sim/simx/amo, sim/simx/mem]
 tests:
   # RISC-V 'A' ISA conformance (rv{XLEN}ua-p-{amo*,lrsc}); shares the A-built sim.
+  # Single cluster: the A-extended sim is built with this shape (vars thread the
+  # same bound the blackbox specs get) so a real shared L1-LLC resolves every
+  # AMO — unbounded, the TOML default's per-core private L1s would each act as
+  # their own LLC and lose cross-core atomics.
   - id: isa-conformance
     via: make-run
     dir: tests/riscv/isa
     target: "run-{driver}-{xlen}a"
     drivers: [simx, rtlsim]
-  # Single-core L1 = LLC. Default config (4 warps x 4 threads = 16 harts).
+    vars: {CONFIGS: "-DVX_CFG_EXT_A_ENABLE -DVX_CFG_NUM_CLUSTERS=1"}
+  # Single-cluster, single-core L1 = LLC. Default config (4 warps x 4 threads
+  # = 16 harts). Shape-pinned: without an L2, AMOs resolve at the private
+  # per-cluster L1s, so the hammer only has well-defined results when all
+  # harts share one cluster's LLC (verified: 8 clusters x 1 core loses ~87%
+  # of increments; 1x1 passes all 12 tests).
   - id: base
     app: amo
     drivers: [simx, rtlsim]
-  # Write-back D-cache variants (rtlsim only in the legacy suite).
+    shape: {clusters: 1, cores: 1}
+  # Write-back D-cache variants (rtlsim only in the legacy suite). Same
+  # single-cluster pinning: the write-back L1 is still the only LLC.
   - id: wb-dirtybytes0
     app: amo
     drivers: [rtlsim]
+    shape: {clusters: 1, cores: 1}
     configs+: "-DVX_CFG_DCACHE_WRITEBACK=1 -DVX_CFG_DCACHE_DIRTYBYTES=0 -DVX_CFG_DCACHE_NUM_WAYS=4"
   - id: wb-dirtybytes1
     app: amo
     drivers: [rtlsim]
+    shape: {clusters: 1, cores: 1}
     configs+: "-DVX_CFG_DCACHE_WRITEBACK=1 -DVX_CFG_DCACHE_DIRTYBYTES=1 -DVX_CFG_DCACHE_NUM_WAYS=4"
   - id: wb
     app: amo
     drivers: [simx]
+    shape: {clusters: 1, cores: 1}
     configs+: "-DVX_CFG_DCACHE_WRITEBACK=1 -DVX_CFG_DCACHE_NUM_WAYS=4"
-  # 8 threads, single block.
+  # 8 threads, single block — same single-cluster reasoning as base.
   - id: threads8
     app: amo
     drivers: [simx, rtlsim]
-    shape: {threads: 8}
+    shape: {clusters: 1, cores: 1, threads: 8}
     args: "-n1"
   # Multi-core AMO across a shared cache hierarchy (atomics resolve at the LLC).
   # 4x L1 -> 1x L2 (multi-core base configuration).

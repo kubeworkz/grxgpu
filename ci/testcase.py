@@ -111,9 +111,12 @@ class Spec:
     def build_key(self):
         """What determines a *sim build*. `via` is deliberately excluded so a
         make-run case and a blackbox case with the same (driver, configs) share
-        one sim build. xlen is implicit in the ambient tree.
+        one sim build. xlen is implicit in the ambient tree. vars.CONFIGS
+        participates: make-run specs thread extra sim flags through vars (e.g.
+        amo.yaml's isa-conformance cluster bound), and two specs whose only
+        difference is that flag must not share one sim build.
         """
-        return (self.driver, self.configs)
+        return (self.driver, self.configs, self.vars.get("CONFIGS"))
 
     def markers(self):
         """pytest marker names for `-m` selection (one per value)."""
@@ -129,8 +132,20 @@ class Spec:
         return int(xlen) in self.xlens
 
     def build_command(self, xlen):
-        """argv + env to build this case's sim once (shared across build_key)."""
-        env = {"CONFIGS": _subst(self.configs, xlen)} if self.configs else {}
+        """argv + env to build this case's sim once (shared across build_key).
+
+        make-run specs hand extra make variables to their run target via
+        `vars:`; a vars.CONFIGS is a *sim* flag set (the run targets only run a
+        pre-built binary), so it must reach the sim build here too — otherwise
+        the sim silently compiles without it (e.g. the isa-conformance cluster
+        bound, leaving the TOML-default shape: rtlsim Verilate OOMs a runner
+        and simx loses cross-core atomics at per-core private L1 LLCs).
+        """
+        cfgs = self.configs
+        vcfg = self.vars.get("CONFIGS")
+        if vcfg:
+            cfgs = (cfgs + " " + vcfg) if cfgs else vcfg
+        env = {"CONFIGS": _subst(cfgs, xlen)} if cfgs else {}
         return ["make", "-C", self.sim_dir], env
 
     def run_command(self, xlen, driver=None):
