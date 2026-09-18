@@ -23,6 +23,13 @@ on:
         description: "comma list: smoke,full,nightly (blank = all)"
         default: ""
 
+# One pipeline per branch: a new push cancels any in-flight run of the same
+# branch instead of queueing behind it. Prevents a large stale backlog from
+# starving fresh runs on capacity-constrained (self-hosted) runners.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   CCACHE_DISABLE: 1
 

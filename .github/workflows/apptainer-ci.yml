@@ -16,6 +16,10 @@ on:
   pull_request:
     paths: [miscs/apptainer/**]
 
+concurrency:
+  group: apptainer-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   CCACHE_DISABLE: 1
   APPTAINER_VERSION: "1.4.3"
