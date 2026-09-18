@@ -53,18 +53,22 @@ tests:
     shape: {clusters: 1, cores: 1, threads: 8}
     args: "-n1"
   # Multi-core AMO across a shared cache hierarchy (atomics resolve at the LLC).
-  # 4x L1 -> 1x L2 (multi-core base configuration).
+  # 4x L1 -> 1x L2 (multi-core base configuration). clusters=1 is required:
+  # the shared L2 only exists within one cluster — unbounded, the TOML default's
+  # 8 per-cluster L2s have no cross-cluster serialization and lose ~87% of
+  # cross-cluster atomic increments (verified: shared=512 of 4096 on CI).
   - id: mc-l2
     app: amo
     drivers: [simx]
-    shape: {cores: 4, l2cache: true}
+    shape: {clusters: 1, cores: 4, l2cache: true}
     args: "-n8"
     tier: full
   # 4x L2 -> 1x L3 (two-level hierarchy). L2 must be write-through above the LLC.
+  # Same clusters=1 pinning as mc-l2 for the same reason.
   - id: mc-l3
     app: amo
     drivers: [simx]
     configs+: "-DVX_CFG_L2_WRITEBACK=0"
-    shape: {cores: 4, l2cache: true, l3cache: true}
+    shape: {clusters: 1, cores: 4, l2cache: true, l3cache: true}
     args: "-n8"
     tier: full
