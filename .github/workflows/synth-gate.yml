@@ -45,6 +45,10 @@ on:
       - '.github/workflows/synth-gate.yml'
   workflow_dispatch:
 
+concurrency:
+  group: synth-gate-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   gate:
     runs-on: ubuntu-22.04
