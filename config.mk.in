@@ -13,7 +13,14 @@
 
 VORTEX_VERSION ?= @VORTEX_VERSION@
 
+# Relocatable source root: trust the configured path when it exists, but if
+# the build tree was produced elsewhere (e.g. artifacts built on a hosted
+# runner at /home/runner/work/... and consumed on a self-hosted runner),
+# fall back to this build dir's parent, which is always <repo>/build<NN>.
 VORTEX_HOME ?= @VORTEX_HOME@
+ifeq (,$(wildcard $(VORTEX_HOME)/VX_config.toml))
+VORTEX_HOME := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
+endif
 
 VERILATOR_PATH ?= $(TOOLDIR)/verilator
 
