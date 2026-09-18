@@ -30,6 +30,11 @@ export CCACHE_PCH_EXTSUM := true
 XLEN ?= @XLEN@
 
 TOOLDIR ?= @TOOLDIR@
+# Same relocation rule: toolchain cache restores into <repo>/tools in the
+# consuming workspace, so fall back there if the baked path is stale.
+ifeq (,$(wildcard $(TOOLDIR)))
+TOOLDIR := $(VORTEX_HOME)/tools
+endif
 
 OSVERSION ?= @OSVERSION@
 
