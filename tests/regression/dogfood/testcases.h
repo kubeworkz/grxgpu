@@ -446,7 +446,11 @@ public:
     auto b = (float*)src2;
     auto c = (float*)dst;
     for (uint32_t i = 0; i < n; ++i) {
-      auto ref = -a[i] * b[i] + b[i];
+      // Fused reference: the device executes fnmsub.s with a single rounding.
+      // For a[i] ~ 1.0 the expression -a*b + b = b*(1-a) cancels catastrophically,
+      // so a separately-rounded host reference diverges from the (correct)
+      // fused result by more than the 6-ULP tolerance.
+      auto ref = std::fma(-a[i], b[i], b[i]);
       if (!almost_equal(c[i], ref)) {
         std::cout << "error at result #" << std::dec << i << std::hex << ": expected=" << ref << ", actual=" << c[i] << ", a=" << a[i] << ", b=" << b[i] << std::endl;
         ++errors;
