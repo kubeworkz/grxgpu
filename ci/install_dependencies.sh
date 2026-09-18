@@ -123,7 +123,17 @@ fi
 ###############################################################################
 if [ "$enable_gem5" -eq 1 ]; then
     echo "Installing gem5 runtime dependencies..."
-    apt-get install -y libtcmalloc-minimal4 libprotobuf23 libhdf5-103-1 libhdf5-cpp-103-1 libpython3.10
+    # Jammy (22.04) and noble (24.04) name these differently (the t64
+    # time_t transition renamed the SONAME packages; python3.10 -> 3.12).
+    if grep -q VERSION_CODENAME=jammy /etc/os-release 2>/dev/null; then
+        apt-get install -y libtcmalloc-minimal4 libprotobuf23 libhdf5-103-1 libhdf5-cpp-103-1 libpython3.10
+    elif grep -q VERSION_CODENAME=noble /etc/os-release 2>/dev/null; then
+        apt-get install -y libtcmalloc-minimal4t64 libprotobuf32t64 libhdf5-103-1t64 libhdf5-cpp-103-1t64 libpython3.12t64
+    else
+        # Unknown image: try both generations, tolerate failure per set
+        apt-get install -y libtcmalloc-minimal4 libprotobuf23 libhdf5-103-1 libhdf5-cpp-103-1 libpython3.10 \
+            || apt-get install -y libtcmalloc-minimal4t64 libprotobuf32t64 libhdf5-103-1t64 libhdf5-cpp-103-1t64 libpython3.12t64
+    fi
 fi
 
 ###############################################################################
