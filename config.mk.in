@@ -19,7 +19,7 @@ VORTEX_VERSION ?= @VORTEX_VERSION@
 # fall back to this build dir's parent, which is always <repo>/build<NN>.
 VORTEX_HOME ?= @VORTEX_HOME@
 ifeq (,$(wildcard $(VORTEX_HOME)/VX_config.toml))
-VORTEX_HOME := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
+VORTEX_HOME := $(abspath $(lastword $(MAKEFILE_LIST))/../..)
 endif
 
 VERILATOR_PATH ?= $(TOOLDIR)/verilator
