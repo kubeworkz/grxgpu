@@ -28,6 +28,12 @@ jobs:
   container:
     runs-on: ubuntu-22.04
     steps:
+      - name: Clean workspace
+        # Self-hosted runners share one workspace across workflows; a stale
+        # checkout from ci.yml (recursive submodules) leaves gitlinks whose
+        # gitdirs vanish under this workflow's shallow checkout. Wipe first
+        # so actions/checkout does a fresh clone.
+        run: rm -rf "$GITHUB_WORKSPACE"/* "$GITHUB_WORKSPACE"/.[!.]* 2>/dev/null || true
       - uses: actions/checkout@v4
       - name: Install Apptainer
         uses: eWaterCycle/setup-apptainer@v2
@@ -52,6 +58,8 @@ jobs:
   setup:
     runs-on: ubuntu-22.04
     steps:
+      - name: Clean workspace
+        run: rm -rf "$GITHUB_WORKSPACE"/* "$GITHUB_WORKSPACE"/.[!.]* 2>/dev/null || true
       - uses: actions/checkout@v4
         with:
           submodules: recursive
