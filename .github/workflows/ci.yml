@@ -51,7 +51,7 @@ jobs:
       # are gone after a workspace wipe, breaking checkout. Wipe first so
       # actions/checkout always does a fresh clone.
       - name: Clean workspace
-        run: rm -rf ""/* ""/.[!.]* 2>/dev/null || true
+        run: rm -rf $GITHUB_WORKSPACE/* $GITHUB_WORKSPACE/.[!.]* 2>/dev/null || true
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -160,7 +160,7 @@ jobs:
       # are gone after a workspace wipe, breaking checkout. Wipe first so
       # actions/checkout always does a fresh clone.
       - name: Clean workspace
-        run: rm -rf ""/* ""/.[!.]* 2>/dev/null || true
+        run: rm -rf $GITHUB_WORKSPACE/* $GITHUB_WORKSPACE/.[!.]* 2>/dev/null || true
       - uses: actions/checkout@v4
         with:
           submodules: recursive
@@ -187,7 +187,7 @@ jobs:
       # are gone after a workspace wipe, breaking checkout. Wipe first so
       # actions/checkout always does a fresh clone.
       - name: Clean workspace
-        run: rm -rf ""/* ""/.[!.]* 2>/dev/null || true
+        run: rm -rf $GITHUB_WORKSPACE/* $GITHUB_WORKSPACE/.[!.]* 2>/dev/null || true
       - uses: actions/checkout@v4
         with:
           submodules: recursive
@@ -232,7 +232,7 @@ jobs:
       # are gone after a workspace wipe, breaking checkout. Wipe first so
       # actions/checkout always does a fresh clone.
       - name: Clean workspace
-        run: rm -rf ""/* ""/.[!.]* 2>/dev/null || true
+        run: rm -rf $GITHUB_WORKSPACE/* $GITHUB_WORKSPACE/.[!.]* 2>/dev/null || true
       - uses: actions/checkout@v4
       - name: Setup Vortex
         uses: ./.github/actions/setup-vortex
