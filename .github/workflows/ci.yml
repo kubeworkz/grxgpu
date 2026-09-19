@@ -46,6 +46,12 @@ jobs:
       profile: ${{ steps.q.outputs.profile }}
       sims: ${{ steps.q.outputs.sims }}
     steps:
+      # Self-hosted runners share one workspace across jobs and workflows; a
+      # previous recursive checkout can leave submodule gitlinks whose gitdirs
+      # are gone after a workspace wipe, breaking checkout. Wipe first so
+      # actions/checkout always does a fresh clone.
+      - name: Clean workspace
+        run: rm -rf ""/* ""/.[!.]* 2>/dev/null || true
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -149,6 +155,12 @@ jobs:
     if: needs.plan.outputs.run == 'true'
     runs-on: ubuntu-22.04
     steps:
+      # Self-hosted runners share one workspace across jobs and workflows; a
+      # previous recursive checkout can leave submodule gitlinks whose gitdirs
+      # are gone after a workspace wipe, breaking checkout. Wipe first so
+      # actions/checkout always does a fresh clone.
+      - name: Clean workspace
+        run: rm -rf ""/* ""/.[!.]* 2>/dev/null || true
       - uses: actions/checkout@v4
         with:
           submodules: recursive
@@ -170,6 +182,12 @@ jobs:
         xlen: [32, 64]
     runs-on: ubuntu-22.04
     steps:
+      # Self-hosted runners share one workspace across jobs and workflows; a
+      # previous recursive checkout can leave submodule gitlinks whose gitdirs
+      # are gone after a workspace wipe, breaking checkout. Wipe first so
+      # actions/checkout always does a fresh clone.
+      - name: Clean workspace
+        run: rm -rf ""/* ""/.[!.]* 2>/dev/null || true
       - uses: actions/checkout@v4
         with:
           submodules: recursive
@@ -209,6 +227,12 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 120
     steps:
+      # Self-hosted runners share one workspace across jobs and workflows; a
+      # previous recursive checkout can leave submodule gitlinks whose gitdirs
+      # are gone after a workspace wipe, breaking checkout. Wipe first so
+      # actions/checkout always does a fresh clone.
+      - name: Clean workspace
+        run: rm -rf ""/* ""/.[!.]* 2>/dev/null || true
       - uses: actions/checkout@v4
       - name: Setup Vortex
         uses: ./.github/actions/setup-vortex
