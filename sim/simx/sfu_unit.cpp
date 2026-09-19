@@ -364,7 +364,7 @@ void SfuUnit::on_tick() {
 				q_issued_[b] = 1;
 				continue;     // do NOT pop — the frag-3 response pops the input
 			}
-			if (targs.is_tex4) {
+			if (targs.is_tex4 && !trace->tex_remap_done) {  // remap once per trace — backpressure re-enters with same trace
 				// single mode: u at in_slot, v at in_slot+1, lod from rs1.
 				for (uint32_t t = 0; t < VX_CFG_NUM_THREADS; ++t) {
 					if (!trace->tmask.test(t)) continue;
@@ -374,6 +374,7 @@ void SfuUnit::on_tick() {
 					trace->src_data[1].at(t).u = gfx_window_.get(trace->wid, t, (in_slot + 1) & 0x1f);
 					trace->src_data[2].at(t).u = lod;
 				}
+				trace->tex_remap_done = true;
 			}
 #endif
 			if (!tex_unit_->process(trace, b))
