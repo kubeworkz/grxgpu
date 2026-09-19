@@ -1502,7 +1502,11 @@ public:
     , lg2_num_reqs_(log2ceil(num_inputs / num_outputs))
     , arbiters_(num_outputs, {type, 1u << lg2_num_reqs_})
   {
-    assert(num_inputs <= 64);
+    // NOTE: num_inputs may exceed 64 (e.g. the cluster L2 arbiter fans in
+    // kL2Rows * VX_CFG_L2_NUM_REQS requests when graphics extensions are
+    // enabled). The grant logic uses a dynamic BitVector, so any width is
+    // supported, and response routing reconstructs the input index from the
+    // tagged output independent of the power-of-two rounding of R.
     assert(num_outputs <= 64);
     assert(num_inputs >= num_outputs);
 
