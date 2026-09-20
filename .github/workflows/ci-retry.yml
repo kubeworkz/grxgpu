@@ -1,0 +1,170 @@
+# CI Retry — self-healing wrapper around the CI workflow.
+#
+# Exit-143 runner deaths kill the *runner VM* itself, so no in-job retry can
+# ever fire (the job is already dead when the signal arrives). The only viable
+# retry point is out-of-band: this workflow listens for CI completion, checks
+# whether every failed job died from runner infrastructure (GitHub
+# reclamation, lost communication, worker crash — NOT test assertions), and if
+# so calls rerun-failed-jobs to give those cells exactly one free retry.
+#
+# Guards against loops and false positives:
+#   - only attempt-1 runs are retried (run_attempt == 1): a rerun that fails
+#     again — for any reason — stays failed. One free retry, never more.
+#   - a job is classified infra ONLY on an explicit infra signature in its
+#     check-run annotations; anything else (including zero annotations) is
+#     treated as functional and left failed for a human.
+#   - 'cancelled' jobs are never retried (they were superseded/cancelled on
+#     purpose by cancel-in-progress or manual action).
+
+name: CI Retry
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "CI run ID to retry (blank = most recent failed CI run)"
+        default: ""
+
+permissions:
+  actions: write
+  checks: read
+
+jobs:
+  retry-infra-failures:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Classify failures and retry infra-killed cells
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          EVENT_RUN_ID: ${{ github.event.workflow_run.id }}
+          EVENT_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          EVENT_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_RUN_ID: ${{ inputs.run_id }}
+          API: ${{ github.api_url }}
+        run: |
+          python3 - <<'PYEOF'
+          import json, os, urllib.request, urllib.error
+
+          api = os.environ["API"].rstrip("/")
+          repo = os.environ["GITHUB_REPOSITORY"]
+          tok = os.environ["GH_TOKEN"]
+
+          def req(path, method="GET", expect_json=True):
+              # check_run_url fields are absolute URLs; path-style args get the api prefix
+              url = path if path.startswith("http") else api + path
+              r = urllib.request.Request(url, method=method)
+              r.add_header("Authorization", "Bearer " + tok)
+              r.add_header("Accept", "application/vnd.github+json")
+              try:
+                  resp = urllib.request.urlopen(r, timeout=30)
+                  body = resp.read()
+                  return resp.status, (json.loads(body) if expect_json and body else {})
+              except urllib.error.HTTPError as e:
+                  return e.code, e.read().decode()[:500]
+
+          summary = []
+
+          def note(line):
+              print(line)
+              summary.append(line)
+
+          # ---- resolve the target run ------------------------------------
+          if os.environ.get("EVENT_NAME") == "workflow_run":
+              run_id = int(os.environ["EVENT_RUN_ID"])
+              conclusion = os.environ["EVENT_CONCLUSION"]
+              attempt = int(os.environ["EVENT_ATTEMPT"] or 0)
+          else:
+              if os.environ.get("INPUT_RUN_ID", "").strip():
+                  run_id = int(os.environ["INPUT_RUN_ID"])
+              else:
+                  st, d = req("/repos/%s/actions/workflows/ci.yml/runs?status=failure&per_page=1" % repo)
+                  if st != 200 or not d.get("workflow_runs"):
+                      note("CI-Retry: no failed CI run found — nothing to do")
+                      open(os.environ.get("GITHUB_STEP_SUMMARY", "/dev/null"), "a").write("\n".join(summary))
+                      raise SystemExit(0)
+                  run_id = d["workflow_runs"][0]["id"]
+              st, d = req("/repos/%s/actions/runs/%d" % (repo, run_id))
+              if st != 200:
+                  note("CI-Retry: run %d not found (%s)" % (run_id, st))
+                  raise SystemExit(0)
+              conclusion = d.get("conclusion")
+              attempt = d.get("run_attempt") or 0
+
+          note("CI-Retry: run %d conclusion=%s attempt=%s" % (run_id, conclusion, attempt))
+
+          # ---- guards -----------------------------------------------------
+          if conclusion != "failure":
+              note("CI-Retry: skip — run did not fail (conclusion=%s)" % conclusion)
+              raise SystemExit(0)
+          if attempt != 1:
+              note("CI-Retry: skip — attempt %s (only attempt 1 gets a free retry)" % attempt)
+              raise SystemExit(0)
+
+          # ---- collect failed jobs (paginated, latest attempt) ------------
+          failed = []
+          page = 1
+          while True:
+              st, d = req("/repos/%s/actions/runs/%d/jobs?filter=latest&per_page=100&page=%d" % (repo, run_id, page))
+              if st != 200 or not d.get("jobs"):
+                  break
+              for j in d["jobs"]:
+                  if j["conclusion"] == "failure":
+                      failed.append(j)
+              if len(d["jobs"]) < 100:
+                  break
+              page += 1
+
+          if not failed:
+              note("CI-Retry: run failed but no failed jobs found — nothing to retry")
+              raise SystemExit(0)
+
+          # ---- classify each failed job via check-run annotations ---------
+          INFRA_SIGNATURES = [
+              "the runner has received a shutdown signal",
+              "hosted runner lost communication",
+              "runner shutdown signal",
+              "markjobasfailedonworkercrash",
+              "a system error occurred",
+              "process completed with exit code 143",
+          ]
+
+          def classify(job):
+              st, anns = req(job["check_run_url"] + "/annotations")
+              if st != 200 or not isinstance(anns, list):
+                  return "functional", "no annotations (HTTP %s)" % st
+              msgs = [a.get("message", "") for a in anns]
+              for m in msgs:
+                  low = m.lower()
+                  for sig in INFRA_SIGNATURES:
+                      if sig in low:
+                          return "infra", m[:160]
+              return "functional", "; ".join(m[:160] for m in msgs) or "no annotations"
+
+          infra, functional = [], []
+          for j in failed:
+              kind, why = classify(j)
+              (infra if kind == "infra" else functional).append((j["name"], why))
+              note("  [%s] %s — %s" % (kind.upper(), j["name"], why))
+
+          if functional:
+              note("CI-Retry: %d functional failure(s) present — NOT retrying (human review needed):" % len(functional))
+              for name, _ in functional:
+                  note("  FUNCTIONAL: " + name)
+              raise SystemExit(0)
+
+          # ---- all failures are infra: one free retry ---------------------
+          st, resp = req("/repos/%s/actions/runs/%d/rerun-failed-jobs" % (repo, run_id), method="POST", expect_json=False)
+          if st in (201, 202):
+              note("CI-Retry: rerun-failed-jobs accepted (%s) — retrying %d infra-killed cell(s)" % (st, len(infra)))
+          else:
+              note("CI-Retry: rerun-failed-jobs REJECTED (%s): %s" % (st, resp))
+
+          with open(os.environ.get("GITHUB_STEP_SUMMARY", "/dev/null"), "a") as f:
+              f.write("## CI Retry — run %d\n" % run_id)
+              f.write("\n".join("- " + s for s in summary) + "\n")
+          PYEOF
