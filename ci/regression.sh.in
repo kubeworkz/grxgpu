@@ -49,11 +49,15 @@ echo "Vortex Regression Test: XLEN=$XLEN"
 # Enforce the HW/SW config layering boundary: VX_config.h is HW/sim-private
 # and must not leak into software or tests.
 # See docs/proposals/config_hw_sw_layering_proposal.md.
-"@VORTEX_HOME@/ci/check_config_boundary.sh"
+# Boundary-check scripts ship next to this script in both the source tree
+# and the build tree; resolve them relative to THIS file, not @VORTEX_HOME@,
+# because the build tree can run on a different host than the one that ran
+# configure (e.g. artifact downloaded onto a CI runner).
+"$(dirname "${BASH_SOURCE[0]}")/check_config_boundary.sh"
 
 # Enforce the sw/ ↔ sim/+hw/ bidirectional isolation boundary.
 # See AGENTS.md §6 and docs/coding_guidelines_cpp.md §8.
-"@VORTEX_HOME@/ci/check_sw_sim_boundary.sh"
+"$(dirname "${BASH_SOURCE[0]}")/check_sw_sim_boundary.sh"
 
 
 dtm()
