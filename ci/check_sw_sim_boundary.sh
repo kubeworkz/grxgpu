@@ -19,7 +19,19 @@
 
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# Prefer the enclosing source tree. CI test cells run this script from the
+# configure-generated build tree (buildNN/ci/), which contains hw/ and sim/
+# but NO sw/ — the artifact only carries what the build consumes. Scanning
+# the build tree would both miss the real sw/ side and (worse) scan generated
+# Makefiles whose configure-expanded absolute -I paths look like violations.
+# The build tree always sits at <repo>/buildNN, so the source root is one
+# level up; fall back to the script's own parent when that doesn't exist
+# (plain source-tree invocation).
+SCRIPT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$SCRIPT_ROOT"
+if [ ! -d "$ROOT/sw" ] && [ -d "$SCRIPT_ROOT/../sw" ]; then
+    ROOT="$(cd "$SCRIPT_ROOT/.." && pwd)"
+fi
 fail=0
 
 ###############################################################################
@@ -30,6 +42,8 @@ scan_includes() {
     local label="$1"; shift
     local pattern="$1"; shift
     local hits
+    # grep exits 2 when a scanned path doesn't exist (e.g. sw/ is absent in
+    # a build-tree artifact); `|| true` under `set -e` keeps that non-fatal.
     hits=$(grep -rnE "$pattern" "$@" \
              --include='*.c' --include='*.cpp' --include='*.cc' \
              --include='*.h' --include='*.hpp' --include='*.sv' \
@@ -52,7 +66,10 @@ scan_includes \
 # sim + hw must not include from sw/kernel or sw/runtime.
 # (sw/common is allowed via -Isw/common; sibling files within sw/common
 # are themselves not the install-facing layer.)
-SW_PUBLIC_HEADERS=$(cd "$ROOT/sw/kernel/include" 2>/dev/null && ls *.h 2>/dev/null | tr '\n' '|' | sed 's/|$//')$(cd "$ROOT/sw/runtime/include" 2>/dev/null && echo -n "|" && ls *.h 2>/dev/null | tr '\n' '|' | sed 's/|$//')
+# `cd` fails when sw/ is missing (build-tree artifact); the || true guards
+# keep the assignment's exit status clean under set -e. Empty list simply
+# skips the reverse-direction include scan.
+SW_PUBLIC_HEADERS=$( (cd "$ROOT/sw/kernel/include" 2>/dev/null && ls *.h 2>/dev/null | tr '\n' '|' | sed 's/|$//') || true )$( (cd "$ROOT/sw/runtime/include" 2>/dev/null && echo -n "|" && ls *.h 2>/dev/null | tr '\n' '|' | sed 's/|$//') || true )
 
 if [ -n "$SW_PUBLIC_HEADERS" ]; then
     scan_includes \
@@ -110,11 +127,15 @@ for d in "$ROOT/sw/kernel" "$ROOT/sw/runtime"; do
 done
 
 # Build the exclusion-aware list of files to scan.
-sw_files=$(find "${SW_BUILD_DIRS[@]}" \
-            \( -name 'Makefile' -o -name '*.mk' -o -name '*.in' \) \
-            -not -name '*.stamp' \
-            -not -path '*/sw/runtime/opae/*' \
-            -type f 2>/dev/null)
+# Empty array under set -u would abort the expansion, so guard it.
+sw_files=""
+if [ "${#SW_BUILD_DIRS[@]}" -gt 0 ]; then
+    sw_files=$(find "${SW_BUILD_DIRS[@]}" \
+              \( -name 'Makefile' -o -name '*.mk' -o -name '*.in' \) \
+              -not -name '*.stamp' \
+              -not -path '*/sw/runtime/opae/*' \
+              -type f 2>/dev/null || true)
+fi
 if [ -n "$sw_files" ]; then
     hits=""
     while IFS= read -r f; do
