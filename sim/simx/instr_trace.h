@@ -81,12 +81,6 @@ public:
   // instructions keep theirs and release normally on commit.
   bool suspended;
 
-  // vx_tex4 single-mode: the SFU window remap (raw rs1/rs2 -> u/v/lod from the
-  // graphics window) has been applied to this trace. process() may hit
-  // req_out_ backpressure and re-enter the remap path with the same trace;
-  // re-remapping would read garbage window slots and corrupt lod.
-  bool tex_remap_done;
-
   uint64_t issue_time ;
 
   instr_trace_t(uint64_t uuid)
@@ -112,7 +106,6 @@ public:
     , fetch_stall(false)
     , resume_warp(false)
     , suspended(false)
-    , tex_remap_done(false)
     , issue_time(SimPlatform::instance().cycles())
     , log_once_(false)
   {}

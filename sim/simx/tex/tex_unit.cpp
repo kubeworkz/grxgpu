@@ -51,6 +51,16 @@ instr_trace_t* TexUnit::process(instr_trace_t* trace, uint32_t block_id, uint32_
   }
   req.tmask_bits = bits;
 
+  if (getenv("VX_DUMP_TEX")) {
+    printf("VXTEX wid=%u tmask=%x:", trace->wid, bits);
+    for (uint32_t t = 0; t < VX_CFG_NUM_THREADS; ++t) {
+      if (!(bits & (1u << t))) continue;
+      printf(" [t%u u=%d(%.3f) v=%d(%.3f)]", t, req.u[t], float(req.u[t])/65536.0f, req.v[t], float(req.v[t])/65536.0f);
+    }
+    printf("\n");
+  }
+
+
   // Combinational into the shared arbiter; the arbiter's forward is the
   // registered boundary.
   req_out_.send(req, 0);

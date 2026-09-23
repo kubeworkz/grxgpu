@@ -85,36 +85,25 @@ inline void vx_om4(unsigned desc, unsigned base) {
 
 // RASTER dispatch v2 is PUSH: the raster engine's work distributor launches the
 // fragment shader once per covered-quad wave (no pull op). The per-lane payload
-// is already staged in this warp's gfx register window (slots
-// VX_GFX_FRAG_SLOT_BASE..) at warp launch (zero LMEM/LSU traffic); the FS
-// runs straight-line and reads it via the helpers below.
-
-// VX_GFX_FRAG_SLOT_BASE + the full window slot map live in <vx_gfx_window.h>.
-// frag_payload_t layout (VX_GFX_FRAG_WORDS = 2): word 0 = pos_mask, 1 = pid.
-// There is no bcoord payload — the FS recomputes per-corner edges from the
-// primitive edges.
-
-// This warp's raster record slot: the raster unit seeded the record at window
-// warp-slot = block_idx (CTA_BLOCK_ID_X), so the FS reads it back via GETWS
-// (which indexes the window's warp dimension by the slot, not the executing wid).
-#define vx_frag_slot() ((uint32_t)csr_read(VX_CSR_CTA_BLOCK_ID_X))
-
-// Read one staged frag_payload_t `word` for this lane, given the record slot
-// `fs` (block_idx). `word` must be a compile-time constant (the window slot rides
-// the funct7 immediate).
-#define vx_frag_payload_at(fs, word) \
-  vx_gfx_get_slot((fs), VX_GFX_FRAG_SLOT_BASE + (word))
-
-// Back-compat single-arg form (re-reads the slot CSR per call).
-#define vx_frag_payload(word) vx_frag_payload_at(vx_frag_slot(), (word))
-
-// Load this lane's staged record {pos_mask, pid} from the gfx window into `p`.
+// is landed in this warp's launch registers at warp launch (zero LMEM/LSU
+// traffic); the FS reads it back as the FRAG_* CSRs via the helpers below.
 // There is no bcoord payload — the FS recomputes per-corner edge values from
-// the primitive edges + the quad origin (decoded from pos_mask).
+// the primitive edges + its own pixel (quad group = 4 adjacent lanes, corner
+// = lane & 3; see frag_payload_t in <vx_gfx_abi.h>).
+
+// This lane's fragment payload (read back from the warp's launch registers).
+#define vx_frag_pos()     ((uint32_t)csr_read(VX_CSR_FRAG_POS))
+#define vx_frag_pid()     ((uint32_t)csr_read(VX_CSR_FRAG_PID))
+
+// This lane's pixel, and whether the primitive actually covers it.
+#define vx_frag_x(p)       VX_FRAG_POS_X((p).pos)
+#define vx_frag_y(p)       VX_FRAG_POS_Y((p).pos)
+#define vx_frag_covered(p) VX_FRAG_POS_COVERED((p).pos)
+
+// Load this lane's fragment stamp {pos, pid} into `p`.
 #define vx_frag_load(p) do { \
-  uint32_t __fs = vx_frag_slot(); \
-  (p).pos_mask     = vx_frag_payload_at(__fs, 0); \
-  (p).pid          = vx_frag_payload_at(__fs, 1); \
+  (p).pos = vx_frag_pos();   \
+  (p).pid = vx_frag_pid();   \
 } while (0)
 
 } // namespace graphics

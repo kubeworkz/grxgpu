@@ -675,13 +675,18 @@ inline std::ostream &operator<<(std::ostream &os, const TexType& type) {
 
 #ifdef VX_CFG_EXT_OM_ENABLE
 
-enum class OmType { WRITE };
+enum class OmType { WRITE, EXPORT };
 
-struct IntrOmArgs {};
+struct IntrOmArgs {
+  // vx_om_export: funct7[1:0] = {has_depth, has_colour}. A colour+depth
+  // record retires one uop per 4-byte beat (macro-op expansion).
+  uint32_t export_mask = 0;
+};
 
 inline std::ostream &operator<<(std::ostream &os, const OmType& type) {
   switch (type) {
-  case OmType::WRITE: os << "OM"; break;
+  case OmType::WRITE:  os << "OM"; break;
+  case OmType::EXPORT: os << "OM.EXPORT"; break;
   default: os << "?"; break;
   }
   return os;
@@ -1502,11 +1507,7 @@ public:
     , lg2_num_reqs_(log2ceil(num_inputs / num_outputs))
     , arbiters_(num_outputs, {type, 1u << lg2_num_reqs_})
   {
-    // NOTE: num_inputs may exceed 64 (e.g. the cluster L2 arbiter fans in
-    // kL2Rows * VX_CFG_L2_NUM_REQS requests when graphics extensions are
-    // enabled). The grant logic uses a dynamic BitVector, so any width is
-    // supported, and response routing reconstructs the input index from the
-    // tagged output independent of the power-of-two rounding of R.
+    assert(num_inputs <= 64);
     assert(num_outputs <= 64);
     assert(num_inputs >= num_outputs);
 

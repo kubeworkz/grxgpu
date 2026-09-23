@@ -11,6 +11,8 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdlib>
+#include <cstdio>
 #include <cstring>
 
 namespace vx {
@@ -181,6 +183,23 @@ vx_result_t Queue::enqueue_write(Buffer* dst, uint64_t off, const void* host,
                                  const vx_event_h* w, vx_event_h* out) {
     if (!dst || (!host && sz != 0)) return VX_ERR_INVALID_VALUE;
     if (off + sz > dst->size())     return VX_ERR_INVALID_VALUE;
+
+    // VXDUMP: env-gated host->device upload trace (graphics bring-up).
+    if (const char* dump = std::getenv("VX_DUMP_WRITES")) {
+        if (dump[0] != '0' && sz > 0 && sz <= 256*1024) {
+            std::fprintf(stderr, "[VXDUMP] write dev=%llx off=%llu sz=%llu\n",
+                         (unsigned long long)dst->dev_address(),
+                         (unsigned long long)off, (unsigned long long)sz);
+            const uint8_t* p = (const uint8_t*)host;
+            uint64_t n = sz < 512 ? sz : 512;
+            for (uint64_t i = 0; i < n; i += 32) {
+                std::fprintf(stderr, "  +%03llu:", (unsigned long long)i);
+                for (uint64_t j = 0; j < 32 && i + j < n; ++j)
+                    std::fprintf(stderr, " %02x", p[i + j]);
+                std::fprintf(stderr, "\n");
+            }
+        }
+    }
 
     // Retain dst for the worker's lifetime — caller may release the buffer
     // immediately after enqueue returns (matches OpenCL retain semantics).

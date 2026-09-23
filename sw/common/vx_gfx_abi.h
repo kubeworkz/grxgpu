@@ -179,27 +179,49 @@ struct rast_attrib_t {
 // texcoord would exceed FloatA's Q7.24 range (large tiling/wrap UV), which
 // likewise cancels in the FS divide — so tiled UV well beyond 1.0 stays exact.
 struct rast_attribs_t {
-  rast_attrib_t z, r, g, b, a, u, v, rhw;
+  rast_attrib_t z, r, g, b, a, u, v, rhw, w0, w1, w2, w3, w4, w5;
 };
 
 struct rast_prim_t {
   vec3e_t        edges[3];
   rast_attribs_t attribs;
+  uint32_t       facing;
+  float          rhw_scale;
 };
 
+// ABI guard: the prebuilt Mesa (vortexpipe/lavapipe) JIT bakes this record
+// stride into compiled fragment shaders (`mul i32 %frag_pid, 212`) and reads
+// attrib planes at fixed offsets (u@96, v@108, w@120). Keep in sync with
+// upstream sw/common/vx_gfx_abi.h -- see grxgpu vulkan textured regression.
+static_assert(sizeof(rast_attrib_t) == 12, "rast_attrib_t ABI drift");
+static_assert(sizeof(rast_attribs_t) == 14 * 12, "rast_attribs_t must carry 14 planes");
+static_assert(sizeof(rast_prim_t) == 212, "rast_prim_t must match Mesa JIT stride (212)");
+
 ///////////////////////////////////////////////////////////////////////////////
-// Fragment-wave payload (RASTER dispatch v2).
+// Fragment-wave payload (RASTER dispatch v2, upstream "true-GPU pixel
+// dispatch" ABI — matches prebuilt mesa-vortex JIT kernels).
 //
-// One per active lane of a launched fragment wave. At fragment-wave launch the
-// raster work distributor stages NUM_THREADS of these into the warp's gfx
-// register window (lane t at slot VX_GFX_FRAG_SLOT_BASE..); the FS reads its own
-// lane's record via vx_frag_load()/GETWS — no LMEM traffic, no polling. The
-// record is just {pos_mask, pid}; the FS recomputes per-corner edge values from
-// the primitive edges + the quad origin (pos_mask decodes to pos_y<<18 |
-// pos_x<<4 | cov_mask).
+// A quad is 2x2 pixels, so a quad group is four adjacent lanes. Lane l holds
+// sub-pixel sub = l & (VX_FRAG_QUAD_LANES-1), at (2*qx + (sub&1), 2*qy +
+// (sub>>1)). The quad SHFL that carries a derivative permutes within this
+// group, so a warp must be a whole number of groups.
+//
+// A lane whose pixel the primitive misses is a HELPER: it runs the shader
+// anyway, so its covered neighbours have a value to shuffle when they take a
+// derivative. `covered` is what says whether the lane may export its result —
+// never the thread mask. At launch the raster engine lands each lane's record
+// in the warp's launch registers; the FS reads it back as the FRAG_* CSRs —
+// no window op, no memory traffic. There is no bcoord payload: the FS
+// recomputes per-corner edge values from the primitive edges + its own pixel.
 ///////////////////////////////////////////////////////////////////////////////
+#define VX_FRAG_QUAD_LANES 4
+
+#define VX_FRAG_POS_X(pos)       ((pos) & 0xffff)
+#define VX_FRAG_POS_Y(pos)       (((pos) >> 16) & 0x7fff)
+#define VX_FRAG_POS_COVERED(pos) (((pos) >> 31) & 1)
+
 struct frag_payload_t {
-  uint32_t pos_mask;            // cov_mask[3:0] | (pos_x<<4) | (pos_y<<18)
+  uint32_t pos;                 // x[15:0] | y[30:16] | covered[31]
   uint32_t pid;                 // primitive id
 };
 

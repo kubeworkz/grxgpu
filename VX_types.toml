@@ -39,6 +39,16 @@ VX_MEM_IO_COUT_RING_LOG2    = 9
 # total = SLOTS*4 (wr) + SLOTS*4 (rd) + SLOTS*RING (data) + SLOTS*4 (lost)
 #       = 64*12 + 64*512 = 33536
 VX_MEM_IO_COUT_SIZE         = 33536
+
+# OM fragment-export aperture (upstream "true-GPU pixel dispatch" ABI): the
+# FS exports a fragment by STORING to VX_MEM_OM_BASE_ADDR + offset; the OM
+# unit peels the store off the memory path and decodes (x, y, face, rt) from
+# the shift-only index. Baked into prebuilt mesa-vortex JIT kernels, so the
+# base is fixed. See VX_dcr_om / VX_csr sections below.
+VX_MEM_OM_BASE_ADDR         = "expr: 0x00000000E0000000 if ($XLEN == 64) else 0xE0000000"
+# Aperture window top: the shift-only encoding pads every field to a power of
+# two, and the runtime asserts the record index fits this window (set_aperture).
+VX_MEM_OM_END_ADDR          = 0xF0000000
 VX_MEM_IO_EXIT_CODE         = "expr: ($VX_MEM_IO_COUT_ADDR + $VX_MEM_IO_COUT_SIZE + 8)"
 VX_MEM_IO_END_ADDR          = "expr: $VX_MEM_USER_BASE_ADDR"
 
@@ -193,6 +203,7 @@ VX_RASTER_STRIDE_BITS = 16
 VX_RASTER_PID_BITS    = 16
 
 [om_const]
+VX_OM_MAX_RT      = 4
 VX_OM_DIM_BITS    = 15
 VX_OM_DEPTH_BITS  = 24
 VX_OM_STENCIL_BITS = 8
@@ -313,7 +324,16 @@ VX_DCR_OM_LOGIC_OP          = 0x091
 # depth func is monotonic (LESS/LEQUAL), permitting the raster unit to cull
 # occluded fragments against committed depth before shading. 0 = full late-Z only.
 VX_DCR_OM_EARLYZ_SAFE       = 0x092
-VX_DCR_OM_STATE_END         = 0x093
+# Aperture geometry for the OM fragment-export path (VX_MEM_OM_BASE_ADDR):
+# a FS store at base + offset decodes as offset >> RECORD_SHIFT = record,
+# record[xbits-1:0] = x, [xbits+ybits-1:xbits] = y, bit xbits+ybits = face,
+# bits above = colour-attachment index. Upstream numbering (0x093..0x096) —
+# prebuilt mesa-vortex drivers write these exact addresses.
+VX_DCR_OM_APERTURE_XBITS        = 0x093
+VX_DCR_OM_APERTURE_YBITS        = 0x094
+VX_DCR_OM_APERTURE_RECORD_SHIFT = 0x095
+VX_DCR_OM_APERTURE_DEPTH_ONLY   = 0x096
+VX_DCR_OM_STATE_END         = 0x097
 
 [dcr_rtu]
 # Ray-Tracing Unit DCRs. See docs/proposals/rtu_simx_proposal.md §5.8.
@@ -561,6 +581,14 @@ VX_CSR_CTA_LMEM_ADDR  = 0xCDF
 VX_CSR_CTA_CLUSTER_SIZE = 0xCE0
 
 VX_CSR_CTA_ENTRY = 0xCE1  # kernel entry PC, supplied per-CTA by the KMU
+
+# Fragment payload CSRs (upstream "true-GPU pixel dispatch"): the raster
+# engine seeds each launched fragment warp's per-lane payload and the shader
+# reads it back as CSRs — no window op, no memory traffic.
+#   FRAG_POS = {covered[31], y[30:16], x[15:0]} of this lane's pixel
+#   FRAG_PID = primitive index of this lane's quad
+VX_CSR_FRAG_POS     = 0xCE2
+VX_CSR_FRAG_PID     = 0xCE3
 
 [dcr_mpm_class]
 VX_DCR_MPM_CLASS_BASE    = 0

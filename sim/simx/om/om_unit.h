@@ -15,6 +15,8 @@
 
 #include <array>
 #include <simobject.h>
+#include <mempool.h>
+#include "instr.h"
 #include "instr_trace.h"
 #include "constants.h"
 #include "types.h"
@@ -36,7 +38,31 @@ struct OmReq {
   std::array<uint32_t, VX_CFG_NUM_THREADS>          color      = {};    // ARGB8888 source
   std::array<uint32_t, VX_CFG_NUM_THREADS>          depth      = {};    // VX_OM_DEPTH_BITS source
 
+  // -- aperture-export path (vx_om_export, upstream true-GPU dispatch) --
+  // The request arrives with UNDECODED per-lane aperture addresses; OmCore
+  // decodes (x, y, face, rt) using the OM_APERTURE_* DCRs before the request
+  // reaches a slot (from_aperture cleared on decode).
+  uint32_t                                   export_mask = 0;    // {has_depth, has_colour}
+  bool                                       from_aperture = false;
+  std::array<uint64_t, VX_CFG_NUM_THREADS>          addr = {};          // raw aperture address
+  uint32_t                                   rt = 0;             // colour-attachment index
+
   OmReq() = default;
+};
+
+// A colour+depth export moves one word per beat and retires a uop per beat, so
+// the record spans two. Only the last beat submits the fragment: a blend reads
+// the destination, so replaying it would fold the pixel into itself.
+class OmUopGen {
+public:
+  OmUopGen(PoolAllocator<Instr, 64>& pool) : pool_(pool) {}
+
+  static uint32_t uop_count(const Instr& instr);
+
+  Instr::Ptr get(const Instr& macro_instr, uint32_t uop_index);
+
+private:
+  PoolAllocator<Instr, 64>& pool_;
 };
 
 // Per-core SFU PE for vx_om. Plain (non-SimObject) helper owned by SfuUnit.
@@ -52,6 +78,12 @@ public:
   // this sub-pixel; the caller pre-packs src_data[0..2] = {pos_face, colour,
   // depth}. Returns the trace if accepted, or nullptr on a full output channel.
   instr_trace_t* process(instr_trace_t* trace, uint32_t mask_bits);
+
+  // Submit one vx_om_export fragment request: per-lane aperture addresses
+  // stay undecoded; OmCore recovers (x, y, face, rt) from the APERTURE DCRs.
+  // export_mask = funct7[1:0] = {has_depth, has_colour}. Returns the trace if
+  // accepted, or nullptr on a full output channel (nothing was sent).
+  instr_trace_t* process_export(instr_trace_t* trace, uint32_t export_mask);
 
 private:
   Core*               core_;

@@ -628,10 +628,31 @@ vx_result_t Device::cp_submit_mem_copy(uint64_t dst, uint64_t src,
     return cp_submit_mem_(CP_OPCODE_MEM_COPY, dst, src, size);
 }
 
+// VXDUMP: env-gated device-write trace (graphics bring-up). Fires in
+// Device::cp_submit_mem_write so every staged DMA (args blobs, primbuf,
+// tilebuf, descriptor tables) is visible without touching the per-buffer path.
+static void vxdump_mem_write_(uint64_t dev_dst, const void* host_src, uint64_t size) {
+    if (const char* dump = std::getenv("VX_DUMP_WRITES")) {
+        if (dump[0] != '0' && size > 0 && size <= 512*1024) {
+            std::fprintf(stderr, "[VXDUMP] write dev=%llx sz=%llu\n",
+                         (unsigned long long)dev_dst, (unsigned long long)size);
+            const uint8_t* p = (const uint8_t*)host_src;
+            uint64_t n = size < 512 ? size : 512;
+            for (uint64_t i = 0; i < n; i += 32) {
+                std::fprintf(stderr, "  +%03llu:", (unsigned long long)i);
+                for (uint64_t j = 0; j < 32 && i + j < n; ++j)
+                    std::fprintf(stderr, " %02x", p[i + j]);
+                std::fprintf(stderr, "\n");
+            }
+        }
+    }
+}
+
 vx_result_t Device::cp_submit_mem_write(uint64_t dev_dst, const void* host_src,
                                         uint64_t size, bool physical) {
     if (size == 0)  return VX_SUCCESS;
     if (!host_src)  return VX_ERR_INVALID_VALUE;
+    vxdump_mem_write_(dev_dst, host_src, size);
     // Stage the payload into CP-visible host memory (a plain memcpy through
     // the host pointer), then have the CP DMA it to device memory. `physical`
     // (set for page-table writes) tells the CP DMA to skip VM translation.

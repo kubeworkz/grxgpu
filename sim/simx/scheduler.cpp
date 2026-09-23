@@ -13,6 +13,7 @@
 
 #include <iostream>
 #include <stdlib.h>
+#include <stdio.h>
 #include <unistd.h>
 #include <math.h>
 #include <assert.h>
@@ -53,6 +54,11 @@ void warp_t::reset() {
   this->mcause  = 0;
   this->mtval   = 0;
   this->mscratch_tmask.reset();
+#ifdef VX_CFG_EXT_RASTER_ENABLE
+  // Launch registers: an all-zero pos means "no fragment payload" (bit 31
+  // clear => not covered), so a stale stamp can never export a fragment.
+  for (auto& f : this->frag) f = graphics::frag_payload_t{};
+#endif
   // Register files live in OpcUnit and are reset there.
 }
 
@@ -506,10 +512,22 @@ void Scheduler::fwd_try_inject() {
 
     activate_warp(uint32_t(wid), rec);
 
-    // Seed the per-lane payload into this warp's gfx register window (FWD-5,
-    // zero-LMEM): the FS reads it back with GETW. Reuses the SFU window-stage
-    // path the pull op used.
-    core_->sfu_unit()->stage_fwd_window(uint32_t(wid), wave);
+    // The stamp arrives with the launch: land it in this warp's launch
+    // registers (read back as the FRAG_* CSRs). No window tenancy, no slot,
+    // no window op.
+    warps_.at(uint32_t(wid)).frag = wave.payload;
+
+    // VXFWD: env-gated fragment-launch trace (bring-up race hunting).
+    if (std::getenv("VX_TRACE_FWD")) {
+      for (uint32_t l = 0; l < VX_CFG_NUM_THREADS; ++l) {
+        const auto& pl = wave.payload[l];
+        if (pl.pos != 0) {
+          std::fprintf(stderr, "[VXFWD] core=%u wid=%u lane=%u x=%u y=%u cov=%u pid=%u\n",
+                       core_->id(), (unsigned)wid, l, pl.pos & 0xffff,
+                       (pl.pos >> 16) & 0x7fff, (pl.pos >> 31) & 1, pl.pid);
+        }
+      }
+    }
 
     fwd_is_fragment_[wid] = true;
     ++fwd_launched_;
