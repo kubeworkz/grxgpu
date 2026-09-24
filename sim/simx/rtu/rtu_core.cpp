@@ -591,6 +591,7 @@ public:
       if (s.state != State::RESP) continue;
       if (port.full()) break;
       RtuRsp rsp(s.req);
+      if (std::getenv("VX_DUMP_RTU")) { for (uint32_t dt = 0; dt < VX_CFG_NUM_THREADS; ++dt) { const LaneState& dl = s.lanes[dt]; if (dl.active && dl.hit) std::fprintf(stderr, "VXRT rsp t=%u prim=%u t_hit=%.4f u=%.3f v=%.3f\n", dt, dl.hit_prim, dl.hit_t, dl.hit_u, dl.hit_v); } }
       rsp.kind = RtuRspKind::TERMINAL;
       for (uint32_t t = 0; t < VX_CFG_NUM_THREADS; ++t) {
         const LaneState& l = s.lanes[t];

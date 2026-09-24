@@ -22,6 +22,17 @@ OSVERSION=${OSVERSION:=@OSVERSION@}
 
 REPOSITORY=https://github.com/vortexgpgpu/vortex-toolchain-prebuilt/raw/${TOOLCHAIN_REV}
 
+# Mesa prebuilt pin: the upstream vortex-toolchain-prebuilt mesa binary bakes
+# the *upstream* VX_types RT hit-window slot map (HIT_T=10, BARY_U=11,
+# BARY_V=12, PRIMITIVE_ID=13); this fork renumbered the RT result span in its
+# VX_types.toml (HIT_T=14, BARY_U=15, BARY_V=16, PRIMITIVE_ID=21), and the
+# vortexpipe driver bakes those constants into GETW immediates at Mesa build
+# time. On mismatch every raytrace pixel resolves to the wrong primitive
+# (prim-id reads object_ray.dir.z). MESA_PREBUILT_REV selects the
+# fork-consistent mesa-vortex.tar.bz2 published under this repo's releases;
+# set MESA_PREBUILT_REV= to fall back to the upstream asset.
+MESA_PREBUILT_REV=${MESA_PREBUILT_REV:=tc-prebuilt-v3.0-rtfix1}
+
 riscv32()
 {
     case $OSVERSION in
@@ -134,7 +145,13 @@ chipstar()
 
 mesa()
 {
-    wget $REPOSITORY/mesa-vortex/$OSVERSION/mesa-vortex.tar.bz2
+    if [ -n "$MESA_PREBUILT_REV" ]; then
+        # Fork-consistent mesa prebuilt: release asset on this repo (anonymous
+        # fetch), unpacks to mesa-vortex/ with a relocatable ICD manifest.
+        wget https://github.com/kubeworkz/grxgpu/releases/download/${MESA_PREBUILT_REV}/mesa-vortex.tar.bz2
+    else
+        wget $REPOSITORY/mesa-vortex/$OSVERSION/mesa-vortex.tar.bz2
+    fi
     tar -xvf mesa-vortex.tar.bz2
     mkdir -p $TOOLDIR && rm -rf $TOOLDIR/mesa-vortex && mv mesa-vortex $TOOLDIR
     rm -rf mesa-vortex.tar.bz2
