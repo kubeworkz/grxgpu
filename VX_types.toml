@@ -143,6 +143,7 @@ VX_DCR_TEX_LOGDIM      = 0x042
 VX_DCR_TEX_FORMAT      = 0x043
 VX_DCR_TEX_FILTER      = 0x044
 VX_DCR_TEX_WRAP        = 0x045
+VX_DCR_TEX_BORDER      = 0x056
 # VX_DCR_TEX_MIPOFF(lod) = VX_DCR_TEX_MIPOFF_BASE + lod, lod < VX_TEX_LOD_MAX
 VX_DCR_TEX_MIPOFF_BASE = 0x046
 VX_DCR_TEX_STATE_END   = 0x060
@@ -324,6 +325,7 @@ VX_DCR_OM_LOGIC_OP          = 0x091
 # depth func is monotonic (LESS/LEQUAL), permitting the raster unit to cull
 # occluded fragments against committed depth before shading. 0 = full late-Z only.
 VX_DCR_OM_EARLYZ_SAFE       = 0x092
+VX_DCR_OM_RT_SELECT         = 0x097
 # Aperture geometry for the OM fragment-export path (VX_MEM_OM_BASE_ADDR):
 # a FS store at base + offset decodes as offset >> RECORD_SHIFT = record,
 # record[xbits-1:0] = x, [xbits+ybits-1:xbits] = y, bit xbits+ybits = face,

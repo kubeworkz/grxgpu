@@ -39,18 +39,32 @@
 namespace vortex {
 namespace graphics {
 
-// Texture sample on the shared graphics window (single mode). u,v are read from
-// the window at slot base `in_slot` (u@in_slot, v@in_slot+1) — stage them with
-// vx_gfx_set first; `lod` is explicit. The texel lands in the window at `out_slot`
-// (read it back with vx_gfx_get_after(out_slot, handle)) and is also returned in
-// rd as the scoreboard sync handle. `stage` and `out_slot` are compile-time
-// constants (they ride funct7). CUSTOM1 funct3=5, R-type.
-inline unsigned vx_tex4_single(unsigned stage, unsigned lod, unsigned in_slot, unsigned out_slot) {
-  unsigned handle;
+// Texture sample — canonical register form. u, v are S.23 fixed-point
+// coordinates, lod the explicit mip level; all three ride registers and the
+// texel is returned in rd. The TEX unit takes its operands in registers.
+// `stage` is a compile-time constant. CUSTOM1 funct3=5, R4-type.
+inline unsigned vx_tex(unsigned stage, unsigned u, unsigned v, unsigned lod) {
+  unsigned texel;
+  __asm__ volatile (".insn r4 %1, 5, %2, %0, %3, %4, %5"
+      : "=r"(texel)
+      : "i"(RISCV_CUSTOM1), "i"(stage), "r"(u), "r"(v), "r"(lod));
+  return texel;
+}
+
+// Texture sample (single mode) — register-direct ABI. u, v are S.23 fixed-point
+// coordinates carried in rs1/rs2; `lod` selects the explicit mip level and
+// rides window slot 27 (stage it with vx_gfx_set before the sample). The texel
+// is returned in rd (scoreboard sync handle) and mirrored into the window at
+// `out_slot` for consumers that read it back with vx_gfx_get_after. `stage` and
+// `out_slot` are compile-time constants (they ride funct7 =
+// {out_slot[4:0], stage, mode=0}). CUSTOM1 funct3=5, R-type.
+inline unsigned vx_tex4_single(unsigned stage, unsigned u, unsigned v, unsigned lod, unsigned out_slot) {
+  vx_gfx_set(27, lod);
+  unsigned texel;
   __asm__ volatile (".insn r %1, 5, %2, %0, %3, %4"
-      : "=r"(handle)
-      : "i"(RISCV_CUSTOM1), "i"((((out_slot) << 2) | ((stage) << 1))), "r"(lod), "r"(in_slot));
-  return handle;
+      : "=r"(texel)
+      : "i"(RISCV_CUSTOM1), "i"((((out_slot) & 0x1f) << 2) | (((stage) & 1) << 1)), "r"(u), "r"(v));
+  return texel;
 }
 
 // Texture sample on the shared graphics window, quad mode (hardware LOD). One
@@ -82,6 +96,41 @@ inline void vx_om4(unsigned desc, unsigned base) {
   __asm__ volatile (".insn r %0, 2, 0, x0, %1, %2"
       :: "i"(RISCV_CUSTOM1), "r"(desc), "r"(base));
 }
+
+// ── fragment export: the aperture store ─────────────────────────────────────
+//
+// The shader exports a fragment by STORING to the OM aperture. There is no OM bus
+// and no window staging: the cluster's OM steer peels the write off the L1->L2
+// trunk and the OM ingress turns it back into a {pos, colour, depth, face}
+// request for the unchanged VX_om_core.
+//
+// The aperture address is SHIFT-ONLY (the pitch is padded to a power of two), so
+// the ingress decodes it by bit-slicing instead of dividing:
+//     offset = ((((rt << 1) | face) << YBITS | y) << XBITS | x) << RECORD_SHIFT
+// XBITS/YBITS/RECORD_SHIFT come from the OM DCRs; the runtime programs them and
+// passes them to the kernel, so the shader just shifts and adds.
+#define VX_OM_APERTURE_ADDR_RT(xbits, ybits, record_shift, x, y, face, rt)     \
+  ((VX_MEM_OM_BASE_ADDR) +                                                     \
+   (((((uint32_t)(rt) << 1 | (uint32_t)(face)) << ((xbits) + (ybits)))         \
+     | ((uint32_t)(y) << (xbits))                                              \
+     | (uint32_t)(x)) << (record_shift)))
+
+// A shader with one colour attachment names none.
+#define VX_OM_APERTURE_ADDR(xbits, ybits, record_shift, x, y, face) \
+  VX_OM_APERTURE_ADDR_RT(xbits, ybits, record_shift, x, y, face, 0)
+
+// vx_om_export — one fragment. CUSTOM1 funct3=3, R4-type, rd=x0 (posted).
+// funct7[1:0] = {has_depth, has_colour}: a shader may emit colour only (the
+// common case — early-Z owns the depth test AND the depth write), depth only
+// (z-prepass / shadow map), or both (gl_FragDepth).
+#define vx_om_export(addr, color, depth, mask)                     \
+  __asm__ volatile (".insn r4 %0, 3, %1, x0, %2, %3, %4"           \
+      :: "i"(RISCV_CUSTOM1), "i"(mask), "r"(addr), "r"(color), "r"(depth))
+
+// The three record shapes.
+#define vx_om_export_color(addr, color)        vx_om_export(addr, color, 0, 1)
+#define vx_om_export_depth(addr, depth)        vx_om_export(addr, 0, depth, 2)
+#define vx_om_export_both(addr, color, depth)  vx_om_export(addr, color, depth, 3)
 
 // RASTER dispatch v2 is PUSH: the raster engine's work distributor launches the
 // fragment shader once per covered-quad wave (no pull op). The per-lane payload

@@ -403,7 +403,10 @@ void SfuUnit::on_tick() {
 				for (uint32_t t = 0; t < VX_CFG_NUM_THREADS; ++t) {
 					if (!trace->tmask.test(t)) continue;
 					// u, v stay in src_data[0]/[1] (register-direct); no window remap.
-					trace->src_data[2].at(t).u = 0; // lod = 0 (JIT emits no LOD)
+					// LOD rides window slot 27: the prebuilt-Mesa JIT never stages it
+					// (the window zeroes to lod 0), kernels that need an explicit mip
+					// SETW it first (vx_tex4_single(s ... , lod) in <vx_graphics.h>).
+					trace->src_data[2].at(t).u = gfx_window_.get(trace->wid, t, 27);
 				}
 			}
 #endif

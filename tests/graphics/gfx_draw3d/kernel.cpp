@@ -34,7 +34,9 @@ using fixeduv_t = vortex::graphics::fixed_t<TEX_FXD_FRAC>;
 static inline uint32_t tex_sample(const kernel_arg_t* arg, unsigned u, unsigned v) {
 #if VX_CFG_EXT_TEX_ENABLED
     (void)arg;
-    return vx_tex(0, u, v, 0);
+    // Register-direct TEX ABI (matches simx + the prebuilt-Mesa JIT): u,v ride
+    // registers as S.23 fixed-point; the texel returns in rd.
+    return vx_tex4_single(0, u, v, 0 /*lod*/, 26);
 #else
     return gfx_sw::tex_sample_sw(arg->tex, (int32_t)u, (int32_t)v, 0);
 #endif
