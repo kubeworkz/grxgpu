@@ -225,7 +225,19 @@ jobs:
       matrix:
         include: ${{ fromJSON(needs.plan.outputs.cells) }}
     runs-on: ubuntu-22.04
-    timeout-minutes: 120
+    # Cell timeout, tiered by category. These cells share a two-slot self-hosted
+    # pool, so a cell's wall time roughly doubles versus a quiet runner; the flat
+    # 120m cap killed every heavy simx cell at ~120m on the 2026-09-25 runs
+    # (opencl, regression, config1/2, dxa, cache, rvc, vm all timeout-cancelled
+    # before their suites finished — "job has exceeded the maximum execution
+    # time of 2h0m0s"). Tiers, by worst observed 64-bit simx time under
+    # contention:
+    #   360m — multi-hour categories (opencl/regression/config1/config2/dxa);
+    #          2h was never enough even at xlen=32.
+    #   240m — middle band (cache/rvc/vulkan/vm): measured 70-140m at xlen=64,
+    #          plus headroom for pool contention.
+    #   180m — everything else; modest raise over the old flat cap.
+    timeout-minutes: ${{ contains(fromJSON('["opencl","regression","config1","config2","dxa"]'), matrix.category) && 360 || contains(fromJSON('["cache","rvc","vulkan","vm"]'), matrix.category) && 240 || 180 }}
     steps:
       # Self-hosted runners share one workspace across jobs and workflows; a
       # previous recursive checkout can leave submodule gitlinks whose gitdirs
