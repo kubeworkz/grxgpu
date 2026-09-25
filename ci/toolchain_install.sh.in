@@ -31,7 +31,7 @@ REPOSITORY=https://github.com/vortexgpgpu/vortex-toolchain-prebuilt/raw/${TOOLCH
 # (prim-id reads object_ray.dir.z). MESA_PREBUILT_REV selects the
 # fork-consistent mesa-vortex.tar.bz2 published under this repo's releases;
 # set MESA_PREBUILT_REV= to fall back to the upstream asset.
-MESA_PREBUILT_REV=${MESA_PREBUILT_REV:=tc-prebuilt-v3.0-rtfix1}
+MESA_PREBUILT_REV=${MESA_PREBUILT_REV:=tc-prebuilt-v3.0-rtfix2}
 
 riscv32()
 {
