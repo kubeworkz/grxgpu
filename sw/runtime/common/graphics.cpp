@@ -80,7 +80,12 @@ uint32_t Binning(std::vector<uint8_t>& tilebuf,
     // clip: Binning is a coverage oracle, not the device's culled/clipped path.
     // setup_vertex_t is byte-identical to vertex_t (gfx_frontend_abi.h).
     auto to_sv = [](const vertex_t& v) {
-      setup_vertex_t s;
+            // value-init: varying2[] must be zeroed -- setup_triangle computes
+      // the w0..w5 planes from it, and stack garbage there poisons the
+      // primbuf (x86 float->int cast of garbage floats yields 0x80000000
+      // etc.), so the host oracle diverged from the device front end on
+      // unused planes.
+      setup_vertex_t s{};
       s.pos[0] = v.pos[0]; s.pos[1] = v.pos[1]; s.pos[2] = v.pos[2]; s.pos[3] = v.pos[3];
       s.color[0] = v.color[0]; s.color[1] = v.color[1];
       s.color[2] = v.color[2]; s.color[3] = v.color[3];
