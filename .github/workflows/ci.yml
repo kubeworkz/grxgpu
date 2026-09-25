@@ -237,7 +237,7 @@ jobs:
     #   240m — middle band (cache/rvc/vulkan/vm): measured 70-140m at xlen=64,
     #          plus headroom for pool contention.
     #   180m — everything else; modest raise over the old flat cap.
-    timeout-minutes: ${{ contains(fromJSON('["opencl","regression","config1","config2","dxa"]'), matrix.category) && 360 || contains(fromJSON('["cache","rvc","vulkan","vm"]'), matrix.category) && 240 || 180 }}
+    timeout-minutes: ${{ contains(fromJSON('["opencl","regression","config1","config2","dxa","rvc"]'), matrix.category) && 360 || contains(fromJSON('["cache","vulkan","vm"]'), matrix.category) && 240 || 180 }}
     steps:
       # Self-hosted runners share one workspace across jobs and workflows; a
       # previous recursive checkout can leave submodule gitlinks whose gitdirs
