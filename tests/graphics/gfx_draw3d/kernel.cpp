@@ -28,14 +28,15 @@ using fixeduv_t = vortex::graphics::fixed_t<TEX_FXD_FRAC>;
 
 // One texture sample at (u, v, lod=0) on stage 0.
 //
-// FF: u/v/lod ride registers and the texel comes back in rd -- TEX does not touch
-// registers. SW: the same sampler math through the LSU, which is
-// bit-identical to the unit (gfx_frag_tex.h is shared by both).
+// FF: u/v stage into window slots 0/1 (SETW) and the texel comes back in rd --
+// the windowed vx_tex4 single-mode ABI, shared by RTL and simx. SW: the same
+// sampler math through the LSU, which is bit-identical to the unit
+// (gfx_frag_tex.h is shared by both).
 static inline uint32_t tex_sample(const kernel_arg_t* arg, unsigned u, unsigned v) {
 #if VX_CFG_EXT_TEX_ENABLED
     (void)arg;
-    // Register-direct TEX ABI (matches simx + the prebuilt-Mesa JIT): u,v ride
-    // registers as S.23 fixed-point; the texel returns in rd.
+    // Windowed TEX ABI (matches RTL + simx + the PoCL lowering): u,v stage into
+    // window slots 0/1 (SETW); the texel returns in rd.
     return vx_tex4_single(0, u, v, 0 /*lod*/, 26);
 #else
     return gfx_sw::tex_sample_sw(arg->tex, (int32_t)u, (int32_t)v, 0);
