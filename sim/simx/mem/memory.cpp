@@ -24,6 +24,7 @@
 #include "mem_block_pool.h"
 #include "constants.h"
 #include "types.h"
+#include "amo/amo_ops.h"
 #include "debug.h"
 #include "VX_config.h"
 
@@ -33,6 +34,7 @@ class Memory::Impl {
 private:
 	Memory*   simobject_;
 	Config    config_;
+	std::vector<std::pair<uint32_t, MemRsp>> pending_amo_rsps_;
 	MemCrossBar::Ptr mem_xbar_;
 	DramSim   dram_sim_;
 	RAM*      ram_;
@@ -78,6 +80,15 @@ public:
 
 	void tick() {
 		dram_sim_.tick();
+		// retry AMO responses that hit a full response channel earlier
+		for (auto it = pending_amo_rsps_.begin(); it != pending_amo_rsps_.end(); ) {
+			if (mem_xbar_->RspIn.at(it->first).try_send(it->second)) {
+				DT(3, simobject_->name() << " mem-amo-rsp" << it->first << ": " << it->second);
+				it = pending_amo_rsps_.erase(it);
+			} else {
+				++it;
+			}
+		}
 
 		for (uint32_t i = 0; i < config_.num_banks; ++i) {
 			if (mem_xbar_->ReqOut.at(i).empty())
@@ -85,6 +96,19 @@ public:
 
 			auto& mem_req = mem_xbar_->ReqOut.at(i).peek();
 
+#if VX_CFG_EXT_A_ENABLED
+			if (memop_is_amo_rmw(mem_req.op)) {
+				// Shared RMW executor: every global atomic RMW lands here, so
+				// same-address RMWs serialize per DRAM bank and no update can
+				// be lost to a private cache's stale copy.
+				// NOTE: must run BEFORE the generic read/write block below;
+				// memop_is_write() is true for RMW AMOs and the generic path
+				// would store the raw operand into RAM first.
+				execute_amo_rmw(mem_req, i);
+				mem_xbar_->ReqOut.at(i).pop();
+				continue;
+			}
+#endif
 			std::shared_ptr<mem_block_t> rsp_data;
 			if (ram_) {
 				uint64_t line_addr = mem_req.addr & ~uint64_t(VX_CFG_MEM_BLOCK_SIZE - 1);
@@ -146,6 +170,45 @@ public:
 			mem_xbar_->ReqOut.at(i).pop();
 		}
 	}
+
+#if VX_CFG_EXT_A_ENABLED
+	void execute_amo_rmw(const MemReq& req, uint32_t bank_id) {
+		const uint8_t width     = (__builtin_popcountll(req.byteen) >= 8) ? 3 : 2;
+		const uint32_t n        = 1u << width;
+		const uint32_t byte_off = (uint32_t)(req.addr & (VX_CFG_MEM_BLOCK_SIZE - 1));
+		const uint64_t rhs = req.data
+			? amo_load_word(req.data->data(), byte_off, width)
+			: 0ull;
+		uint64_t old_word = 0;
+		if (ram_) {
+			ram_->enable_acl(false);
+			uint8_t word[8];
+			ram_->read(word, req.addr + byte_off, n);
+			old_word = amo_load_word(word, 0, width);
+			ram_->enable_acl(true);
+		}
+		auto rmw = amo_compute(req.op, width, old_word, rhs, req.flags.amo_unsigned);
+		if (ram_) {
+			ram_->enable_acl(false);
+			uint8_t word[8];
+			amo_store_word(word, 0, width, rmw.new_word);
+			for (uint32_t b = 0; b < n; ++b) {
+				ram_->write(&word[b], req.addr + byte_off + b, 1);
+			}
+			ram_->enable_acl(true);
+		}
+		auto rsp_block = make_mem_block();
+		std::memset(rsp_block->data(), 0, rsp_block->size());
+		amo_store_word(rsp_block->data(), byte_off, width, rmw.ret_word);
+		MemRsp mem_rsp{req.tag, req.hart_id, req.uuid};
+		mem_rsp.data = rsp_block;
+		if (mem_xbar_->RspIn.at(bank_id).try_send(mem_rsp)) {
+			DT(3, simobject_->name() << " mem-amo-rsp" << bank_id << ": " << mem_rsp);
+		} else {
+			pending_amo_rsps_.emplace_back(bank_id, mem_rsp);
+		}
+	}
+#endif
 
 	void attach_ram(RAM* ram) {
 		ram_ = ram;

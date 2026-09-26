@@ -790,7 +790,12 @@ private:
       // but a passthru side-table slot is.
       const bool is_amo = memop_is_amo(core_req.op);
 #if VX_CFG_EXT_A_ENABLED
-      const bool is_amo_passthru = is_amo && !config_.is_llc;
+      // Global RMW atomics must execute at a shared point of coherence: route
+      // every AMO RMW through the passthru to Memory regardless of is_llc.
+      // When L2/L3 are disabled, each core's private dcache is marked is_llc
+      // and a local commitAmo() loses updates across cores (there is no
+      // cross-core invalidation for AMO writes). LR/SC stay local.
+      const bool is_amo_passthru = is_amo;
       if (is_amo_passthru) {
         // Reserve a passthru-table slot at admission, counting probes still
         // in the pipe. A probe that reaches the pipe head with no free slot
@@ -1139,7 +1144,8 @@ private:
       // writeback; any hit → invalidate. Then forward the original AMO
       // MemReq downstream so the response routes back to core_rsp_out
       // without installing a fill.
-      assert(!config_.is_llc && "AmoProbe at LLC is a wiring bug");
+      assert((memop_is_amo_rmw(bank_req.op) || !config_.is_llc)
+             && "LR/SC must execute locally at the LLC");
       uint32_t set_id    = params_.addr_set_id(bank_req.addr);
       uint64_t addr_tag  = params_.addr_tag(bank_req.addr);
       uint32_t sector_id = params_.addr_sector_id(bank_req.addr);
@@ -1341,7 +1347,8 @@ private:
 
 #if VX_CFG_EXT_A_ENABLED
       if (memop_is_atomic(bank_req.op)) {
-        assert(config_.is_llc && "AMO replay reached non-LLC bank");
+        assert(!memop_is_amo_rmw(bank_req.op)
+              && "global RMW AMO must have been routed to Memory");
         if (!this->commitAmo(bank_req, set, hit_id, set_id))
           return; // stall
         if (config_.repl_policy == Cache::PLRU)
