@@ -394,19 +394,25 @@ void SfuUnit::on_tick() {
 				continue;     // do NOT pop — the frag-3 response pops the input
 			}
 			if (targs.is_tex4) {
-				// single mode (prebuilt-Mesa JIT ABI): u = rs1 and v = rs2 come directly
-				// in registers as S.23 fixed-point; lod = 0; the texel returns in rd.
-				// (The windowed variant - u@in_slot, v@in_slot+1 staged by SETW, lod
-				// from rs1 - is the vx_graphics.h/RTL ABI; no JIT fragment shader stages
-				// SETW, and remapping through the empty window sampled texel (0,0) for
-				// every fragment.)
-				for (uint32_t t = 0; t < VX_CFG_NUM_THREADS; ++t) {
-					if (!trace->tmask.test(t)) continue;
-					// u, v stay in src_data[0]/[1] (register-direct); no window remap.
-					// LOD rides window slot 27: the prebuilt-Mesa JIT never stages it
-					// (the window zeroes to lod 0), kernels that need an explicit mip
-					// SETW it first (vx_tex4_single(s ... , lod) in <vx_graphics.h>).
-					trace->src_data[2].at(t).u = gfx_window_.get(trace->wid, t, 27);
+				// single mode, windowed ABI (matches RTL VX_tex_unit.sv and the PoCL
+				// read_imagef lowering): u = window[in_slot], v = window[in_slot+1],
+				// lod = rs1. The shader stages u/v with SETW (vx_tex4_single in
+				// <vx_graphics.h> uses slots 0/1) and issues vx_tex4 with rs2 = the
+				// in-slot base (0 for the header helper).
+				{
+					uint32_t in_slot = 0, lod = 0;
+					for (uint32_t t = 0; t < VX_CFG_NUM_THREADS; ++t) {
+						if (!trace->tmask.test(t)) continue;
+						in_slot = trace->src_data[1].at(t).u & 0x1f;  // rs2 = in-slot base
+						lod     = trace->src_data[0].at(t).u;         // rs1 = lod
+						break;
+					}
+					for (uint32_t t = 0; t < VX_CFG_NUM_THREADS; ++t) {
+						if (!trace->tmask.test(t)) continue;
+						trace->src_data[0].at(t).u = gfx_window_.get(trace->wid, t, in_slot);
+						trace->src_data[1].at(t).u = gfx_window_.get(trace->wid, t, (in_slot + 1) & 0x1f);
+						trace->src_data[2].at(t).u = lod;
+					}
 				}
 			}
 #endif

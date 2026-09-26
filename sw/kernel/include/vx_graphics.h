@@ -51,19 +51,21 @@ inline unsigned vx_tex(unsigned stage, unsigned u, unsigned v, unsigned lod) {
   return texel;
 }
 
-// Texture sample (single mode) — register-direct ABI. u, v are S.23 fixed-point
-// coordinates carried in rs1/rs2; `lod` selects the explicit mip level and
-// rides window slot 27 (stage it with vx_gfx_set before the sample). The texel
-// is returned in rd (scoreboard sync handle) and mirrored into the window at
-// `out_slot` for consumers that read it back with vx_gfx_get_after. `stage` and
-// `out_slot` are compile-time constants (they ride funct7 =
+// Texture sample (single mode) — windowed ABI (matches RTL VX_tex_unit.sv and
+// the PoCL read_imagef lowering). Each thread stages its own u, v (S.23
+// fixed-point) into window slots 0 and 1 with SETW, then issues vx_tex4 with
+// rs1 = lod and rs2 = 0 (the in-slot base). The texel is returned in rd
+// (scoreboard sync handle) and mirrored into the window at `out_slot` for
+// consumers that read it back with vx_gfx_get_after. `stage` and `out_slot`
+// are compile-time constants (they ride funct7 =
 // {out_slot[4:0], stage, mode=0}). CUSTOM1 funct3=5, R-type.
 inline unsigned vx_tex4_single(unsigned stage, unsigned u, unsigned v, unsigned lod, unsigned out_slot) {
-  vx_gfx_set(27, lod);
+  vx_gfx_set(0, u);
+  vx_gfx_set(1, v);
   unsigned texel;
   __asm__ volatile (".insn r %1, 5, %2, %0, %3, %4"
       : "=r"(texel)
-      : "i"(RISCV_CUSTOM1), "i"((((out_slot) & 0x1f) << 2) | (((stage) & 1) << 1)), "r"(u), "r"(v));
+      : "i"(RISCV_CUSTOM1), "i"((((out_slot) & 0x1f) << 2) | (((stage) & 1) << 1)), "r"(lod), "r"(0));
   return texel;
 }
 
