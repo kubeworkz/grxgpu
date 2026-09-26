@@ -5,13 +5,93 @@ defaults:
   - 32
   - 64
   tier: smoke
+  # 4-way sharding: the isa-1 make-run cell exceeded the 6h GH Actions
+  # per-job cap (run 36171371920 killed regression-64 at exactly 360m).
+  # isa-1a..1d carry explicit shard groups; every other case in this file
+  # is assigned by a stable hash so no unsharded cell remains.
+  shards: 4
 tests:
-- id: isa-1
+- id: isa-1a
   via: make-run
   drivers:
   - simx
   dir: tests/regression
-  target: run-{driver}
+  shards: {0: [isa-1a], 1: [isa-1b], 2: [isa-1c], 3: [isa-1d]}
+  target: >-
+    run-{driver}-basic
+    run-{driver}-demo
+    run-{driver}-dropout
+    run-{driver}-dotproduct
+    run-{driver}-dotproduct2
+    run-{driver}-mstress
+    run-{driver}-io_addr
+    run-{driver}-arith
+    run-{driver}-printf
+    run-{driver}-diverge
+    run-{driver}-sort
+    run-{driver}-fence
+    run-{driver}-vecadd
+    run-{driver}-vecadd_v1
+    run-{driver}-sgemm
+    run-{driver}-sgemmx
+    run-{driver}-sgemm_v1
+    run-{driver}-conv3
+    run-{driver}-relu
+    run-{driver}-sgemv
+    run-{driver}-sgemm2
+    run-{driver}-sgemm2_v1
+    run-{driver}-madmax
+    run-{driver}-stencil3d
+    run-{driver}-raycast
+    run-{driver}-bfs
+    run-{driver}-jacobi
+    run-{driver}-pathfinder
+    run-{driver}-softmax
+    run-{driver}-occupancy
+    run-{driver}-multikernel
+    run-{driver}-async_barrier
+    run-{driver}-async_gbarrier
+    run-{driver}-packld
+    run-{driver}-wgather
+    run-{driver}-wsync
+    run-{driver}-dogfood
+- id: isa-1b
+  via: make-run
+  drivers:
+  - simx
+  dir: tests/regression
+  shards: {0: [isa-1a], 1: [isa-1b], 2: [isa-1c], 3: [isa-1d]}
+  target: >-
+    run-{driver}-sgemm_tcu
+    run-{driver}-sgemm_tcu_mx
+    run-{driver}-sgemm_tcu_sp_mx
+    run-{driver}-sgemm_tcu_wg
+- id: isa-1c
+  via: make-run
+  drivers:
+  - simx
+  dir: tests/regression
+  shards: {0: [isa-1a], 1: [isa-1b], 2: [isa-1c], 3: [isa-1d]}
+  target: >-
+    run-{driver}-sgemm_tcu_wg_mx
+    run-{driver}-sgemm_tcu_sp
+    run-{driver}-sgemm_tcu_wg_sp
+    run-{driver}-sgemm2_dxa
+- id: isa-1d
+  via: make-run
+  drivers:
+  - simx
+  dir: tests/regression
+  shards: {0: [isa-1a], 1: [isa-1b], 2: [isa-1c], 3: [isa-1d]}
+  target: >-
+    run-{driver}-sgemm2_tcu
+    run-{driver}-sgemm_tcu_wg_dxa
+    run-{driver}-sgemm_tcu_wg_sp_dxa
+    run-{driver}-sgemm2_dxa_mcast
+    run-{driver}-sgemm_tcu_wg_dxa_mcast
+    run-{driver}-dxa_copy
+    run-{driver}-dxa_copy_mcast
+    run-{driver}-dxa_kmajor_check
 - id: isa-2
   via: make-run
   drivers:

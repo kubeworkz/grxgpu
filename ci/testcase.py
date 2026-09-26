@@ -21,6 +21,7 @@ never expanded here (build32/ and build64/ are separate trees).
 
 import argparse
 import glob
+import hashlib
 import json
 import os
 import subprocess
@@ -71,6 +72,23 @@ class Spec:
         # its failure does not fail CI. Falls back to the file-level default so a
         # wholly-broken category can mark every case in one place.
         self.known_issue = entry.get("known_issue", defaults.get("known_issue", ""))
+        # sharding: 'shards: N' (or 'shards: {N: <authored ids>}') splits the
+        # category into N matrix cells so no cell exceeds the 6h GH Actions
+        # per-job cap. Case -> shard via stable md5(category:id) hash, so the
+        # assignment is deterministic across runs and machines.
+        shards = entry.get("shards", defaults.get("shards", ""))
+        if isinstance(shards, dict):
+            self.shard_groups = {int(k): list(v) for k, v in shards.items()}
+            self.shards = max(self.shard_groups) + 1  # keys are 0-based indices
+            self.shard_index = next(i for i, g in self.shard_groups.items()
+                                    if entry["id"] in g)
+        elif shards:
+            self.shards = int(shards)
+            self.shard_index = int(hashlib.md5(
+                (category + ":" + entry["id"]).encode()).hexdigest()[:8], 16) % self.shards
+        else:
+            self.shards = 1
+            self.shard_index = 0
         # check: model_parity — one case that runs the SAME app/args/configs on
         # both simx and rtlsim and asserts the reported cycle counts agree within
         # `tolerance`. Not driver-expanded: the case is pinned to the rtlsim
@@ -121,6 +139,8 @@ class Spec:
     def markers(self):
         """pytest marker names for `-m` selection (one per value)."""
         m = [self.category, self.tier]
+        if self.shards > 1:
+            m.append("shard{}of{}".format(self.shard_index, self.shards))
         if self.marker_driver:
             m.append(self.marker_driver)
         if self.check:
@@ -163,8 +183,9 @@ class Spec:
                 argv += self.flags.split()
             return argv, env
         if self.via == "make-run":
-            target = self.target.format(driver=self.driver, xlen=xlen)
-            argv = ["make", "-C", self.dir, target]
+            targets = self.target.format(driver=self.driver, xlen=xlen)
+            argv = ["make", "-C", self.dir] + targets.split() if isinstance(
+                targets, str) else ["make", "-C", self.dir] + targets
             argv += ["{}={}".format(k, v) for k, v in self.vars.items()]
             return argv, env
         if self.via == "script":
@@ -333,14 +354,20 @@ def cmd_matrix(args):
         for xlen in c.xlens:
             if xfilter and xlen not in xfilter:
                 continue
-            key = (c.category, drv, xlen)
+            key = (c.category, drv, xlen,
+                   c.shard_index if c.shards > 1 else None)
             cell = cells.setdefault(key, {
                 "category": c.category, "driver": drv, "xlen": xlen, "needs": set(),
+                "shard": c.shard_index if c.shards > 1 else None,
+                "shards": c.shards if c.shards > 1 else None,
             })
             cell["needs"].update(c.needs)
     out = []
     for cell in cells.values():
         cell["needs"] = sorted(cell["needs"])
+        if cell.get("shard") is None:
+            cell.pop("shard")
+            cell.pop("shards")
         out.append(cell)
     out.sort(key=lambda c: (c["category"], c["driver"], c["xlen"]))
     print(json.dumps(out))

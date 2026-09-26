@@ -237,7 +237,7 @@ jobs:
     #   240m — middle band (cache/rvc/vulkan/vm): measured 70-140m at xlen=64,
     #          plus headroom for pool contention.
     #   180m — everything else; modest raise over the old flat cap.
-    timeout-minutes: ${{ contains(fromJSON('["opencl","regression","config1","config2","dxa","rvc","cache"]'), matrix.category) && 360 || contains(fromJSON('["vulkan","vm"]'), matrix.category) && 240 || 180 }}
+    timeout-minutes: ${{ contains(fromJSON('["opencl","regression","config1","config2","dxa"]'), matrix.category) && 360 || contains(fromJSON('["cache","rvc","vulkan","vm"]'), matrix.category) && 240 || 180 }}
     steps:
       # Self-hosted runners share one workspace across jobs and workflows; a
       # previous recursive checkout can leave submodule gitlinks whose gitdirs
@@ -275,6 +275,11 @@ jobs:
             model_parity|perf_gate) ;;
             *) EXPR="$EXPR and not model_parity and not perf_gate" ;;
           esac
+          # Sharded categories select their slice via the shardXofY marker
+          # emitted by ci/testcase.py (see `shards:` in ci/testcases/*.yaml).
+          if [ -n "${{ matrix.shard }}" ]; then
+            EXPR="$EXPR and shard${{ matrix.shard }}of${{ matrix.shards }}"
+          fi
           VX_XLEN=${{ matrix.xlen }} python3 -m pytest ci -m "$EXPR" --strict-markers \
             -v \
             --junitxml="$GITHUB_WORKSPACE/junit-${{ matrix.category }}-${{ matrix.driver }}-${{ matrix.xlen }}.xml"
