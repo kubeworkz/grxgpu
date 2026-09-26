@@ -15,6 +15,12 @@
 #     treated as functional and left failed for a human.
 #   - 'cancelled' jobs are never retried (they were superseded/cancelled on
 #     purpose by cancel-in-progress or manual action).
+#   - 'cancelled' RUNS are handled: timeout-tier kills and push-cancels
+#     flip the run conclusion without touching jobs that died from runner
+#     infra, which still conclude 'failure' individually. Those jobs are
+#     classified and retried as usual; cells cancelled on purpose keep
+#     their 'cancelled' conclusion and are never selected by
+#     rerun-failed-jobs, so nothing cancelled deliberately is resurrected.
 
 name: CI Retry
 
@@ -96,9 +102,18 @@ jobs:
               attempt = d.get("run_attempt") or 0
 
           note("CI-Retry: run %d conclusion=%s attempt=%s" % (run_id, conclusion, attempt))
+          if conclusion == "cancelled":
+              note("CI-Retry: run cancelled — classifying individually failed jobs for infra retry")
 
           # ---- guards -----------------------------------------------------
-          if conclusion != "failure":
+          # 'cancelled' runs are allowed through: timeout-tier kills and
+          # push-cancels leave the *run* cancelled while individual jobs may
+          # still have died from runner infra (conclusion=failure). The
+          # per-job classification below decides what gets retried;
+          # rerun-failed-jobs only touches failure-concluded jobs, so cells
+          # cancelled on purpose (superseded, tier timeout, manual) are
+          # never resurrected.
+          if conclusion not in ("failure", "cancelled"):
               note("CI-Retry: skip — run did not fail (conclusion=%s)" % conclusion)
               raise SystemExit(0)
           if attempt != 1:
@@ -119,6 +134,10 @@ jobs:
                   break
               page += 1
 
+          # NOTE: only failure-concluded jobs are collected below; jobs
+          # cancelled on purpose (superseded push, tier timeout, manual)
+          # keep their 'cancelled' conclusion and are invisible here —
+          # rerun-failed-jobs would not touch them even if they were.
           if not failed:
               note("CI-Retry: run failed but no failed jobs found — nothing to retry")
               raise SystemExit(0)
