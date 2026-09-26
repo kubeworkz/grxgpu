@@ -5,6 +5,10 @@ defaults:
   - 32
   - 64
   tier: smoke
+  # 4-way sharding: the rtlsim-heavy cases in this category exceed the
+  # 6h GH Actions per-job cap in one cell (run 36171371920 killed
+  # config2-32 and regression-64 at exactly 360m).
+  shards: 4
 tests:
 - id: diverge-1
   via: blackbox
