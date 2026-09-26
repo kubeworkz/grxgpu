@@ -5,13 +5,74 @@ defaults:
   - 32
   - 64
   tier: smoke
+  # 4-way sharding: the isa-1 make-run sweep (32 subtests) exceeded the
+  # 6h per-job cap (run 36171371920: opencl-32 killed at exactly 360m
+  # with the sweep still running, opencl-64 spent ~3h in isa-1 alone).
+  # isa-1a..1d run per-test run-simx-<test> targets weighted by the
+  # measured CI durations; every other case in this file is assigned
+  # by a stable hash so no unsharded cell remains.
+  shards: 4
 tests:
-- id: isa-1
+- id: isa-1a
   via: make-run
   drivers:
   - simx
   dir: tests/opencl
-  target: run-{driver}
+  shards: {0: [isa-1a], 1: [isa-1b], 2: [isa-1c], 3: [isa-1d]}
+  target: >-
+    run-{driver}-nearn
+    run-{driver}-guassian
+    run-{driver}-nw
+    run-{driver}-myocyte
+    run-{driver}-heartwall
+    run-{driver}-srad
+    run-{driver}-hotspot3D
+    run-{driver}-hotspot
+    run-{driver}-dwt2d
+    run-{driver}-backprop
+- id: isa-1b
+  via: make-run
+  drivers:
+  - simx
+  dir: tests/opencl
+  shards: {0: [isa-1a], 1: [isa-1b], 2: [isa-1c], 3: [isa-1d]}
+  target: >-
+    run-{driver}-streamcluster
+    run-{driver}-cfd
+    run-{driver}-lavaMD
+    run-{driver}-btree
+    run-{driver}-kmeans
+    run-{driver}-spmv
+    run-{driver}-stencil
+    run-{driver}-psort
+- id: isa-1c
+  via: make-run
+  drivers:
+  - simx
+  dir: tests/opencl
+  shards: {0: [isa-1a], 1: [isa-1b], 2: [isa-1c], 3: [isa-1d]}
+  target: >-
+    run-{driver}-sgemm3
+    run-{driver}-sgemm2
+    run-{driver}-sgemm
+    run-{driver}-saxpy
+    run-{driver}-sfilter
+    run-{driver}-psum
+    run-{driver}-conv3
+    run-{driver}-dotproduct
+- id: isa-1d
+  via: make-run
+  drivers:
+  - simx
+  dir: tests/opencl
+  shards: {0: [isa-1a], 1: [isa-1b], 2: [isa-1c], 3: [isa-1d]}
+  target: >-
+    run-{driver}-vecadd
+    run-{driver}-oclprintf
+    run-{driver}-bfs
+    run-{driver}-pathfinder
+    run-{driver}-blackscholes
+    run-{driver}-lud
 - id: isa-2
   via: make-run
   drivers:
