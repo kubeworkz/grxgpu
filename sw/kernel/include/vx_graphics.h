@@ -39,18 +39,22 @@
 namespace vortex {
 namespace graphics {
 
-// Texture sample — canonical register form. u, v are S.23 fixed-point
-// coordinates, lod the explicit mip level; all three ride registers and the
-// texel is returned in rd. The TEX unit takes its operands in registers.
-// `stage` is a compile-time constant. CUSTOM1 funct3=5, R4-type.
+// Texture sample — windowed ABI wrapper (matches RTL VX_tex_unit.sv and the
+// gen-4 single-mode receiver; the old R4 register-direct form was a simx-only
+// encoding the RTL never decoded). u, v (S.23 fixed-point) stage into window
+// slots 0/1 with SETW, rs1 carries the explicit mip `lod`, rs2 = the in-slot
+// base (0). The texel is returned in rd. `stage` is a compile-time constant;
+// out_slot 26 is fixed because every vx_tex consumer reads the texel from rd.
+// CUSTOM1 funct3=5, R-type.
 inline unsigned vx_tex(unsigned stage, unsigned u, unsigned v, unsigned lod) {
+  vx_gfx_set(0, u);
+  vx_gfx_set(1, v);
   unsigned texel;
-  __asm__ volatile (".insn r4 %1, 5, %2, %0, %3, %4, %5"
+  __asm__ volatile (".insn r %1, 5, %2, %0, %3, %4"
       : "=r"(texel)
-      : "i"(RISCV_CUSTOM1), "i"(stage), "r"(u), "r"(v), "r"(lod));
+      : "i"(RISCV_CUSTOM1), "i"((((26u) & 0x1f) << 2) | (((stage) & 1) << 1)), "r"(lod), "r"(0));
   return texel;
 }
-
 // Texture sample (single mode) — windowed ABI (matches RTL VX_tex_unit.sv and
 // the PoCL read_imagef lowering). Each thread stages its own u, v (S.23
 // fixed-point) into window slots 0 and 1 with SETW, then issues vx_tex4 with
