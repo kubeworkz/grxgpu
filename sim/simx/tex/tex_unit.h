@@ -105,6 +105,11 @@ public:
   // round-tripped so the response lands the texel at window slot out_slot+frag.
   // Returns the trace if accepted, or nullptr on full output channel.
   instr_trace_t* process(instr_trace_t* trace, uint32_t block_id, uint32_t frag = 0);
+  // True when the request queue can accept a new op right now. The SFU
+  // must verify this BEFORE consuming the graphics window (SETW payloads
+  // are destructively remapped into src_data) so a backpressure retry
+  // always sees the original register operands.
+  bool ready() const { return !req_out_.full(); }
 
 private:
   Core*               core_;

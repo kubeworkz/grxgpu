@@ -361,6 +361,7 @@ void SfuUnit::on_tick() {
 			// v=src1, lod=src2). src_data is always NUM_SRC_REGS-wide.
 			auto targs = std::get<IntrTexArgs>(trace->instr_ptr->get_args());
 			if (targs.is_tex4 && targs.mode) {
+				if (!tex_unit_->ready()) continue; // backpressure BEFORE window remap
 				// quad mode: one fragment in flight. Cache rs1(dims)/rs2(in_slot) at
 				// fragment 0 (src_data is overwritten per fragment below), compute the
 				// integer LOD from the quad derivatives, and issue fragment F. The
@@ -394,6 +395,7 @@ void SfuUnit::on_tick() {
 				continue;     // do NOT pop — the frag-3 response pops the input
 			}
 			if (targs.is_tex4) {
+				if (!tex_unit_->ready()) continue; // backpressure BEFORE window remap
 				// single mode, windowed ABI (matches RTL VX_tex_unit.sv and the PoCL
 				// read_imagef lowering): u = window[in_slot], v = window[in_slot+1],
 				// lod = rs1. The shader stages u/v with SETW (vx_tex4_single in
