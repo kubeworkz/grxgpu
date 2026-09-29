@@ -396,24 +396,42 @@ void SfuUnit::on_tick() {
 			}
 			if (targs.is_tex4) {
 				if (!tex_unit_->ready()) continue; // backpressure BEFORE window remap
-				// single mode, windowed ABI (matches RTL VX_tex_unit.sv and the PoCL
-				// read_imagef lowering): u = window[in_slot], v = window[in_slot+1],
-				// lod = rs1. The shader stages u/v with SETW (vx_tex4_single in
-				// <vx_graphics.h> uses slots 0/1) and issues vx_tex4 with rs2 = the
-				// in-slot base (0 for the header helper).
-				{
-					uint32_t in_slot = 0, lod = 0;
-					for (uint32_t t = 0; t < VX_CFG_NUM_THREADS; ++t) {
-						if (!trace->tmask.test(t)) continue;
-						in_slot = trace->src_data[1].at(t).u & 0x1f;  // rs2 = in-slot base
-						lod     = trace->src_data[0].at(t).u;         // rs1 = lod
-						break;
-					}
+				// single mode — dual-ABI receive. Two senders share CUSTOM1 funct3=5
+				// R-type (rs3 is dropped by the decoder, so the forms are
+				// indistinguishable in-flight):
+				//  - windowed ABI (vx_tex4_single in <vx_graphics.h> and the PoCL
+				//    read_imagef lowering): rs1 = lod, rs2 = window in-slot base;
+				//    u/v were staged by SETW at slots in_slot/in_slot+1.
+				//  - register-direct ABI (Mesa vortexpipe emit_tex_hw, ".insn r4
+				//    43,5,0"): rs1 = u, rs2 = v as raw S.23 fixed point; lod rides
+				//    window slot 27 (the JIT never stages it -> lod 0).
+				// Discriminate on the operand values: a windowed sender's rs1 is a
+				// lod (<= VX_TEX_LOD_MAX after the senders' clamps) and its rs2 a
+				// slot index (<= 0x1f), while real S.23 u/v exceed both everywhere
+				// except inside the first texel — where the windowed misread still
+				// lands on texel (0,0), so the choice is result-neutral there.
+				uint32_t rs1 = 0, rs2 = 0;
+				for (uint32_t t = 0; t < VX_CFG_NUM_THREADS; ++t) {
+					if (!trace->tmask.test(t)) continue;
+					rs1 = trace->src_data[0].at(t).u; // windowed: lod  | direct: u
+					rs2 = trace->src_data[1].at(t).u; // windowed: slot | direct: v
+					break;
+				}
+				if ((rs2 <= 0x1f) && (rs1 <= (uint32_t)VX_TEX_LOD_MAX)) {
+					// windowed ABI: pull u/v from the window, lod from rs1.
+					uint32_t in_slot = rs2 & 0x1f;
 					for (uint32_t t = 0; t < VX_CFG_NUM_THREADS; ++t) {
 						if (!trace->tmask.test(t)) continue;
 						trace->src_data[0].at(t).u = gfx_window_.get(trace->wid, t, in_slot);
 						trace->src_data[1].at(t).u = gfx_window_.get(trace->wid, t, (in_slot + 1) & 0x1f);
-						trace->src_data[2].at(t).u = lod;
+						trace->src_data[2].at(t).u = rs1;
+					}
+				} else {
+					// register-direct ABI: u=rs1, v=rs2 already in place; lod from
+					// window slot 27 (kernel-stageable, zero for the Mesa JIT).
+					for (uint32_t t = 0; t < VX_CFG_NUM_THREADS; ++t) {
+						if (!trace->tmask.test(t)) continue;
+						trace->src_data[2].at(t).u = gfx_window_.get(trace->wid, t, 27);
 					}
 				}
 			}
