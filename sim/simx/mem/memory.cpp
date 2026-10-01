@@ -183,7 +183,7 @@ public:
 		if (ram_) {
 			ram_->enable_acl(false);
 			uint8_t word[8];
-			ram_->read(word, req.addr + byte_off, n);
+			ram_->read(word, req.addr, n);
 			old_word = amo_load_word(word, 0, width);
 			ram_->enable_acl(true);
 		}
@@ -193,7 +193,7 @@ public:
 			uint8_t word[8];
 			amo_store_word(word, 0, width, rmw.new_word);
 			for (uint32_t b = 0; b < n; ++b) {
-				ram_->write(&word[b], req.addr + byte_off + b, 1);
+				ram_->write(&word[b], req.addr + b, 1);
 			}
 			ram_->enable_acl(true);
 		}
