@@ -795,7 +795,11 @@ private:
       // When L2/L3 are disabled, each core's private dcache is marked is_llc
       // and a local commitAmo() loses updates across cores (there is no
       // cross-core invalidation for AMO writes). LR/SC stay local.
-      const bool is_amo_passthru = is_amo;
+      // RMW atomics: always via the shared memory point of coherence.
+      // LR/SC: passthru only when this cache is not the LLC; at the LLC
+      // they execute locally (commitAmo + the reservation table).
+      const bool is_amo_passthru = is_amo
+        && (memop_is_amo_rmw(core_req.op) || !config_.is_llc);
       if (is_amo_passthru) {
         // Reserve a passthru-table slot at admission, counting probes still
         // in the pipe. A probe that reaches the pipe head with no free slot
