@@ -1248,7 +1248,11 @@ public:
       for (uint32_t i = 0; i < cfg::tcM; ++i) {
         uint32_t row_base = i * meta_row_width(ebits);
         for (uint32_t j = 0; j < cfg::tcN; ++j) {
-          uint32_t j_sp = cfg::sym_sparse ? (j % (cfg::tcN / 2)) : j;
+          // Sym-sparse pairs columns (j with j+tcN/2); with tcN<2 there is
+          // nothing to pair, so keep j untransformed. The tcN>=2 guard also
+          // keeps the tcN/2 constexpr division well-defined for 1-thread
+          // builds (NUM_THREADS=1 -> tcN=1) that never run TCU kernels.
+          uint32_t j_sp = (cfg::sym_sparse && cfg::tcN >= 2) ? (j % (cfg::tcN / 2)) : j;
           for (uint32_t z = 0; z < cfg::tcK; ++z) {
             uint32_t b_idx = b_off + j_sp * cfg::tcK * kCompression + z * kCompression;
             uint32_t lo = 0, hi = 0;
@@ -1895,11 +1899,14 @@ Instr::Ptr TcuUopGen::get(const Instr& macro_instr, uint32_t uop_index) {
         constexpr uint32_t step_bits = lg_n + lg_k;
         constexpr uint32_t step_mask = step_bits ? ((1u << step_bits) - 1) : 0;
         constexpr uint32_t sym_mask_lo = []() {
-          uint32_t mask = 0;
-          for (uint32_t lane = 0; lane < VX_CFG_NUM_THREADS; ++lane)
-            if ((lane % wmma::tcN) < (wmma::tcN / 2)) mask |= (1u << lane);
-          return mask;
-        }();
+            uint32_t mask = 0;
+            for (uint32_t lane = 0; lane < VX_CFG_NUM_THREADS; ++lane)
+              // tcN>=2 guard: keeps the constexpr tcN/2 division well-defined
+              // for 1-thread builds (the branch itself is unreachable there —
+              // callers fall back to the standard k-major loop below).
+              if ((lane % wmma::tcN) < (wmma::tcN >= 2 ? wmma::tcN / 2 : 0u)) mask |= (1u << lane);
+            return mask;
+          }();
         constexpr uint32_t all_lanes = (VX_CFG_NUM_THREADS == 32) ? 0xffffffffu : ((1u << VX_CFG_NUM_THREADS) - 1);
 
         uint32_t n_sp = step_bits ? (mma_idx & step_mask) : 0;

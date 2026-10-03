@@ -54,16 +54,17 @@ jobs:
           API: ${{ github.api_url }}
         run: |
           python3 - <<'PYEOF'
-          import json, os, urllib.request, urllib.error
+          import json, os, re, urllib.request, urllib.error
+          from datetime import datetime
 
           api = os.environ["API"].rstrip("/")
           repo = os.environ["GITHUB_REPOSITORY"]
           tok = os.environ["GH_TOKEN"]
 
-          def req(path, method="GET", expect_json=True):
+          def req(path, method="GET", expect_json=True, body=None):
               # check_run_url fields are absolute URLs; path-style args get the api prefix
               url = path if path.startswith("http") else api + path
-              r = urllib.request.Request(url, method=method)
+              r = urllib.request.Request(url, method=method, data=body)
               r.add_header("Authorization", "Bearer " + tok)
               r.add_header("Accept", "application/vnd.github+json")
               try:
@@ -138,6 +139,77 @@ jobs:
           # cancelled on purpose (superseded push, tier timeout, manual)
           # keep their 'cancelled' conclusion and are invisible here —
           # rerun-failed-jobs would not touch them even if they were.
+          if not failed and conclusion == "cancelled" and attempt == 1:
+              # ---- timeout-cancelled cells: one targeted measurement retry ----
+              # A run whose long cells all died at their timeout tier concludes
+              # 'cancelled' with zero failure-concluded jobs (gen-9 run
+              # 37051182787: 53 passed, 17 timeout-cancelled, run 'cancelled').
+              # Those cells never got a natural-conclusion measurement. Give
+              # the affected categories ONE targeted re-run via
+              # workflow_dispatch: a clean single-category lane finishes
+              # faster (no cross-cell contention) and measures true cost.
+              # Guards: every cancelled job must have run >= 170m (the 180m
+              # tier floor — covers the 180/240/360m tiers while excluding
+              # early push-cancels), the run must show partial successes (a
+              # timeout profile, not a total wipe), the run must not itself be
+              # a retry (the '[retry:' run-name marker), and no other CI run
+              # may be in flight on the branch. Drivers/tier come from the
+              # cancelled cells themselves (tier pinned to smoke — the tier
+              # every timeout observed so far ran at).
+              st, rd = req("/repos/%s/actions/runs/%d" % (repo, run_id))
+              if st != 200:
+                  note("CI-Retry: cancelled run %d not readable (%s)" % (run_id, st))
+                  raise SystemExit(0)
+              run_name = rd.get("name", "") or ""
+              if "[retry:" in run_name:
+                  note("CI-Retry: run is itself a retry — no further timeout retry")
+                  raise SystemExit(0)
+              st, jd = req("/repos/%s/actions/runs/%d/jobs?filter=latest&per_page=100" % (repo, run_id))
+              if st != 200 or not jd.get("jobs"):
+                  note("CI-Retry: no jobs on cancelled run — nothing to do")
+                  raise SystemExit(0)
+              cj = [j for j in jd["jobs"] if j.get("conclusion") == "cancelled"]
+              ok_n = sum(1 for j in jd["jobs"] if j.get("conclusion") == "success")
+              if not cj or ok_n == 0:
+                  note("CI-Retry: cancelled run without partial success — not a timeout profile, skipping")
+                  raise SystemExit(0)
+
+              def _mins(a, b):
+                  return (datetime.strptime(b, "%Y-%m-%dT%H:%M:%SZ")
+                          - datetime.strptime(a, "%Y-%m-%dT%H:%M:%SZ")).total_seconds() / 60.0
+
+              timeout_like, cats, drivers = True, set(), set()
+              for j in cj:
+                  s, e = j.get("started_at", ""), j.get("completed_at", "")
+                  if not s or not e or _mins(s, e) < 170.0:
+                      timeout_like = False
+                      break
+                  m = re.match(r"tests \(([^,]+), ([^,]+),", j["name"])
+                  if m:
+                      cats.add(m.group(1))
+                      drivers.add(m.group(2))
+              if not timeout_like or not cats:
+                  note("CI-Retry: cancelled jobs are not all timeout-class — leaving for human review")
+                  raise SystemExit(0)
+              branch = rd.get("head_branch") or "main"
+              st, infl = req("/repos/%s/actions/runs?status=in_progress&per_page=100" % repo)
+              if st == 200 and any(r.get("head_branch") == branch for r in infl.get("workflow_runs", [])):
+                  note("CI-Retry: CI already in flight on %s — not dispatching a timeout retry" % branch)
+                  raise SystemExit(0)
+              cells_param = ",".join(sorted(cats))
+              drivers_param = ",".join(sorted(drivers))
+              body = json.dumps({"ref": branch,
+                                 "inputs": {"cells": cells_param, "drivers": drivers_param, "tier": "smoke"}}).encode()
+              st, resp = req("/repos/%s/actions/workflows/ci.yml/dispatches" % repo, method="POST",
+                             expect_json=False, body=body)
+              if st in (204, 201, 202):
+                  note("CI-Retry: dispatched targeted re-run (cells=%s drivers=%s) for run %d (%s)" % (cells_param, drivers_param, run_id, run_name))
+              else:
+                  note("CI-Retry: dispatch REJECTED (%s): %s" % (st, resp))
+              with open(os.environ.get("GITHUB_STEP_SUMMARY", "/dev/null"), "a") as f:
+                  f.write("## CI Retry — run %d\n" % run_id)
+                  f.write("\n".join("- " + s for s in summary) + "\n")
+              raise SystemExit(0)
           if not failed:
               note("CI-Retry: run failed but no failed jobs found — nothing to retry")
               raise SystemExit(0)

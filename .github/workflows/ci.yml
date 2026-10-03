@@ -8,6 +8,10 @@
 # build tree. Tests are data; blackbox.sh stays the untouched executor.
 
 name: CI
+# Run-name marker: CI Retry's targeted timeout re-runs dispatch this workflow
+# with a `cells` input; the marker lets CI Retry recognize its own runs and
+# never re-retry them (one measurement retry, never more).
+run-name: "CI${{ inputs.cells && format(' [retry: {0}]', inputs.cells) || '' }}"
 
 on:
   push:
@@ -21,6 +25,9 @@ on:
         default: ""
       tier:
         description: "comma list: smoke,full,nightly (blank = all)"
+        default: ""
+      cells:
+        description: "comma list of categories (blank = all); used by CI Retry timeout follow-ups"
         default: ""
 
 # One pipeline per branch: a new push cancels any in-flight run of the same
@@ -81,6 +88,7 @@ jobs:
           EVENT: ${{ github.event_name }}
           IN_DRIVERS: ${{ github.event.inputs.drivers }}
           IN_TIER: ${{ github.event.inputs.tier }}
+          IN_CELLS: ${{ github.event.inputs.cells }}
           TOOLCHAIN_CACHE_HIT: ${{ steps.tc.outputs.cache-hit }}
           PUSH_BEFORE: ${{ github.event.before }}
           PR_BASE: ${{ github.event.pull_request.base.sha }}
@@ -125,6 +133,12 @@ jobs:
           [ -n "$DRIVERS" ] && F="$F --drivers=$DRIVERS"
           [ -n "$TIER" ] && F="$F --tier=$TIER"
           cells=$(python3 ci/testcase.py matrix $F)
+          # Targeted-cell dispatch (CI Retry timeout follow-ups): when `cells`
+          # is provided, keep only those categories in the matrix.
+          if [ -n "$IN_CELLS" ]; then
+            cells=$(printf '%s' "$cells" | python3 -c 'import json,sys; cats=set(x.strip() for x in sys.argv[1].split(",") if x.strip()); print(json.dumps([c for c in json.load(sys.stdin) if c["category"] in cats]))' "$IN_CELLS")
+            echo "targeted dispatch: cells=$IN_CELLS -> $cells"
+          fi
           echo "cells=$cells" >> "$GITHUB_OUTPUT"
           [ "$cells" = "[]" ] && echo "run=false" >> "$GITHUB_OUTPUT" || echo "run=true" >> "$GITHUB_OUTPUT"
           # Driver set implied by the selected cells (provenance/debug aid).
@@ -232,12 +246,12 @@ jobs:
     # before their suites finished — "job has exceeded the maximum execution
     # time of 2h0m0s"). Tiers, by worst observed 64-bit simx time under
     # contention:
-    #   360m — multi-hour categories (opencl/regression/config1/config2/dxa);
-    #          2h was never enough even at xlen=32.
-    #   240m — middle band (cache/rvc/vulkan/vm): measured 70-140m at xlen=64,
-    #          plus headroom for pool contention.
+    #   360m — multi-hour categories (vm/regression/config1/config2/dxa, and
+    #          cache since gen-10); 2h was never enough even at xlen=32.
+    #   240m — middle band (opencl/rvc/vulkan): gen-9 shards measured 31-143m
+    #          at xlen=64, plus headroom for pool contention.
     #   180m — everything else; modest raise over the old flat cap.
-    timeout-minutes: ${{ contains(fromJSON('["vm","regression","config1","config2","dxa"]'), matrix.category) && 360 || contains(fromJSON('["cache","opencl","rvc","vulkan"]'), matrix.category) && 240 || 180 }}
+    timeout-minutes: ${{ contains(fromJSON('["vm","regression","config1","config2","dxa","cache"]'), matrix.category) && 360 || contains(fromJSON('["opencl","rvc","vulkan"]'), matrix.category) && 240 || 180 }}
     steps:
       # Self-hosted runners share one workspace across jobs and workflows; a
       # previous recursive checkout can leave submodule gitlinks whose gitdirs
