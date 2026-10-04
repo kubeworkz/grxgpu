@@ -42,6 +42,9 @@ tests:
   drivers:
   - simx
   app: dogfood
+  shape:
+    cores: 2
+    clusters: 2
 - id: dogfood-4
   via: blackbox
   drivers:

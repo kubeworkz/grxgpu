@@ -5,18 +5,23 @@ defaults:
   - 32
   - 64
   tier: smoke
-  # 4-way sharding: the isa-1 make-run cell exceeded the 6h GH Actions
-  # per-job cap (run 36171371920 killed regression-64 at exactly 360m).
-  # isa-1a..1d carry explicit shard groups; every other case in this file
+  # 5-way sharding (gen-10): the isa-1 make-run cells exceeded the 6h GH
+  # Actions per-job cap (run 36171371920 killed regression-64 at exactly
+  # 360m; gen-9 run 37051182787 killed shards 0 and 3 the same way —
+  # isa-1a's run-diverge is an O(count*threads^2) LMEM stress worth hours
+  # at CI scale, and isa-1d's eight TCU/DXA kernels overshoot together).
+  # isa-1a..1e carry explicit shard groups: the diverge target moved out of
+  # isa-1a (dedicated diverge cases live in config1/vm/rvc/cache) and the
+  # TCU/DXA kernels split across isa-1d/1e; every other case in this file
   # is assigned by a stable hash so no unsharded cell remains.
-  shards: 4
+  shards: 5
 tests:
 - id: isa-1a
   via: make-run
   drivers:
   - simx
   dir: tests/regression
-  shards: {0: [isa-1a], 1: [isa-1b], 2: [isa-1c], 3: [isa-1d]}
+  shards: {0: [isa-1a], 1: [isa-1b], 2: [isa-1c], 3: [isa-1d], 4: [isa-1e]}
   target: >-
     run-{driver}-basic
     run-{driver}-demo
@@ -27,7 +32,6 @@ tests:
     run-{driver}-io_addr
     run-{driver}-arith
     run-{driver}-printf
-    run-{driver}-diverge
     run-{driver}-sort
     run-{driver}-fence
     run-{driver}-vecadd
@@ -60,7 +64,7 @@ tests:
   drivers:
   - simx
   dir: tests/regression
-  shards: {0: [isa-1a], 1: [isa-1b], 2: [isa-1c], 3: [isa-1d]}
+  shards: {0: [isa-1a], 1: [isa-1b], 2: [isa-1c], 3: [isa-1d], 4: [isa-1e]}
   target: >-
     run-{driver}-sgemm_tcu
     run-{driver}-sgemm_tcu_mx
@@ -71,7 +75,7 @@ tests:
   drivers:
   - simx
   dir: tests/regression
-  shards: {0: [isa-1a], 1: [isa-1b], 2: [isa-1c], 3: [isa-1d]}
+  shards: {0: [isa-1a], 1: [isa-1b], 2: [isa-1c], 3: [isa-1d], 4: [isa-1e]}
   target: >-
     run-{driver}-sgemm_tcu_wg_mx
     run-{driver}-sgemm_tcu_sp
@@ -82,16 +86,23 @@ tests:
   drivers:
   - simx
   dir: tests/regression
-  shards: {0: [isa-1a], 1: [isa-1b], 2: [isa-1c], 3: [isa-1d]}
+  shards: {0: [isa-1a], 1: [isa-1b], 2: [isa-1c], 3: [isa-1d], 4: [isa-1e]}
   target: >-
     run-{driver}-sgemm2_tcu
     run-{driver}-sgemm_tcu_wg_dxa
     run-{driver}-sgemm_tcu_wg_sp_dxa
+    run-{driver}-dxa_kmajor_check
+- id: isa-1e
+  via: make-run
+  drivers:
+  - simx
+  dir: tests/regression
+  shards: {0: [isa-1a], 1: [isa-1b], 2: [isa-1c], 3: [isa-1d], 4: [isa-1e]}
+  target: >-
     run-{driver}-sgemm2_dxa_mcast
     run-{driver}-sgemm_tcu_wg_dxa_mcast
     run-{driver}-dxa_copy
     run-{driver}-dxa_copy_mcast
-    run-{driver}-dxa_kmajor_check
 - id: isa-2
   via: make-run
   drivers:
