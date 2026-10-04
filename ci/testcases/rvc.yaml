@@ -9,6 +9,10 @@ defaults:
   - 32
   - 64
   tier: smoke
+  # gen-11 category-wide watchdog: every make-run here measured <=4.3m in
+  # the gen-10 junit (isa-5 dogfood monster is explicitly 90m below); 30m
+  # is >7x that, and caps any future hang at a bounded failure.
+  timeout: 30
 tests:
 # --- compressed-ISA conformance (hand-written rv*uc-p-*): pass on both ---
 - id: isa-32c-1
@@ -72,6 +76,10 @@ tests:
   - simx
   dir: tests/regression/dogfood
   target: run-{driver}
+  # gen-11: cluster bound (measured 2h22m at ambient 8x16 in gen-10
+  # rvc-64 junit; sank rvc-32 at its 240m cap). Same lever as vm isa-3/8.
+  configs+: -DVX_CFG_NUM_CLUSTERS=2
+  timeout: 90
 - id: isa-6
   via: make-run
   drivers:

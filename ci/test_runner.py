@@ -20,6 +20,7 @@ so any delta is functional divergence) and cycles must agree within the case's
 
 import os
 import re
+import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -34,7 +35,14 @@ _PERF_RE = re.compile(r"^PERF: instrs=(\d+), cycles=(\d+), IPC=", re.M)
 def _run_one(case, xlen, driver):
     """One parity leg: run under `driver`, return (instrs, cycles)."""
     argv, env = case.run_command(xlen, driver=driver)
-    rc, out = tc.execute_capture(argv, env)
+    try:
+        rc, out = tc.execute_capture(
+            argv, env, timeout=(case.timeout * 60) if case.timeout else None)
+    except subprocess.TimeoutExpired:
+        raise AssertionError(
+            "{} [{}]: WATCHDOG — exceeded its {}m limit and was killed; either "
+            "the app hangs or the case needs a larger `timeout:`".format(
+                case.id, driver, case.timeout))
     assert rc == 0, "{} [{}] failed (exit {}): {}".format(
         case.id, driver, rc, " ".join(argv))
     perf = _PERF_RE.findall(out)
@@ -100,5 +108,12 @@ def test_case(case, sim_build, request):
         _perf_gate(case, xlen, request.config.getoption("--update-baselines"))
         return
     argv, env = case.run_command(xlen)
-    rc = tc.execute(argv, env)
+    try:
+        rc = tc.execute(argv, env,
+                        timeout=(case.timeout * 60) if case.timeout else None)
+    except subprocess.TimeoutExpired:
+        raise AssertionError(
+            "{}: WATCHDOG — exceeded its {}m limit and was killed; either the "
+            "app hangs or the case needs a larger `timeout:`".format(
+                case.id, case.timeout))
     assert rc == 0, "{} failed (exit {}): {}".format(case.id, rc, " ".join(argv))

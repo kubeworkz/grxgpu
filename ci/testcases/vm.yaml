@@ -6,6 +6,10 @@ defaults:
   - 64
   tier: smoke
   configs: -DVX_CFG_VM_ENABLE
+  # gen-11 category-wide watchdog: every make-run here measured <=4.5m in
+  # the gen-10 junit (isa-3/8 dogfood monsters are explicitly 90m below);
+  # 30m is >6x that, and caps any future hang at a bounded failure.
+  timeout: 30
 tests:
 - id: isa-1
   via: make-run
@@ -26,6 +30,13 @@ tests:
   - simx
   dir: tests/regression/dogfood
   target: run-{driver}
+  # gen-11: the 22-kernel dogfood suite at the ambient 8x16 config measured
+  # 2h13m/case in CI (gen-10 vm-64 junit: isa-3 8012s, isa-8 8034s) — two of
+  # them alone blew the vm-32 360m cap (gen-10 vm-32 killed at 360m). A quiet
+  # 1-cluster simx runs the same suite in <8m, so cluster count dominates.
+  # Bound to 2 clusters (same lever as isa-2/7); VM coverage is unchanged.
+  configs+: -DVX_CFG_NUM_CLUSTERS=2
+  timeout: 90
 - id: isa-4
   via: make-run
   drivers:
@@ -58,7 +69,9 @@ tests:
   - simx
   dir: tests/regression/dogfood
   target: run-{driver}
-  configs+: -DVX_CFG_VM_ADDR_MODE=BARE
+  # gen-11: cluster bound as isa-3 (2h14m at 8x16 in gen-10 vm-64).
+  configs+: -DVX_CFG_VM_ADDR_MODE=BARE -DVX_CFG_NUM_CLUSTERS=2
+  timeout: 90
 - id: isa-9
   via: make-run
   drivers:

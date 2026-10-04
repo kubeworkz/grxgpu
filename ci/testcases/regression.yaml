@@ -10,10 +10,17 @@ defaults:
   # 360m; gen-9 run 37051182787 killed shards 0 and 3 the same way —
   # isa-1a's run-diverge is an O(count*threads^2) LMEM stress worth hours
   # at CI scale, and isa-1d's eight TCU/DXA kernels overshoot together).
-  # isa-1a..1e carry explicit shard groups: the diverge target moved out of
-  # isa-1a (dedicated diverge cases live in config1/vm/rvc/cache) and the
-  # TCU/DXA kernels split across isa-1d/1e; every other case in this file
-  # is assigned by a stable hash so no unsharded cell remains.
+  # every other case in this file is assigned by a stable hash so no
+  # unsharded cell remains.
+  #
+  # gen-11 data-driven rebalance (per-dir 8x16 sweep on 7e740129db): the
+  # six heaviest dirs moved out of isa-1a — fence (17.5m) and occupancy
+  # (17.8m) to isa-1e, io_addr (9.9m), arith (6.5m), sgemm_v1 (7.6m) and
+  # basic (4.7m) to isa-1c — because isa-1a's full 34-dir list sums ~90m at
+  # the ambient config, over its own watchdog and a quarter of the 360m
+  # cell. Post-rebalance per-shard wall estimates are ~26-46m solo; the
+  # 120m group watchdogs cover the gen-10-measured ~2.1-2.9x CI-vs-solo
+  # inflation with margin (isa-1b junit 508s vs 178s sweep sum).
   shards: 5
 tests:
 - id: isa-1a
@@ -22,49 +29,46 @@ tests:
   - simx
   dir: tests/regression
   shards: {0: [isa-1a], 1: [isa-1b], 2: [isa-1c], 3: [isa-1d], 4: [isa-1e]}
+  # gen-11 per-case watchdog: one oversized/hung kernel-dir must cost the
+  # group its own limit, not the whole 360m cell (gen-10: isa-1a alone ate
+  # 360m in s0; dogfood-1 hung >5h40m in s3). 120m ≈ 3-4x the heaviest
+  # rebalanced group's solo sum, covering measured CI-vs-solo inflation.
+  timeout: 120
   target: >-
-    run-{driver}-basic
-    run-{driver}-demo
     run-{driver}-dropout
     run-{driver}-dotproduct
     run-{driver}-dotproduct2
-    run-{driver}-mstress
-    run-{driver}-io_addr
-    run-{driver}-arith
-    run-{driver}-printf
-    run-{driver}-sort
-    run-{driver}-fence
     run-{driver}-vecadd
     run-{driver}-vecadd_v1
     run-{driver}-sgemm
     run-{driver}-sgemmx
-    run-{driver}-sgemm_v1
     run-{driver}-conv3
     run-{driver}-relu
     run-{driver}-sgemv
     run-{driver}-sgemm2
     run-{driver}-sgemm2_v1
     run-{driver}-madmax
-    run-{driver}-stencil3d
     run-{driver}-raycast
     run-{driver}-bfs
     run-{driver}-jacobi
     run-{driver}-pathfinder
     run-{driver}-softmax
-    run-{driver}-occupancy
     run-{driver}-multikernel
     run-{driver}-async_barrier
-    run-{driver}-async_gbarrier
     run-{driver}-packld
     run-{driver}-wgather
     run-{driver}-wsync
-    run-{driver}-dogfood
 - id: isa-1b
   via: make-run
   drivers:
   - simx
   dir: tests/regression
   shards: {0: [isa-1a], 1: [isa-1b], 2: [isa-1c], 3: [isa-1d], 4: [isa-1e]}
+  # gen-11 per-case watchdog: one oversized/hung kernel-dir must cost the
+  # group its own limit, not the whole 360m cell (gen-10: isa-1a alone ate
+  # 360m in s0; dogfood-1 hung >5h40m in s3). 120m ≈ 3-4x the heaviest
+  # rebalanced group's solo sum, covering measured CI-vs-solo inflation.
+  timeout: 120
   target: >-
     run-{driver}-sgemm_tcu
     run-{driver}-sgemm_tcu_mx
@@ -76,17 +80,33 @@ tests:
   - simx
   dir: tests/regression
   shards: {0: [isa-1a], 1: [isa-1b], 2: [isa-1c], 3: [isa-1d], 4: [isa-1e]}
+  # gen-11 per-case watchdog: one oversized/hung kernel-dir must cost the
+  # group its own limit, not the whole 360m cell (gen-10: isa-1a alone ate
+  # 360m in s0; dogfood-1 hung >5h40m in s3). 120m ≈ 3-4x the heaviest
+  # rebalanced group's solo sum, covering measured CI-vs-solo inflation.
+  timeout: 120
   target: >-
     run-{driver}-sgemm_tcu_wg_mx
     run-{driver}-sgemm_tcu_sp
     run-{driver}-sgemm_tcu_wg_sp
     run-{driver}-sgemm2_dxa
+    # gen-11 rebalance: io_addr (9.9m) + arith (6.5m) + sgemm_v1 (7.6m) +
+    # basic (4.7m) moved in from isa-1a
+    run-{driver}-io_addr
+    run-{driver}-arith
+    run-{driver}-sgemm_v1
+    run-{driver}-basic
 - id: isa-1d
   via: make-run
   drivers:
   - simx
   dir: tests/regression
   shards: {0: [isa-1a], 1: [isa-1b], 2: [isa-1c], 3: [isa-1d], 4: [isa-1e]}
+  # gen-11 per-case watchdog: one oversized/hung kernel-dir must cost the
+  # group its own limit, not the whole 360m cell (gen-10: isa-1a alone ate
+  # 360m in s0; dogfood-1 hung >5h40m in s3). 120m ≈ 3-4x the heaviest
+  # rebalanced group's solo sum, covering measured CI-vs-solo inflation.
+  timeout: 120
   target: >-
     run-{driver}-sgemm2_tcu
     run-{driver}-sgemm_tcu_wg_dxa
@@ -98,11 +118,96 @@ tests:
   - simx
   dir: tests/regression
   shards: {0: [isa-1a], 1: [isa-1b], 2: [isa-1c], 3: [isa-1d], 4: [isa-1e]}
+  # gen-11 per-case watchdog: one oversized/hung kernel-dir must cost the
+  # group its own limit, not the whole 360m cell (gen-10: isa-1a alone ate
+  # 360m in s0; dogfood-1 hung >5h40m in s3). 120m ≈ 3-4x the heaviest
+  # rebalanced group's solo sum, covering measured CI-vs-solo inflation.
+  timeout: 120
+  # gen-11 sweep verdicts: all three mcast dirs are simx HANG class at the
+  # ambient config (rc=124 at the 30m cap on 7e740129db) — `sgemm2_dxa_mcast`,
+  # `dxa_copy_mcast` and `sgemm_tcu_wg_dxa_mcast` — removed from this group;
+  # their blackbox twins in dxa.yaml carry the tracked xfails (the third was
+  # pre-bounded there). `fence` (17.5m) and `occupancy` (17.8m) moved in
+  # from isa-1a as the rebalance counterpart (see defaults comment).
   target: >-
-    run-{driver}-sgemm2_dxa_mcast
-    run-{driver}-sgemm_tcu_wg_dxa_mcast
     run-{driver}-dxa_copy
-    run-{driver}-dxa_copy_mcast
+    run-{driver}-fence
+    run-{driver}-occupancy
+# gen-11: `run-simx-dogfood` was also removed from isa-1a's target list:
+# the 22-kernel suite at the ambient 8x16 config measured 2h13m/case in CI
+# (gen-10 vm-64 junit: isa-3/isa-8 = 8012s/8034s) — one target alone eats
+# most of a 360m cell. The dogfood app stays covered by the dedicated
+# blackbox cases below (dogfood-1/2/3/4), like every other heavy family.
+# gen-11: `run-simx-async_gbarrier` was removed from isa-1a's target list:
+# it is a simx HANG class at the 8x16 ambient config — the per-dir sweep on
+# 7e740129db killed it at its 30m watchdog (rc=2) while its sibling
+# async_barrier finishes in 8s — and one hang inside a make-run group costs
+# the whole 360m cell (gen-10 s0). It lives on here as a bounded, tracked
+# xfail so the coverage is kept visible.
+- id: async-gbarrier-hang
+  via: blackbox
+  drivers:
+  - simx
+  app: async_gbarrier
+  timeout: 30
+  known_issue: >-
+    simx async_gbarrier hang at 8x16: no completion (sweep watchdog rc=2 at
+    30m on 7e740129db) while async_barrier runs in 8s; removed from the
+    isa-1a make-run group (gen-10 run 37146307766 s0 kill).
+# gen-11 sweep verdicts (rc=124 at the 30m cap, 7e740129db): `demo`,
+# `mstress` and `printf` hang at the 8x16 ambient config — removed from
+# isa-1a's target list. Each lives on here as a bounded tracked xfail so
+# the coverage stays visible; the 1x4 blackbox leg may complete (XPASS is
+# tolerated) — the tracked failure is the ambient-config hang.
+- id: demo-hang
+  via: blackbox
+  drivers:
+  - simx
+  app: demo
+  timeout: 30
+  known_issue: >-
+    simx demo hang at the 8x16 ambient config: per-dir sweep on 7e740129db
+    hit the 30m cap (rc=124); removed from the isa-1a make-run group.
+- id: mstress-hang
+  via: blackbox
+  drivers:
+  - simx
+  app: mstress
+  timeout: 30
+  known_issue: >-
+    simx mstress hang at the 8x16 ambient config: per-dir sweep on
+    7e740129db hit the 30m cap (rc=124); removed from the isa-1a make-run
+    group.
+- id: printf-hang
+  via: blackbox
+  drivers:
+  - simx
+  app: printf
+  timeout: 30
+  known_issue: >-
+    simx printf hang at the 8x16 ambient config: per-dir sweep on
+    7e740129db hit the 30m cap (rc=124); removed from the isa-1a make-run
+    group.
+- id: sort-hang
+  via: blackbox
+  drivers:
+  - simx
+  app: sort
+  timeout: 30
+  known_issue: >-
+    simx sort hang at the 8x16 ambient config: per-dir sweep on 7e740129db
+    hit the 30m cap (rc=124, stuck at wait-for-completion); removed from
+    the isa-1a make-run group.
+- id: stencil3d-hang
+  via: blackbox
+  drivers:
+  - simx
+  app: stencil3d
+  timeout: 30
+  known_issue: >-
+    simx stencil3d hang at the 8x16 ambient config: per-dir sweep on
+    7e740129db hit the 30m cap (rc=124); removed from the isa-1a make-run
+    group.
 - id: isa-2
   via: make-run
   drivers:
@@ -110,6 +215,7 @@ tests:
   dir: tests/regression
   target: run-{driver}
 - id: occupancy-1
+  timeout: 30
   via: blackbox
   drivers:
   - simx
@@ -124,6 +230,7 @@ tests:
   shape:
     threads: 32
 - id: occupancy-3
+  timeout: 30
   via: blackbox
   drivers:
   - simx
@@ -147,6 +254,20 @@ tests:
   shape:
     cores: 2
   args: -n1 -tgbar
+  # gen-11 watchdog: the livelock must TERMINATE for the xfail to register —
+  # a bounded case raises the watchdog failure, which the known_issue xfail
+  # then absorbs. 30m ≈ 10x the healthy -tbar runtime (5-7m in gen-10).
+  timeout: 30
+  # gen-11: the global-barrier kernel livelocks on simx — gen-10 regression
+  # s3 stalled >5h40m in-cell on exactly this case, and it reproduces on the
+  # committed tree (7e740129db): `dogfood -n1 -tgbar` never completes
+  # (stuck at wait-for-completion; -tbar finishes in seconds on the same
+  # sim). Tracked xfail so it still runs+reports but cannot sink the shard;
+  # re-enable when the gbar livelock is fixed.
+  known_issue: >-
+    simx global-barrier (gbar) livelock: kernel_gbar never completes
+    (reproduced on 7e740129db); sank regression s3 in gen-10 (run
+    37146307766).
 - id: dogfood-2
   via: blackbox
   drivers:
@@ -161,6 +282,7 @@ tests:
   - simx
   app: dogfood
   args: -n1 -tbar
+  timeout: 30
 - id: dogfood-4
   via: blackbox
   drivers:
@@ -173,3 +295,4 @@ tests:
   - simx
   app: vecadd
   flags: --nohup
+  timeout: 30

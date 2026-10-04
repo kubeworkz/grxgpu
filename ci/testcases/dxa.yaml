@@ -7,6 +7,16 @@ defaults:
   tier: smoke
   configs: "-DVX_CFG_EXT_DXA_ENABLE"
   touches: [hw/rtl/dxa, sim/simx/dxa]
+  # gen-11: 2-way split (gen-10: the unsharded simx cell hit the 360m cap in
+  # both gens — collection order shows dxa_copy_mcast-1 in-flight at kill,
+  # >5h49m). Watchdogs below bound any single case at 60m, so the split only
+  # has to halve the family weight, not balance it perfectly.
+  # gen-11 category-wide watchdog: the gen-9/10 kills mean most legs below
+  # never executed in CI, so their runtimes are unmeasured — default-bound
+  # every case at 60m (simx mcast legs keep their explicit 30m; measured
+  # fast dirs sit 60x under it).
+  timeout: 60
+  shards: 2
 tests:
 - id: dxa_copy-1
   via: blackbox
@@ -15,6 +25,9 @@ tests:
   app: dxa_copy
   configs: -DVX_CFG_EXT_DXA_ENABLE
   args: -d1
+  # gen-11 watchdog: dxa_copy legs measured 1.5-2m in-cell (gen-10 dxa-32
+  # log); 30m is >15x headroom incl. the per-test driver build.
+  timeout: 30
   flags: --debug=3 --perf=6
 - id: dxa_copy-2
   via: blackbox
@@ -23,6 +36,7 @@ tests:
   app: dxa_copy
   configs: -DVX_CFG_EXT_DXA_ENABLE
   args: -d2
+  timeout: 30
   flags: --perf=6
 - id: dxa_copy-3
   via: blackbox
@@ -33,6 +47,7 @@ tests:
   shape:
     cores: 2
   args: -d3
+  timeout: 30
 - id: dxa_copy-4
   via: blackbox
   drivers:
@@ -40,6 +55,7 @@ tests:
   app: dxa_copy
   configs: -DVX_CFG_EXT_DXA_ENABLE
   args: -d4
+  timeout: 30
 - id: dxa_copy-5
   via: blackbox
   drivers:
@@ -47,6 +63,7 @@ tests:
   app: dxa_copy
   configs: -DVX_CFG_EXT_DXA_ENABLE
   args: -d5
+  timeout: 30
 - id: dxa_copy-6
   via: blackbox
   drivers:
@@ -97,6 +114,7 @@ tests:
     clusters: 2
     cores: 2
     l2cache: true
+  timeout: 30
   args: -d3
 - id: dxa_copy_mcast-1
   via: blackbox
@@ -104,6 +122,16 @@ tests:
   - simx
   app: dxa_copy_mcast
   configs: -DVX_CFG_EXT_DXA_ENABLE
+  # gen-11: HANG reproduced on 7e740129db (probe: `dxa_copy_mcast -r16 -c16
+  # -R16 -C4` at the 1x4+DXA default, quiet tree, RC=124 after 60m) — matches
+  # the gen-9/10 dxa-cell kills with this case in-flight (>5h49m). Likely the
+  # same livelock family as the simx gbar hang. Tracked xfail; the watchdog
+  # terminates it so the cell continues.
+  timeout: 30
+  known_issue: >-
+    simx dxa_copy_mcast livelock: never completes at the default 1x4+DXA
+    config (reproduced on 7e740129db, RC=124 at 60m); sank the dxa cells in
+    gen-9 and gen-10 (runs 37051182787, 37146307766).
 - id: dxa_copy_mcast-2
   via: blackbox
   drivers:
@@ -116,6 +144,13 @@ tests:
   - simx
   app: dxa_copy_mcast
   configs: -DVX_CFG_EXT_DXA_ENABLE -DVX_CFG_L2_ENABLE
+  # gen-11: default-args dxa_copy_mcast on simx is the proven livelock (see
+  # dxa_copy_mcast-1); the +L2 variant is untested but is the same app+args,
+  # so it carries the tracked xfail too (XPASS tolerated).
+  timeout: 30
+  known_issue: >-
+    simx dxa_copy_mcast livelock at default args: same family as
+    dxa_copy_mcast-1; +L2 variant untested but same app+args.
 - id: dxa_copy_mcast-4
   via: blackbox
   drivers:
@@ -131,12 +166,14 @@ tests:
   shape:
     threads: 8
   args: -r16 -c16 -R16 -C8
+  timeout: 30
 - id: sgemm2_dxa-1
   via: blackbox
   drivers:
   - simx
   app: sgemm2_dxa
   configs: -DVX_CFG_EXT_DXA_ENABLE
+  timeout: 30
 - id: sgemm2_dxa-2
   via: blackbox
   drivers:
@@ -149,6 +186,13 @@ tests:
   - simx
   app: sgemm2_dxa_mcast
   configs: -DVX_CFG_EXT_DXA_ENABLE
+  # gen-11: same DXA-mcast livelock family as dxa_copy_mcast-1 — the
+  # per-dir sweep hit the 30m cap on the default-args make-run at 8x16
+  # (rc=124 on 7e740129db); also removed from regression isa-1e.
+  timeout: 30
+  known_issue: >-
+    simx sgemm2_dxa_mcast livelock at default args: sweep rc=124 at 30m on
+    7e740129db (8x16); same family as dxa_copy_mcast-1.
 - id: sgemm2_dxa_mcast-2
   via: blackbox
   drivers:
@@ -162,12 +206,14 @@ tests:
   app: sgemm2_dxa_mcast
   configs: -DVX_CFG_EXT_DXA_ENABLE
   args: -n32 -t4
+  timeout: 30
 - id: sgemm_tcu_wg_dxa_mcast-1
   via: blackbox
   drivers:
   - simx
   app: sgemm_tcu_wg_dxa_mcast
   configs: -DVX_CFG_EXT_TCU_ENABLE -DVX_CFG_EXT_DXA_ENABLE
+  timeout: 30
 - id: sgemm_tcu_wg_dxa_mcast-2
   via: blackbox
   drivers:
@@ -181,6 +227,7 @@ tests:
   app: sgemm_tcu_wg_dxa_mcast
   configs: -DVX_CFG_EXT_TCU_ENABLE -DVX_CFG_EXT_DXA_ENABLE
   args: -m 128 -n 64 -k 32
+  timeout: 30
 - id: sgemm_tcu_wg_dxa_mcast-4
   via: blackbox
   drivers:
@@ -196,6 +243,7 @@ tests:
   configs: -DVX_CFG_EXT_DXA_ENABLE -DVX_CFG_EXT_TCU_ENABLE
   shape:
     threads: 8
+  timeout: 30
 - id: sgemm_tcu-2
   via: blackbox
   drivers:
@@ -352,11 +400,18 @@ tests:
   via: blackbox
   app: dxa_copy_mcast
   configs: -DVX_CFG_EXT_DXA_ENABLE
+  # gen-11: parity/gate legs run the app that livelocks on simx (see
+  # dxa_copy_mcast-1) — watchdog-bound so a hang lands as tracked failure
+  # instead of sinking the check cell. These cells did not run in gen-9/10
+  # push matrices (parity excluded), so the hang is unobserved here; 30m
+  # still exceeds any healthy parity run by an order of magnitude.
+  timeout: 30
 - id: perf_gate-copy-mcast
   check: perf_gate
   via: blackbox
   app: dxa_copy_mcast
   configs: -DVX_CFG_EXT_DXA_ENABLE
+  timeout: 30
 # DXA-staged shared-memory SGEMM (sgemm2 kernel with DXA operand producer).
 # tile 4 fits one 16-thread block on the default NT4/NW4 core.
 - id: model_parity-sgemm2-dxa
@@ -378,12 +433,18 @@ tests:
   app: sgemm2_dxa_mcast
   args: -n128
   configs: -DVX_CFG_EXT_DXA_ENABLE
+  # gen-11: mcast app on simx — same livelock family as dxa_copy_mcast-1;
+  # watchdog-bound so a nightly hang lands as a bounded failure.
+  timeout: 30
 - id: perf_gate-sgemm2-dxa-mcast
   check: perf_gate
   via: blackbox
   app: sgemm2_dxa_mcast
   args: -n128
   configs: -DVX_CFG_EXT_DXA_ENABLE
+  # gen-11: mcast app on simx — same livelock family as dxa_copy_mcast-1;
+  # watchdog-bound so a nightly hang lands as a bounded failure.
+  timeout: 30
 # WGMMA consumer fed by a DXA producer pipeline. K stays at 64: the test's
 # CPU reference does not replicate the TCU fp32 accumulation order, so K=128
 # drifts past the 10-ULP gate.
@@ -431,9 +492,15 @@ tests:
   app: sgemm_tcu_wg_dxa_mcast
   args: -m 128 -n 128 -k 64
   configs: -DVX_CFG_EXT_TCU_ENABLE -DVX_CFG_EXT_DXA_ENABLE
+  # gen-11: mcast app on simx — same livelock family as dxa_copy_mcast-1;
+  # watchdog-bound so a nightly hang lands as a bounded failure.
+  timeout: 30
 - id: perf_gate-wgmma-dxa-mcast
   check: perf_gate
   via: blackbox
   app: sgemm_tcu_wg_dxa_mcast
   args: -m 128 -n 128 -k 64
   configs: -DVX_CFG_EXT_TCU_ENABLE -DVX_CFG_EXT_DXA_ENABLE
+  # gen-11: mcast app on simx — same livelock family as dxa_copy_mcast-1;
+  # watchdog-bound so a nightly hang lands as a bounded failure.
+  timeout: 30

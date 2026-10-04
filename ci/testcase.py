@@ -72,6 +72,14 @@ class Spec:
         # its failure does not fail CI. Falls back to the file-level default so a
         # wholly-broken category can mark every case in one place.
         self.known_issue = entry.get("known_issue", defaults.get("known_issue", ""))
+        # Per-case watchdog (minutes, float ok). None = unbounded (legacy).
+        # Bounded cases raise a watchdog failure when the limit expires; a
+        # known_issue case that times out xfails (the hang IS the documented
+        # issue), so one livelocked app can no longer sink a whole matrix
+        # cell until the GH Actions job cap does.
+        self.timeout = entry.get("timeout", defaults.get("timeout", None))
+        if self.timeout is not None:
+            self.timeout = float(self.timeout)
         # sharding: 'shards: N' (or 'shards: {N: <authored ids>}') splits the
         # category into N matrix cells so no cell exceeds the 6h GH Actions
         # per-job cap. Case -> shard via stable md5(category:id) hash, so the
@@ -248,27 +256,60 @@ def load_all(testcases_dir=TESTCASES_DIR):
     return cases
 
 
-def execute(argv, env_extra=None, cwd=None):
-    """Run argv with CONFIGS et al. merged into the environment; return exit code."""
+def _kill_proc_group(proc):
+    """SIGKILL the child's whole process group. make-run cases spawn make ->
+    app -> sim chains; killing only the direct child would orphan the sim,
+    which keeps burning a runner core for the rest of the job."""
+    import signal
+    try:
+        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
+        try:
+            proc.kill()
+        except ProcessLookupError:
+            pass
+
+
+def execute(argv, env_extra=None, cwd=None, timeout=None):
+    """Run argv with CONFIGS et al. merged into the environment; return exit code.
+    `timeout` is seconds (from Spec.timeout minutes); expiry SIGKILLs the
+    child's whole process group and raises subprocess.TimeoutExpired."""
     env = dict(os.environ)
     if env_extra:
         env.update(env_extra)
-    return subprocess.run(argv, env=env, cwd=cwd).returncode
+    if not timeout:
+        return subprocess.run(argv, env=env, cwd=cwd).returncode
+    proc = subprocess.Popen(argv, env=env, cwd=cwd, start_new_session=True)
+    try:
+        return proc.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        _kill_proc_group(proc)
+        proc.wait()
+        raise
 
 
-def execute_capture(argv, env_extra=None, cwd=None):
+def execute_capture(argv, env_extra=None, cwd=None, timeout=None):
     """Like execute(), but also return the combined stdout/stderr text. Output
     is still echoed line-by-line so CI logs keep the full run."""
     env = dict(os.environ)
     if env_extra:
         env.update(env_extra)
     proc = subprocess.Popen(argv, env=env, cwd=cwd, stdout=subprocess.PIPE,
-                            stderr=subprocess.STDOUT, text=True, errors="replace")
+                            stderr=subprocess.STDOUT, text=True, errors="replace",
+                            start_new_session=True)
     lines = []
-    for line in proc.stdout:
-        sys.stdout.write(line)
-        lines.append(line)
-    proc.stdout.close()
+    import time as _time
+    deadline = (_time.monotonic() + timeout) if timeout else None
+    try:
+        for line in proc.stdout:
+            if deadline is not None and _time.monotonic() > deadline:
+                _kill_proc_group(proc)
+                proc.wait()
+                raise subprocess.TimeoutExpired(argv, timeout)
+            sys.stdout.write(line)
+            lines.append(line)
+    finally:
+        proc.stdout.close()
     return proc.wait(), "".join(lines)
 
 
