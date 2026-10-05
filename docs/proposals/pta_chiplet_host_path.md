@@ -2,7 +2,8 @@
 
 **Status:** Proposal. No RTL requested. It asks for three numbers to be assigned,
 and then for an Emulation CP implementation behind a capability bit — the staging
-`CMD_DRAW` took.
+`CMD_DRAW` took. **Amended 2026-10-04 (§9):** the GEMM is also asked for as a
+member of the runtime's command list, so that a network is one doorbell.
 **Scope:** `VX_types.toml`, `sim/common/cmd_processor.{h,cpp}`,
 `sim/simx/processor.cpp`, `sw/runtime/include/vortex2.h`, `sw/runtime/common/`
 (read, not changed). Nothing here patches grxgpu.
@@ -220,6 +221,7 @@ are already where this command looks for them.
 | 2 | Refused: the tile cannot do this as it is configured (an impairment it does not build, a bank it does not have). `PTA_IRQ_STATUS.ERR` is raised | Untouched |
 | 3 | Lost: a reset of the chiplet discarded it | Untouched |
 | 4 | Not issued: the CP could not use the descriptor (no such instance, a version or format it does not know) and sent the chiplet nothing | Untouched |
+| 5 | Not run: it asked to run only after a success, and the command before it did not end done (§9) | Untouched |
 
 The first three are what the twin reports today. The rule behind them is the map's:
 a command the device cannot honour is refused and never dropped, because silence
@@ -268,7 +270,7 @@ typedef struct {
 } vx_pta_gemm_info_t;
 
 typedef struct {
-    uint32_t status;        // 1 done, 2 refused, 3 lost, 4 not issued
+    uint32_t status;        // 1 done, 2 refused, 3 lost, 4 not issued, 5 not run
     uint32_t gemm_index;
     uint64_t saturations;
 } vx_pta_gemm_result_t;
@@ -285,6 +287,10 @@ The runtime builds the descriptor, as it does a draw's, and copies the three
 result fields to `host_result` before the event signals. With the capability bit
 clear the call returns "not supported". There is no fallback to stream in its
 place, which is the one way this differs from `vx_enqueue_draw`.
+
+§9 asks for the same GEMM as a member of a command list. That is the form GRXCP
+expects to use for anything with more than one layer, and this call is the list
+of one.
 
 ---
 
@@ -326,8 +332,8 @@ removed each, which the gate has to fail.
 
 1. **Assign the numbers**: the DCR base and stride, the opcode, the capability
    bit. That alone lets GRXCP write its side against something real.
-2. **The Emulation CP**, behind the bit: decode the range, decode the command.
-   SimX first.
+2. **The Emulation CP**, behind the bit: decode the range, decode the command,
+   in the ring and as a step of a bundle (§9). SimX first.
 3. **GRXCP replaces its three hooks** with `vx_enqueue_dcr_read`,
    `vx_enqueue_dcr_write` and the new call. Its host round trip goes: today the
    operands are copied out of GPU memory to reach the twin and the results copied
@@ -363,9 +369,10 @@ processor, it is the same test of the same arithmetic through your path.
 4. **What a malformed command does.** §4 has it retire with status 4. The queue
    also has `Q_ERROR` at 0x12C, and we found nothing in the Emulation CP that
    sets it, so we do not know your convention for it.
-5. **Where the result goes.** §4 writes three fields back into the descriptor in
-   device memory, which costs the runtime a read to fetch them. A host slot, as
-   the completion's sequence number has, would save that.
+5. ~~**Where the result goes.**~~ *Withdrawn by §9.* §4 writes three fields back
+   into the descriptor in device memory, and this asked whether a host slot would
+   be better. A host slot holds one result and a list has many, so the descriptor
+   it is.
 6. **One queue.** Whether serial GPU and chiplet work is acceptable until
    multi-queue lands, or whether this is a reason to bring it forward.
 7. **Weights that stay resident.** Version 1 names the weights in every command
@@ -390,6 +397,8 @@ you.** Concretely:
   API, no change to any AFU.
 - The GEMM as one descriptor command behind a capability bit, with its RTL mirror
   deferred, as `CMD_DRAW`'s is.
+- That command as a member of the runtime's command list from the start (§9), so
+  that a network of GEMMs is one doorbell and one completion.
 - The model behind hooks that are null by default, so that a build without it is
   unchanged and advertises nothing.
 
@@ -403,3 +412,109 @@ one-directional dependency in GRXCP's `AGENTS.md` §2. Everything in §2 was rea
 from your `main` at the baseline above; if any of it is stale, that is the first
 thing to tell us. The twin and its gate are `src/backends/pta_chiplet/` in GRXCP.
 The twin is C99 and the standard library, and its gate is one C++ file.
+
+---
+
+## 9. Amendment, 2026-10-04: more than one GEMM a doorbell
+
+**What changed our mind.** GRXCP's dispatch model (`docs/designs/pta_dispatch.py`
+there, its board plan's step S3) priced a GEMM on the chiplet against the same
+GEMM on the G100. On the plan's own assumptions the chiplet's time for a small
+network is microseconds: the two layers of GRXCP's reference network, at a batch
+of 64, are 3.74 µs of tile and link. Nothing measured in this program gets a
+command to a device for less. The one host round trip that has been measured, the
+c930's to its own NPU, is 10.9 µs. So a call that takes one GEMM and returns is a
+design in which the round trip is the cost, and §4 proposed exactly that call.
+
+**What the G100 already has, and §4 did not use.** Read out of this repo:
+
+- `vx_enqueue_commands` submits an ordered list as one ring batch. In
+  `vortex2.h`'s words, "the runtime writes every command into the CP ring, rings
+  the doorbell once, and polls completion once at the end".
+- `vx_enqueue_draw` packs the same list into a resident descriptor and submits
+  one `CMD_DRAW`, falling back to the ring batch where the CP does not decode it.
+- `vx_command_t` has two members: a launch and a DCR write.
+- In the Emulation CP a bundle's step is executed by `exec_inline_cmd_`. A launch
+  waits for its drain, a DCR write, a DCR read and a cache flush apply inline, and
+  anything else is a no-op.
+
+So the mechanism for a network in one round trip exists. What is missing is a
+GEMM on the chiplet as a member of the list. We wrote §4 without having read
+that part of the header, and this section is the correction.
+
+**The ask is three things.**
+
+1. **A third member of `vx_command_t`**, `VX_COMMAND_PTA_GEMM`, carrying §4's
+   info and result pointers and legal in both calls. In `vx_enqueue_commands`
+   each one becomes a `CMD_PTA_GEMM` in the ring, which needs nothing beyond §4.
+   A register write to the chiplet between two GEMMs is a member already: it is
+   a DCR write (§3).
+2. **`CMD_PTA_GEMM` as a bundle step.** `exec_inline_cmd_` starts it, and the
+   walk waits for the chiplet to end it as it waits for a launch to drain.
+3. **One flag in the descriptor: only after success.** Bit 16 of `target`, the
+   first of its flags. A command with it set runs only if the PTA command before
+   it in the same queue ended done, or if there is none before it. Otherwise it
+   ends at once with status 5, "not run", and its results are untouched. Without
+   the flag, a layer whose input was refused would run on whatever was in memory
+   and report done.
+
+**What it settles in §7.** Question 5, where the result goes: in the descriptor,
+as §4 has it. A host slot holds one result and a list has many.
+`Q_LAST_DCR_RSP` shows what one slot costs: after a bundle with several
+`CMD_DCR_READ` steps, only the last response can be read. If the runtime
+allocates a list's descriptors side by side, one read after the batch fetches
+every result.
+
+**A hazard this makes worth stating.** The Emulation CP retires an opcode it does
+not know as a NOP, in the ring ("Unknown opcode — retire as NOP") and in a bundle
+(the default arm of `exec_inline_cmd_`). A command processor without this
+proposal would therefore complete a list of GEMMs having run none of them. The
+capability bit is what prevents that. The descriptor is what catches it if the
+bit is ever wrong: `status` is zero until the CP writes it, so a status still
+zero after its command has retired means the command never ran. The runtime has
+to report that as a failure and never as a success.
+
+**What it does not give.** Two things, and the second is the larger.
+
+- One layer's results still go to GPU memory and come back as the next layer's
+  operands.
+- Whatever turns one layer's sums into the next layer's operands is a kernel
+  launch in the same list. The list saves that launch's round trip and none of
+  its time on the device.
+
+Keeping a network on the chiplet from its first operand to its last result needs
+the chiplet's activation stage. GRXCP's plan puts one there. Its register map has
+a presence bit for it and no registers, and its twin does not model it. So this
+proposal cannot say what such a command computes, and does not try. It reserves
+the flag bits the command would need and defines none of them:
+
+| Bit of `target` | Reserved for |
+|---|---|
+| 17 | Activations are the previous command's results, through the activation stage |
+| 18 | Results stay on the chiplet |
+| 19 | The bank already holds these weights (§7, question 7) |
+
+A version 1 command processor ends a descriptor with any of the three set as
+status 4.
+
+**What it is worth,** on GRXCP's model, for that reference network at a batch of
+64. The host's round trip is taken as the c930's measured 10.9 µs, which is a
+stand-in: nobody has measured yours. The launch between the two layers is 6.9 to
+30.5 µs on the device, GRXCP's own simx figures on other kernels, and its
+arithmetic is not priced.
+
+| How it is submitted | Round trips | Total | The chiplet is |
+|---|---|---|---|
+| §4 as first proposed: a GEMM, the launch, a GEMM | 3 | 43.4 to 67 µs | 9% to 6% |
+| This amendment: one list | 1 | 21.6 to 45.1 µs | 17% to 8% |
+| One list, with that step on the chiplet | 1 | 14.7 µs | 26% |
+
+The list removes two round trips, 21.8 µs on these figures, whatever the launch
+costs. The last row is why the activation stage is the next thing to specify. It
+is GRXCP's to specify first, in its own register map, and it would come to you
+as a further amendment and not as part of this one.
+
+**For reviewers of the amendment.** Nothing in §1 to §8 is withdrawn except
+question 5 of §7. The three numbers to assign are the same three. The Emulation
+CP work grows by one `vx_command_t` member, one arm of `exec_inline_cmd_` with
+its wait, and one flag.
