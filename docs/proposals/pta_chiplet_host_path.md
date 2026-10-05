@@ -4,6 +4,8 @@
 and then for an Emulation CP implementation behind a capability bit — the staging
 `CMD_DRAW` took. **Amended 2026-10-04 (§9):** the GEMM is also asked for as a
 member of the runtime's command list, so that a network is one doorbell.
+**Amended again (§10):** the chiplet's activation stage, so that nothing has to
+be launched between a network's layers.
 **Scope:** `VX_types.toml`, `sim/common/cmd_processor.{h,cpp}`,
 `sim/simx/processor.cpp`, `sw/runtime/include/vortex2.h`, `sw/runtime/common/`
 (read, not changed). Nothing here patches grxgpu.
@@ -385,6 +387,10 @@ processor, it is the same test of the same arithmetic through your path.
 8. **Counting bytes.** If the unit counted what it moved each way, GRXCP's link
    model (`docs/designs/pta_chiplet_link.py`) could be checked against a run
    instead of against itself. Useful, and not part of step 2.
+9. **The grant across a chain, once there is more than one queue** (§10). A
+   layer that holds its operands for the next needs that next command to be the
+   chiplet's next. With one queue it is. With several it is the arbiter's to
+   keep.
 
 ---
 
@@ -497,6 +503,8 @@ the flag bits the command would need and defines none of them:
 A version 1 command processor ends a descriptor with any of the three set as
 status 4.
 
+*§10 defines bits 17 and 18, and moves what 17 means.* Bit 19 is still reserved.
+
 **What it is worth,** on GRXCP's model, for that reference network at a batch of
 64. The host's round trip is taken as the c930's measured 10.9 µs, which is a
 stand-in: nobody has measured yours. The launch between the two layers is 6.9 to
@@ -518,3 +526,150 @@ as a further amendment and not as part of this one.
 question 5 of §7. The three numbers to assign are the same three. The Emulation
 CP work grows by one `vx_command_t` member, one arm of `exec_inline_cmd_` with
 its wait, and one flag.
+
+---
+
+## 10. Amendment, 2026-10-04: the activation stage
+
+**What changed.** §9 reserved two flag bits for a GEMM that takes the previous
+one's results and keeps its own on the chiplet, and defined neither, because
+GRXCP's register map had a presence bit for the chiplet's activation stage and
+nothing that said what the stage computes. It says now
+(`docs/designs/pta_chiplet_regmap.md` §8 in GRXCP), and GRXCP's twin runs it.
+This section defines the two bits and asks for what they turned out to need: a
+third bit and three fields.
+
+**What the stage computes.** For each of a GEMM's `M × N` complete sums, with
+the bias of its output `n`:
+
+```
+v = max(sum + bias[n], 0)
+v = round(v / 2^shift)              a half rounds up
+a = min(v, 2^(bits-1) - 1)
+```
+
+A bias, a ReLU, a rescale back to an operand, and the operand's clamp. It is the
+step GRXCP's reference network takes between its layers. **The chiplet computes
+it. Nothing here asks the G100 to.** The command processor carries six more
+facts to the chiplet and brings one back.
+
+**The flags,** in `target`:
+
+| Bit | Name | Meaning |
+|---|---|---|
+| 16 | only after success | §9 |
+| 17 | from held | This command's activations are the operands the PTA command before it held. `act_addr` is not read |
+| 18 | hold | The operands this command produces stay on the chiplet for the next PTA command. `out_addr` is not written. Needs bit 20 |
+| 19 | | Still reserved, for resident weights |
+| 20 | activate | The results go through the stage. What the command produces is operands, not sums |
+
+Bit 17 has moved since §9 reserved it. §9 put the stage on the command that takes
+the operands. It belongs on the one that produces them, whose bias and shift it
+uses. So taking them is a flag with nothing to configure, and asking for the
+stage is a flag of its own.
+
+**Bit 20 without bit 18** writes `M × N` operands to `out_addr`, in the operand
+format that `format` names, one byte each in format 0, where the command would
+have written sums. That buffer can be the next command's `act_addr` as it
+stands. So bit 20 alone removes the kernel launch between two layers, which §9
+said a list could not. Bit 18 also removes the intermediate's two crossings of
+the link.
+
+**Version 2 of the descriptor** is 80 bytes: version 1's 64, unchanged, and
+then
+
+| Offset | Field | Written by | Meaning |
+|---|---|---|---|
+| 0x40 | `act` | host | [5:0] the shift, 0 to 62; [13:8] the operand's width in bits, clamp included, 2 to the tile's `DIN_W`; the rest zero |
+| 0x44 | `clips` | CP | Outputs the stage clamped |
+| 0x48 | `bias_addr` | host | `N` signed 64-bit values in the sums' own units, or zero for no bias |
+
+`size_version` says 80 and 2. A version 1 descriptor is still valid and asks
+nothing of the stage. A command processor that decodes only version 1 ends a
+version 2 descriptor as status 4, as §4 already has it.
+
+**Held operands are the next command's or nobody's.** That is the chiplet's
+rule. The command processor does not have to enforce it, only not to break it.
+Any PTA command's start takes the held operands or discards them. A command
+between two layers leaves nothing for the second, and so does a layer that was
+refused. A calibration between two layers does not take them. Three things
+follow here.
+
+- A command with bit 17 that finds nothing held, or finds operands that are not
+  its `M × K`, ends as status 2, refused. It never runs on what an earlier
+  network left behind.
+- So a held chain does not need bit 16: the chiplet refuses the second layer if
+  the first did not end done. Bit 16 is still what protects a chain whose
+  operands go through GPU memory.
+- **With more than one queue, a chain has to keep the PTA resource.** Two queues
+  taking turns at `RES_PTA` would put one queue's command between another's two
+  layers, and the second layer would be refused. That fails safe, and it fails.
+  When multi-queue arrives, a command that ends holding should keep the grant
+  for its queue until that queue's next PTA command has started. With one queue,
+  which is today, there is nothing to do. §7, question 9.
+
+**What is refused** is the chiplet's to decide, and the command processor needs
+to know none of it. GRXCP's map has the list: a flag on a chiplet without the
+stage, bit 18 without bit 20, a shift or a width out of range, more operands to
+hold than the chiplet has room for, and bit 17 with nothing held or the wrong
+shape. Each ends as status 2 with the results untouched. The command processor
+ends as status 4 only what it cannot parse itself.
+
+**How a runtime knows.** Two facts, from two places. Whether the chiplet has the
+stage, and how many operands it can hold, are in the chiplet's own `PTA_CAPS2`,
+bit 17 and bits [24:20], read through the DCR window of §3. Whether the command
+processor decodes version 2 is yours to advertise. We would suggest one more bit
+of `CP_DEV_CAPS`, 28, beside §7's 27.
+
+**In a simulator** the twin takes all of it as it stands.
+
+| Here | The twin |
+|---|---|
+| Bit 20, activate | `PTA_TWIN_CMD_ACT` |
+| Bit 18, hold | `PTA_TWIN_CMD_HOLD` |
+| Bit 17, from held | `PTA_TWIN_CMD_FROM_HELD` |
+| `act` | `act_shift` and `act_bits` |
+| `bias_addr` | `bias` |
+| `clips` | `clips` |
+
+Its build has one more number, how many operands the stage can hold. Zero builds
+a chiplet without the stage, and that is what a simulator should default to
+until a caller asks for one.
+
+**The call.** `vx_pta_gemm_info_t` gains the flags, the shift, the width, and a
+bias buffer with its offset. `vx_pta_gemm_result_t` gains the clip count.
+Nothing else in the API moves.
+
+**What it is worth.** The row §9's table could not ask for, on the same figures
+and the same stand-in for the host's round trip:
+
+| How it is submitted | Round trips | Total | The chiplet is |
+|---|---|---|---|
+| §9: one list, a launch between the layers | 1 | 21.6 to 45.1 µs | 17% to 8% |
+| This: one list, the step on the chiplet | 1 | 14.7 µs | 26% |
+
+With the operands returned and not held it is a tenth of a microsecond more.
+
+**What GRXCP has shown, and has not.** The twin's gate holds a network kept on
+the chiplet to the same network brought out at every layer, element for
+element, with every impairment the tile builds enabled, on an 8 × 8 tile through
+three layers and on a 256 × 64 tile at the reference network's shape. A program
+beside it compiles grx930's accuracy harness into itself and holds the stage to
+the harness's own code on four networks. Two twins that are each wrong in one
+way fail the gate. Three things are not shown:
+
+- **No accuracy figure for a held network.** The networks in those checks are
+  random. The reference network, trained, held on the chiplet, has not been run.
+- **Nothing with noise against the harness.** The harness and the twin cut a
+  layer into different GEMMs and each GEMM draws from its own seed, so with
+  noise they are different runs. Under noise the held network is compared only
+  with itself brought out.
+- **The stage's time.** The twin gives it none. That takes the stage to sit in
+  the shot's own pipeline, one unit a column, which is a requirement GRXCP has
+  put on the chiplet and not something anyone has measured.
+
+**For reviewers of this amendment.** Nothing in §1 to §9 is withdrawn. The three
+numbers to assign are the same three, and one more capability bit if you take
+the suggestion. The Emulation CP work grows by a descriptor 16 bytes longer,
+three flags passed through to the model, a bias vector read from device memory,
+and one count written back.
