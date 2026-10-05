@@ -85,13 +85,13 @@ tests:
   # 360m in s0; dogfood-1 hung >5h40m in s3). 120m ≈ 3-4x the heaviest
   # rebalanced group's solo sum, covering measured CI-vs-solo inflation.
   timeout: 120
+  # gen-11 rebalance: io_addr (9.9m) + arith (6.5m) + sgemm_v1 (7.6m) +
+  # basic (4.7m) moved in from isa-1a
   target: >-
     run-{driver}-sgemm_tcu_wg_mx
     run-{driver}-sgemm_tcu_sp
     run-{driver}-sgemm_tcu_wg_sp
     run-{driver}-sgemm2_dxa
-    # gen-11 rebalance: io_addr (9.9m) + arith (6.5m) + sgemm_v1 (7.6m) +
-    # basic (4.7m) moved in from isa-1a
     run-{driver}-io_addr
     run-{driver}-arith
     run-{driver}-sgemm_v1
