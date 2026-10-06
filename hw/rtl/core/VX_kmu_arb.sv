@@ -84,8 +84,13 @@ module VX_kmu_arb import VX_gpu_pkg::*; #(
         wire in_push = valid_in[0] && ibuf_ready;
         wire out_pop = ibuf_valid_r && core_ready_out[ibuf_dst_r];
 
-        wire [NW_WIDTH:0] cluster_k_raw = data_in[0].cluster_size;
-        wire              is_first      = data_in[0].is_first_of_cluster;
+        // Struct-typed view of the head interface: member selection must go
+        // through a struct variable — data_in[0] is a packed slice, and
+        // selecting a member off it fails the full verilator build.
+        kmu_req_t head_data_s;
+        assign head_data_s = bus_in_if[0].data;
+        wire [NW_WIDTH:0] cluster_k_raw = head_data_s.cluster_size;
+        wire              is_first      = head_data_s.is_first_of_cluster;
 
         wire in_cluster = is_first || (members_left_r != '0);
         wire [LOG2_OUT-1:0] route_dst = in_cluster ? sticky_dst_r : rr_ptr_r;
