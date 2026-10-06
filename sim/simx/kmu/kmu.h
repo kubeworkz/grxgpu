@@ -59,8 +59,13 @@ public:
   // Distributor reuses it as the launch PC for injected fragment warps.
   uint64_t startup_pc() const { return PC_; }
 
-  // fill *req with next CTA; returns false when grid is exhausted
-  bool step(kmu_req_t* req);
+  // fill *req with next CTA; returns false when grid is exhausted.
+  // `requestor` selects among racing dispatchers: after a first-of-cluster
+  // CTA is emitted, the cluster's remaining members are leased to that
+  // requestor and every other requestor's step() returns false until the
+  // lease drains — a cluster scattered across cores can never satisfy its
+  // intra-core group barriers (DXA multicast livelock).
+  bool step(kmu_req_t* req, uint32_t requestor);
 
 protected:
   void on_reset();
@@ -81,6 +86,11 @@ private:
   // intra_offset walks within the cluster.
   uint32_t group_origin_[3];
   uint32_t intra_offset_[3];
+
+  // Cluster lease state (see step()).
+  bool     lease_active_;
+  uint32_t lease_owner_;
+  uint32_t lease_remaining_;
 
   friend class SimObject<Kmu>;
 };

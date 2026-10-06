@@ -40,6 +40,9 @@ void Kmu::on_reset() {
   // SimPlatform::on_reset().
   running_         = false;
   cta_id_          = 0;
+  lease_active_    = false;
+  lease_owner_     = 0;
+  lease_remaining_ = 0;
   group_origin_[0] = group_origin_[1] = group_origin_[2] = 0;
   intra_offset_[0] = intra_offset_[1] = intra_offset_[2] = 0;
 }
@@ -80,13 +83,29 @@ void Kmu::start() {
            && (cluster_dim_[2] > 0);
   if (running_) {
     cta_id_          = 0;
+    lease_active_    = false;
+    lease_owner_     = 0;
+    lease_remaining_ = 0;
     group_origin_[0] = group_origin_[1] = group_origin_[2] = 0;
     intra_offset_[0] = intra_offset_[1] = intra_offset_[2] = 0;
   }
 }
 
-bool Kmu::step(kmu_req_t* req) {
+bool Kmu::step(kmu_req_t* req, uint32_t requestor) {
   if (!running_) return false;
+
+  // Cluster lease: once a first-of-cluster CTA is emitted, all followers go
+  // to the same requestor until the cluster drains. The cluster's group
+  // barrier and multicast releases are per-core, so members must be
+  // co-resident on one core for the protocol to be satisfiable.
+  if (lease_active_ && (requestor != lease_owner_)) return false;
+  if (lease_active_) {
+    if (lease_remaining_ == 0) {
+      lease_active_ = false;
+    } else {
+      --lease_remaining_;
+    }
+  }
 
   // Effective block_idx = group_origin + intra_offset.
   uint32_t block_idx[3] = {
@@ -119,6 +138,12 @@ bool Kmu::step(kmu_req_t* req) {
   req->is_first_of_cluster = (intra_offset_[0] == 0)
                           && (intra_offset_[1] == 0)
                           && (intra_offset_[2] == 0);
+  if (req->is_first_of_cluster) {
+    uint32_t k = cluster_dim_[0] * cluster_dim_[1] * cluster_dim_[2];
+    lease_active_    = (k > 1);
+    lease_owner_     = requestor;
+    lease_remaining_ = (k > 1) ? (k - 1) : 0;
+  }
 
   // Advance the intra-cluster offset first (fills the cluster), then the
   // group_origin in (X, Y, Z) order when the inner loop wraps.

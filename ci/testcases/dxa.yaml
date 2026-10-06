@@ -122,16 +122,9 @@ tests:
   - simx
   app: dxa_copy_mcast
   configs: -DVX_CFG_EXT_DXA_ENABLE
-  # gen-11: HANG reproduced on 7e740129db (probe: `dxa_copy_mcast -r16 -c16
-  # -R16 -C4` at the 1x4+DXA default, quiet tree, RC=124 after 60m) — matches
-  # the gen-9/10 dxa-cell kills with this case in-flight (>5h49m). Likely the
-  # same livelock family as the simx gbar hang. Tracked xfail; the watchdog
-  # terminates it so the cell continues.
+  # Cluster-scatter livelock is fixed: the KMU lease pins a K-CTA cluster
+  # to one core and the window base is K-aligned, so rendezvous completes.
   timeout: 30
-  known_issue: >-
-    simx dxa_copy_mcast livelock: never completes at the default 1x4+DXA
-    config (reproduced on 7e740129db, RC=124 at 60m); sank the dxa cells in
-    gen-9 and gen-10 (runs 37051182787, 37146307766).
 - id: dxa_copy_mcast-2
   via: blackbox
   drivers:
@@ -144,13 +137,7 @@ tests:
   - simx
   app: dxa_copy_mcast
   configs: -DVX_CFG_EXT_DXA_ENABLE -DVX_CFG_L2_ENABLE
-  # gen-11: default-args dxa_copy_mcast on simx is the proven livelock (see
-  # dxa_copy_mcast-1); the +L2 variant is untested but is the same app+args,
-  # so it carries the tracked xfail too (XPASS tolerated).
   timeout: 30
-  known_issue: >-
-    simx dxa_copy_mcast livelock at default args: same family as
-    dxa_copy_mcast-1; +L2 variant untested but same app+args.
 - id: dxa_copy_mcast-4
   via: blackbox
   drivers:
@@ -167,9 +154,6 @@ tests:
     threads: 8
   args: -r16 -c16 -R16 -C8
   timeout: 30
-  known_issue: >-
-    simx dxa_copy_mcast livelock with 8 warps (-r16 -c16 -R16 -C8): CI
-    watchdog kill at 30m in run 37243146958; same family as dxa_copy_mcast-1.
 - id: sgemm2_dxa-1
   via: blackbox
   drivers:
@@ -189,13 +173,9 @@ tests:
   - simx
   app: sgemm2_dxa_mcast
   configs: -DVX_CFG_EXT_DXA_ENABLE
-  # gen-11: same DXA-mcast livelock family as dxa_copy_mcast-1 — the
-  # per-dir sweep hit the 30m cap on the default-args make-run at 8x16
-  # (rc=124 on 7e740129db); also removed from regression isa-1e.
+  # Cluster-scatter livelock is fixed: the KMU lease pins a K-CTA cluster
+  # to one core and the window base is K-aligned, so rendezvous completes.
   timeout: 30
-  known_issue: >-
-    simx sgemm2_dxa_mcast livelock at default args: sweep rc=124 at 30m on
-    7e740129db (8x16); same family as dxa_copy_mcast-1.
 - id: sgemm2_dxa_mcast-2
   via: blackbox
   drivers:
@@ -210,19 +190,15 @@ tests:
   configs: -DVX_CFG_EXT_DXA_ENABLE
   args: -n32 -t4
   timeout: 30
-  known_issue: >-
-    simx sgemm2_dxa_mcast livelock with -n32 -t4: CI watchdog kill at 30m in
-    run 37243146958; same family as dxa_copy_mcast-1.
 - id: sgemm_tcu_wg_dxa_mcast-1
   via: blackbox
   drivers:
   - simx
   app: sgemm_tcu_wg_dxa_mcast
   configs: -DVX_CFG_EXT_TCU_ENABLE -DVX_CFG_EXT_DXA_ENABLE
+  # Cluster-scatter livelock is fixed: the KMU lease pins a K-CTA cluster
+  # to one core and the window base is K-aligned, so rendezvous completes.
   timeout: 30
-  known_issue: >-
-    simx sgemm_tcu_wg_dxa_mcast livelock at default args: CI watchdog kill at
-    30m in run 37243146958; same family as dxa_copy_mcast-1.
 - id: sgemm_tcu_wg_dxa_mcast-2
   via: blackbox
   drivers:
@@ -237,9 +213,6 @@ tests:
   configs: -DVX_CFG_EXT_TCU_ENABLE -DVX_CFG_EXT_DXA_ENABLE
   args: -m 128 -n 64 -k 32
   timeout: 30
-  known_issue: >-
-    simx sgemm_tcu_wg_dxa_mcast livelock with -m 128 -n 64 -k 32: CI watchdog
-    kill at 30m in run 37243146958; same family as dxa_copy_mcast-1.
 - id: sgemm_tcu_wg_dxa_mcast-4
   via: blackbox
   drivers:
