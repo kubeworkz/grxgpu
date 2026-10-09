@@ -205,6 +205,39 @@ tests:
   - rtlsim
   app: sgemm_tcu_wg_dxa_mcast
   configs: -DVX_CFG_EXT_TCU_ENABLE -DVX_CFG_EXT_DXA_ENABLE
+# Gen-12: model_parity twin of sgemm_tcu_wg_dxa_mcast-2 (simx + rtlsim).
+# Root cause: VX_kmu_arb.sv g_sticky_cluster_demux NBA-ordering bug — on a
+# cluster-head beat (is_first), ibuf_dst_r <= route_dst read sticky_dst_r *before*
+# the NBA sticky_dst_r <= rr_ptr_r in the same if(is_first) arm took effect, so
+# each new cluster head was routed to the PREVIOUS group's socket, fragmenting
+# every K=4 group across two sockets and dropping the 4th member (rank 3) on
+# cores 1-3. Fix: on is_first, set ibuf_dst_r <= rr_ptr_r directly (the new
+# socket) instead of route_dst. Verified attempt-8 (dev server, 2026-10-07/08):
+# rtlsim RC=0 PASSED, instrs=58880, cycles=67763, IPC=0.869, elapsed 792s.
+# The RTL/SimX divergence was twofold: (1) the kmu_arb sticky-demux routing bug
+# (fixed), and (2) SimX's KMU co-located every cluster on the first requestor
+# core (always core0) instead of round-robin across cores like RTL's rr_ptr_r —
+# this cost +192 retired instrs (3 extra active cores x 64 per-core launch
+# overhead) and ~45% cycles (1-core serialize vs 4-core parallel). SimX's KMU
+# now round-robins cluster placement (kmu.cpp rr_ptr_), matching RTL.
+# Both legs are pinned to 1x4 here: CI_RTL_BOUND clamps only rtlsim/opae to
+# 1x4, so without an explicit shape the simx leg runs ambient (8x16) and the
+# round-robin placement (hence the retired-instr count) would not match.
+# Verified 2026-10-09 after the SimX KMU round-robin fix: both legs PASSED,
+# instrs=58880 (delta 0); cycles were 56069/67763 (17.26% gap), so the parity
+# pytest still fails its independent 5% cycle-tolerance assertion.
+- id: model_parity-sgemm_tcu_wg_dxa_mcast-2
+  check: model_parity
+  via: blackbox
+  app: sgemm_tcu_wg_dxa_mcast
+  configs: -DVX_CFG_EXT_TCU_ENABLE -DVX_CFG_EXT_DXA_ENABLE -DVX_CFG_NUM_CLUSTERS=1 -DVX_CFG_NUM_CORES=4
+# Perf-regression twin of the model_parity-sgemm_tcu_wg_dxa_mcast-2 case (same
+# run, cycles-vs-baseline).
+- id: perf_gate-sgemm_tcu_wg_dxa_mcast-2
+  check: perf_gate
+  via: blackbox
+  app: sgemm_tcu_wg_dxa_mcast
+  configs: -DVX_CFG_EXT_TCU_ENABLE -DVX_CFG_EXT_DXA_ENABLE
 - id: sgemm_tcu_wg_dxa_mcast-3
   via: blackbox
   drivers:

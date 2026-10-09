@@ -60,11 +60,9 @@ public:
   uint64_t startup_pc() const { return PC_; }
 
   // fill *req with next CTA; returns false when grid is exhausted.
-  // `requestor` selects among racing dispatchers: after a first-of-cluster
-  // CTA is emitted, the cluster's remaining members are leased to that
-  // requestor and every other requestor's step() returns false until the
-  // lease drains — a cluster scattered across cores can never satisfy its
-  // intra-core group barriers (DXA multicast livelock).
+  // `requestor` selects among racing dispatchers: a cluster is assigned to
+  // its round-robin destination and its remaining CTAs stay leased there so
+  // intra-core group barriers can complete.
   bool step(kmu_req_t* req, uint32_t requestor);
 
 protected:
@@ -82,6 +80,11 @@ private:
   uint32_t cluster_dim_[3];
   bool     running_;
   uint32_t cta_id_;
+  // Round-robin destination core for the next cluster head. Mirrors the
+  // RTL kmu_arb rr_ptr_r: each first-of-cluster CTA is admitted only by the
+  // core this pointer designates, so clusters rotate across cores instead of
+  // all pinning to whichever core polls the KMU first.
+  uint32_t rr_ptr_;
   // Nested counter: group_origin advances by cluster_dim per axis;
   // intra_offset walks within the cluster.
   uint32_t group_origin_[3];
