@@ -173,3 +173,11 @@ tests:
   - simx
   app: vecadd
   flags: --nohup
+- id: async-gbarrier-mc
+  via: blackbox
+  drivers:
+  - simx
+  app: async_gbarrier
+  shape:
+    clusters: 2
+    cores: 2

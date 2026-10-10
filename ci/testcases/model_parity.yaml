@@ -76,6 +76,13 @@ tests:
   args: -n128
   configs: -DVX_CFG_NUM_THREADS=8 -DVX_CFG_NUM_WARPS=8
   shape: {cores: 2, l2cache: true}
+# Reuse alternating global barrier IDs through phase flips across two clusters;
+# each case run also launches the kernel twice to exercise barrier reset.
+- id: async-gbarrier-mc
+  check: model_parity
+  via: blackbox
+  app: async_gbarrier
+  shape: {clusters: 2, cores: 2}
 # SGEMM with local-memory tiling (kernel-managed shared memory). Parity twin of
 # the perf_gate sgemmx benchmark.
 - id: sgemmx
