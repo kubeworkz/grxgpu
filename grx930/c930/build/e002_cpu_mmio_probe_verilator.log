@@ -1,0 +1,1514 @@
+%Warning-DEPRECATED: Option --threads 0 is deprecated, use '--threads 1' instead
+                     ... For warning description see https://verilator.org/warn/DEPRECATED?v=5.051
+                     ... Use "/* verilator lint_off DEPRECATED */" and lint_on around source to disable this message.
+%Warning-EOFNEWLINE: asic_gf180mcu/openlane2_rtl/src\riscv_core_64bit_adder.sv:26:10: Missing newline at end of file (POSIX 3.206).
+                                                                                    : ... Suggest add newline.
+   26 | endmodule
+      |          ^
+                     ... For warning description see https://verilator.org/warn/EOFNEWLINE?v=5.051
+                     ... Use "/* verilator lint_off EOFNEWLINE */" and lint_on around source to disable this message.
+%Warning-EOFNEWLINE: asic_gf180mcu/openlane2_rtl/src\riscv_core_alu.sv:60:10: Missing newline at end of file (POSIX 3.206).
+                                                                            : ... Suggest add newline.
+   60 | endmodule
+      |          ^
+%Warning-EOFNEWLINE: asic_gf180mcu/openlane2_rtl/src\riscv_core_amo_alu.sv:47:10: Missing newline at end of file (POSIX 3.206).
+                                                                                : ... Suggest add newline.
+   47 | endmodule
+      |          ^
+%Warning-EOFNEWLINE: asic_gf180mcu/openlane2_rtl/src\riscv_core_booth.sv:96:10: Missing newline at end of file (POSIX 3.206).
+                                                                              : ... Suggest add newline.
+   96 | endmodule
+      |          ^
+%Warning-EOFNEWLINE: asic_gf180mcu/openlane2_rtl/src\riscv_core_branch_unit.sv:51:10: Missing newline at end of file (POSIX 3.206).
+                                                                                    : ... Suggest add newline.
+   51 | endmodule
+      |          ^
+%Warning-EOFNEWLINE: asic_gf180mcu/openlane2_rtl/src\riscv_core_compressed_decoder.sv:506:10: Missing newline at end of file (POSIX 3.206).
+                                                                                            : ... Suggest add newline.
+  506 | endmodule
+      |          ^
+%Warning-EOFNEWLINE: asic_gf180mcu/openlane2_rtl/src\riscv_core_csr_control_signals.sv:39:10: Missing newline at end of file (POSIX 3.206).
+                                                                                            : ... Suggest add newline.
+   39 | endmodule
+      |          ^
+%Warning-EOFNEWLINE: asic_gf180mcu/openlane2_rtl/src\riscv_core_csr_unit.sv:1113:10: Missing newline at end of file (POSIX 3.206).
+                                                                                   : ... Suggest add newline.
+ 1113 | endmodule
+      |          ^
+%Warning-EOFNEWLINE: asic_gf180mcu/openlane2_rtl/src\riscv_core_dcache_controller.sv:903:10: Missing newline at end of file (POSIX 3.206).
+                                                                                           : ... Suggest add newline.
+  903 | endmodule
+      |          ^
+%Warning-EOFNEWLINE: asic_gf180mcu/openlane2_rtl/src\riscv_core_dcache_top.sv:212:10: Missing newline at end of file (POSIX 3.206).
+                                                                                    : ... Suggest add newline.
+  212 | endmodule
+      |          ^
+%Warning-EOFNEWLINE: asic_gf180mcu/openlane2_rtl/src\riscv_core_div_in.sv:205:10: Missing newline at end of file (POSIX 3.206).
+                                                                                : ... Suggest add newline.
+  205 | endmodule
+      |          ^
+%Warning-EOFNEWLINE: asic_gf180mcu/openlane2_rtl/src\riscv_core_div_out.sv:127:10: Missing newline at end of file (POSIX 3.206).
+                                                                                 : ... Suggest add newline.
+  127 | endmodule
+      |          ^
+%Warning-EOFNEWLINE: asic_gf180mcu/openlane2_rtl/src\riscv_core_hazard_unit.sv:416:10: Missing newline at end of file (POSIX 3.206).
+                                                                                     : ... Suggest add newline.
+  416 | endmodule
+      |          ^
+%Warning-EOFNEWLINE: asic_gf180mcu/openlane2_rtl/src\riscv_core_icache_controller.sv:306:10: Missing newline at end of file (POSIX 3.206).
+                                                                                           : ... Suggest add newline.
+  306 | endmodule
+      |          ^
+%Warning-EOFNEWLINE: asic_gf180mcu/openlane2_rtl/src\riscv_core_icache_top.sv:66:10: Missing newline at end of file (POSIX 3.206).
+                                                                                   : ... Suggest add newline.
+   66 | endmodule
+      |          ^
+%Warning-EOFNEWLINE: asic_gf180mcu/openlane2_rtl/src\riscv_core_immextend.sv:18:10: Missing newline at end of file (POSIX 3.206).
+                                                                                  : ... Suggest add newline.
+   18 | endmodule
+      |          ^
+%Warning-EOFNEWLINE: asic_gf180mcu/openlane2_rtl/src\riscv_core_ldextend.sv:36:10: Missing newline at end of file (POSIX 3.206).
+                                                                                 : ... Suggest add newline.
+   36 | endmodule
+      |          ^
+%Warning-EOFNEWLINE: asic_gf180mcu/openlane2_rtl/src\riscv_core_main_decoder.sv:318:10: Missing newline at end of file (POSIX 3.206).
+                                                                                      : ... Suggest add newline.
+  318 | endmodule
+      |          ^
+%Warning-EOFNEWLINE: asic_gf180mcu/openlane2_rtl/src\riscv_core_main_decoder_top.sv:95:10: Missing newline at end of file (POSIX 3.206).
+                                                                                         : ... Suggest add newline.
+   95 | endmodule
+      |          ^
+%Warning-EOFNEWLINE: asic_gf180mcu/openlane2_rtl/src\riscv_core_mul_div.sv:218:10: Missing newline at end of file (POSIX 3.206).
+                                                                                 : ... Suggest add newline.
+  218 | endmodule
+      |          ^
+%Warning-EOFNEWLINE: asic_gf180mcu/openlane2_rtl/src\riscv_core_mul_div_ctrl.sv:665:10: Missing newline at end of file (POSIX 3.206).
+                                                                                      : ... Suggest add newline.
+  665 | endmodule
+      |          ^
+%Warning-EOFNEWLINE: asic_gf180mcu/openlane2_rtl/src\riscv_core_mul_in.sv:177:10: Missing newline at end of file (POSIX 3.206).
+                                                                                : ... Suggest add newline.
+  177 | endmodule
+      |          ^
+%Warning-EOFNEWLINE: asic_gf180mcu/openlane2_rtl/src\riscv_core_mul_out.sv:110:10: Missing newline at end of file (POSIX 3.206).
+                                                                                 : ... Suggest add newline.
+  110 | endmodule
+      |          ^
+%Warning-EOFNEWLINE: asic_gf180mcu/openlane2_rtl/src\riscv_core_mux2x1.sv:28:10: Missing newline at end of file (POSIX 3.206).
+                                                                               : ... Suggest add newline.
+   28 | endmodule
+      |          ^
+%Warning-EOFNEWLINE: asic_gf180mcu/openlane2_rtl/src\riscv_core_mux3x1.sv:30:10: Missing newline at end of file (POSIX 3.206).
+                                                                               : ... Suggest add newline.
+   30 | endmodule
+      |          ^
+%Warning-EOFNEWLINE: asic_gf180mcu/openlane2_rtl/src\riscv_core_mux4x1.sv:41:10: Missing newline at end of file (POSIX 3.206).
+                                                                               : ... Suggest add newline.
+   41 | endmodule
+      |          ^
+%Warning-EOFNEWLINE: asic_gf180mcu/openlane2_rtl/src\riscv_core_mux_2to1.sv:19:10: Missing newline at end of file (POSIX 3.206).
+                                                                                 : ... Suggest add newline.
+   19 | endmodule
+      |          ^
+%Warning-EOFNEWLINE: asic_gf180mcu/openlane2_rtl/src\riscv_core_non_restoring.sv:113:10: Missing newline at end of file (POSIX 3.206).
+                                                                                       : ... Suggest add newline.
+  113 | endmodule
+      |          ^
+%Warning-EOFNEWLINE: asic_gf180mcu/openlane2_rtl/src\riscv_core_pcsrc.sv:14:10: Missing newline at end of file (POSIX 3.206).
+                                                                              : ... Suggest add newline.
+   14 | endmodule
+      |          ^
+%Warning-EOFNEWLINE: asic_gf180mcu/openlane2_rtl/src\riscv_core_pipe.sv:45:10: Missing newline at end of file (POSIX 3.206).
+                                                                             : ... Suggest add newline.
+   45 | endmodule
+      |          ^
+%Warning-EOFNEWLINE: asic_gf180mcu/openlane2_rtl/src\riscv_core_rf.sv:33:10: Missing newline at end of file (POSIX 3.206).
+                                                                           : ... Suggest add newline.
+   33 | endmodule
+      |          ^
+%Warning-EOFNEWLINE: asic_gf180mcu/openlane2_rtl/src\riscv_core_top.sv:2042:10: Missing newline at end of file (POSIX 3.206).
+                                                                              : ... Suggest add newline.
+ 2042 | endmodule
+      |          ^
+%Warning-EOFNEWLINE: rtl\c930_fp16_acc.sv:327:10: Missing newline at end of file (POSIX 3.206).
+                                                : ... Suggest add newline.
+  327 | endmodule
+      |          ^
+%Warning-EOFNEWLINE: rtl\c930_mmio_bridge.sv:273:10: Missing newline at end of file (POSIX 3.206).
+                                                   : ... Suggest add newline.
+  273 | endmodule
+      |          ^
+%Warning-EOFNEWLINE: rtl\c930_l2.sv:885:10: Missing newline at end of file (POSIX 3.206).
+                                          : ... Suggest add newline.
+  885 | endmodule
+      |          ^
+%Warning-PINCONNECTEMPTY: rtl\c930_npu_top.sv:411:6: Instance pin connected by name with empty reference: 'o_busy'
+  411 |     .o_busy     (),
+      |      ^~~~~~
+                          ... For warning description see https://verilator.org/warn/PINCONNECTEMPTY?v=5.051
+                          ... Use "/* verilator lint_off PINCONNECTEMPTY */" and lint_on around source to disable this message.
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:388:6: Instance pin connected by name with empty reference: 'o_cache_wr_done'
+  388 |     .o_cache_wr_done  (),
+      |      ^~~~~~~~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:571:6: Instance pin connected by name with empty reference: 'o_cache_wr_done'
+  571 |     .o_cache_wr_done  (),
+      |      ^~~~~~~~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:759:6: Instance pin connected by name with empty reference: 'o_cache_wr_done'
+  759 |     .o_cache_wr_done  (),
+      |      ^~~~~~~~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:845:6: Instance pin connected by name with empty reference: 'o_cache_wr_done'
+  845 |     .o_cache_wr_done  (),
+      |      ^~~~~~~~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1316:6: Instance pin connected by name with empty reference: 's3_awid'
+ 1316 |     .s3_awid    (),              .s3_awaddr  (),               .s3_awlen  (),
+      |      ^~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1316:35: Instance pin connected by name with empty reference: 's3_awaddr'
+ 1316 |     .s3_awid    (),              .s3_awaddr  (),               .s3_awlen  (),
+      |                                   ^~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1316:65: Instance pin connected by name with empty reference: 's3_awlen'
+ 1316 |     .s3_awid    (),              .s3_awaddr  (),               .s3_awlen  (),
+      |                                                                 ^~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1317:6: Instance pin connected by name with empty reference: 's3_awsize'
+ 1317 |     .s3_awsize  (),              .s3_awburst (),               .s3_awvalid(),
+      |      ^~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1317:35: Instance pin connected by name with empty reference: 's3_awburst'
+ 1317 |     .s3_awsize  (),              .s3_awburst (),               .s3_awvalid(),
+      |                                   ^~~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1317:65: Instance pin connected by name with empty reference: 's3_awvalid'
+ 1317 |     .s3_awsize  (),              .s3_awburst (),               .s3_awvalid(),
+      |                                                                 ^~~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1319:6: Instance pin connected by name with empty reference: 's3_wdata'
+ 1319 |     .s3_wdata   (),              .s3_wstrb   (),               .s3_wlast  (),
+      |      ^~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1319:35: Instance pin connected by name with empty reference: 's3_wstrb'
+ 1319 |     .s3_wdata   (),              .s3_wstrb   (),               .s3_wlast  (),
+      |                                   ^~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1319:65: Instance pin connected by name with empty reference: 's3_wlast'
+ 1319 |     .s3_wdata   (),              .s3_wstrb   (),               .s3_wlast  (),
+      |                                                                 ^~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1320:6: Instance pin connected by name with empty reference: 's3_wvalid'
+ 1320 |     .s3_wvalid  (),              .s3_wready  (1'b1),
+      |      ^~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1321:6: Instance pin connected by name with empty reference: 's3_bid'
+ 1321 |     .s3_bid     (),              .s3_bresp   (2'b00),          .s3_bvalid (1'b0),
+      |      ^~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1322:6: Instance pin connected by name with empty reference: 's3_bready'
+ 1322 |     .s3_bready  (),
+      |      ^~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1323:6: Instance pin connected by name with empty reference: 's3_arid'
+ 1323 |     .s3_arid    (),              .s3_araddr  (),               .s3_arlen  (),
+      |      ^~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1323:35: Instance pin connected by name with empty reference: 's3_araddr'
+ 1323 |     .s3_arid    (),              .s3_araddr  (),               .s3_arlen  (),
+      |                                   ^~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1323:65: Instance pin connected by name with empty reference: 's3_arlen'
+ 1323 |     .s3_arid    (),              .s3_araddr  (),               .s3_arlen  (),
+      |                                                                 ^~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1324:6: Instance pin connected by name with empty reference: 's3_arsize'
+ 1324 |     .s3_arsize  (),              .s3_arburst (),               .s3_arvalid(),
+      |      ^~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1324:35: Instance pin connected by name with empty reference: 's3_arburst'
+ 1324 |     .s3_arsize  (),              .s3_arburst (),               .s3_arvalid(),
+      |                                   ^~~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1324:65: Instance pin connected by name with empty reference: 's3_arvalid'
+ 1324 |     .s3_arsize  (),              .s3_arburst (),               .s3_arvalid(),
+      |                                                                 ^~~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1326:6: Instance pin connected by name with empty reference: 's3_rid'
+ 1326 |     .s3_rid     (),              .s3_rdata   (64'd0),          .s3_rresp  (2'b00),
+      |      ^~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1327:65: Instance pin connected by name with empty reference: 's3_rready'
+ 1327 |     .s3_rlast   (1'b1),          .s3_rvalid  (1'b0),           .s3_rready ()
+      |                                                                 ^~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1457:6: Instance pin connected by name with empty reference: 'o_icache_rd_done'
+ 1457 |     .o_icache_rd_done  (),
+      |      ^~~~~~~~~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1458:6: Instance pin connected by name with empty reference: 'o_icache_rd_line'
+ 1458 |     .o_icache_rd_line  (),
+      |      ^~~~~~~~~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1462:6: Instance pin connected by name with empty reference: 'o_dcache_rd_done'
+ 1462 |     .o_dcache_rd_done  (),
+      |      ^~~~~~~~~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1463:6: Instance pin connected by name with empty reference: 'o_dcache_rd_line'
+ 1463 |     .o_dcache_rd_line  (),
+      |      ^~~~~~~~~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1469:6: Instance pin connected by name with empty reference: 'o_dcache_wr_done'
+ 1469 |     .o_dcache_wr_done  (),
+      |      ^~~~~~~~~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1607:6: Instance pin connected by name with empty reference: 'o_riscv_core_ack'
+ 1607 |     .o_riscv_core_ack                  (),
+      |      ^~~~~~~~~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1657:6: Instance pin connected by name with empty reference: 'o_riscv_core_ack'
+ 1657 |     .o_riscv_core_ack                  (),
+      |      ^~~~~~~~~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1708:6: Instance pin connected by name with empty reference: 'o_riscv_core_ack'
+ 1708 |     .o_riscv_core_ack                  (),
+      |      ^~~~~~~~~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1758:6: Instance pin connected by name with empty reference: 'o_riscv_core_ack'
+ 1758 |     .o_riscv_core_ack                  (),
+      |      ^~~~~~~~~~~~~~~~
+%Warning-VARHIDDEN: rtl\c930_l2.sv:552:18: Declaration of signal hides declaration in upper scope: 'j'
+  552 |         for (int j = 0; j < NUM_SETS; j++) begin
+      |                  ^
+                    rtl\c930_l2.sv:250:14: ... Location of original declaration
+  250 |   integer i, j;
+      |              ^
+                    ... For warning description see https://verilator.org/warn/VARHIDDEN?v=5.051
+                    ... Use "/* verilator lint_off VARHIDDEN */" and lint_on around source to disable this message.
+%Warning-SIMILARNAME: asic_gf180mcu/openlane2_rtl/src\riscv_core_mul_div_ctrl.sv:39:18: Declaration overlaps another with different case: 'overflow'
+   39 | logic            overflow;
+      |                  ^~~~~~~~
+                      asic_gf180mcu/openlane2_rtl/src\riscv_core_mul_div_ctrl.sv:30:18: ... Location of original declaration
+   30 | localparam [6:0] OVERFLOW = 7'b0000001;
+      |                  ^~~~~~~~
+                      ... For warning description see https://verilator.org/warn/SIMILARNAME?v=5.051
+                      ... Use "/* verilator lint_off SIMILARNAME */" and lint_on around source to disable this message.
+%Warning-IMPLICIT: rtl\c930_soc_top.sv:1594:10: Signal definition not found, creating implicitly: 'aplic_bid'
+                                              : ... Suggested alternative: 'aplic_bvalid'
+ 1594 |   assign aplic_bid    = '0;
+      |          ^~~~~~~~~
+                   ... For warning description see https://verilator.org/warn/IMPLICIT?v=5.051
+                   ... Use "/* verilator lint_off IMPLICIT */" and lint_on around source to disable this message.
+%Warning-IMPLICIT: rtl\c930_soc_top.sv:1595:10: Signal definition not found, creating implicitly: 'aplic_rid'
+                                              : ... Suggested alternative: 'aplic_bid'
+ 1595 |   assign aplic_rid    = '0;
+      |          ^~~~~~~~~
+%Warning-WIDTHTRUNC: rtl\c930_npu_dma.sv:173:20: Operator VAR 'BEAT_SIZE' expects 3 bits on the Initial value, but Initial value's CLOG2 generates 32 bits.
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_dma'
+  173 |   localparam [2:0] BEAT_SIZE    = $clog2(BYTES_PER_BEAT);
+      |                    ^~~~~~~~~
+                     ... For warning description see https://verilator.org/warn/WIDTHTRUNC?v=5.051
+                     ... Use "/* verilator lint_off WIDTHTRUNC */" and lint_on around source to disable this message.
+%Warning-WIDTHTRUNC: rtl\c930_npu_act.sv:231:11: Operator ASSIGN expects 5 bits on the Assign RHS, but Assign RHS's REPLICATE generates 6 bits.
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_core.u_act'
+  231 |     msb24 = {byte_idx, bit_idx};
+      |           ^
+%Warning-WIDTHTRUNC: asic_gf180mcu/openlane2_rtl/src\riscv_core_non_restoring.sv:69:49: Operator ASSIGN expects 129 bits on the Assign RHS, but Assign RHS's REPLICATE generates 130 bits.
+                                                                                      : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_mul_div.u_riscv_core_non_restoring'
+   69 |               {accumulator_next, dividend_next} = {accumulator_reg, dividend_reg, 1'b0};
+      |                                                 ^
+%Warning-WIDTHTRUNC: asic_gf180mcu/openlane2_rtl/src\riscv_core_non_restoring.sv:74:49: Operator ASSIGN expects 129 bits on the Assign RHS, but Assign RHS's REPLICATE generates 130 bits.
+                                                                                      : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_mul_div.u_riscv_core_non_restoring'
+   74 |               {accumulator_next, dividend_next} = {accumulator_reg, dividend_reg, 1'b0};
+      |                                                 ^
+%Warning-WIDTHTRUNC: asic_gf180mcu/openlane2_rtl/src\riscv_core_non_restoring.sv:98:41: Operator ASSIGN expects 64 bits on the Assign RHS, but Assign RHS's VARREF 'accumulator_next' generates 65 bits.
+                                                                                      : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_mul_div.u_riscv_core_non_restoring'
+   98 |               o_non_restoring_remainder = accumulator_next;
+      |                                         ^
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_mul_in.sv:35:21: Operator NOT expects 64 bits on the LHS, but LHS's SEL generates 32 bits.
+                                                                                : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_mul_div.u_riscv_core_mul_in'
+   35 | assign wsrcA_comp = ~i_mul_in_srcA[XLEN/2-1:0] + 1'b1;
+      |                     ^
+                      ... For warning description see https://verilator.org/warn/WIDTHEXPAND?v=5.051
+                      ... Use "/* verilator lint_off WIDTHEXPAND */" and lint_on around source to disable this message.
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_mul_in.sv:36:21: Operator NOT expects 64 bits on the LHS, but LHS's SEL generates 32 bits.
+                                                                                : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_mul_div.u_riscv_core_mul_in'
+   36 | assign wsrcB_comp = ~i_mul_in_srcB[XLEN/2-1:0] + 1'b1;
+      |                     ^
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_mul_in.sv:143:43: Operator ASSIGN expects 64 bits on the Assign RHS, but Assign RHS's SEL generates 32 bits.
+                                                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_mul_div.u_riscv_core_mul_in'
+  143 |                     o_mul_in_multiplicand = i_mul_in_srcA[XLEN/2-1:0];
+      |                                           ^
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_mul_in.sv:144:41: Operator ASSIGN expects 64 bits on the Assign RHS, but Assign RHS's SEL generates 32 bits.
+                                                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_mul_div.u_riscv_core_mul_in'
+  144 |                     o_mul_in_multiplier = i_mul_in_srcB[XLEN/2-1:0];
+      |                                         ^
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_mul_in.sv:148:43: Operator ASSIGN expects 64 bits on the Assign RHS, but Assign RHS's SEL generates 32 bits.
+                                                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_mul_div.u_riscv_core_mul_in'
+  148 |                     o_mul_in_multiplicand = i_mul_in_srcA[XLEN/2-1:0];
+      |                                           ^
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_mul_in.sv:154:41: Operator ASSIGN expects 64 bits on the Assign RHS, but Assign RHS's SEL generates 32 bits.
+                                                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_mul_div.u_riscv_core_mul_in'
+  154 |                     o_mul_in_multiplier = i_mul_in_srcB[XLEN/2-1:0];
+      |                                         ^
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_mul_in.sv:163:43: Operator ASSIGN expects 64 bits on the Assign RHS, but Assign RHS's SEL generates 32 bits.
+                                                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_mul_div.u_riscv_core_mul_in'
+  163 |                     o_mul_in_multiplicand = i_mul_in_srcA[XLEN/2-1:0];
+      |                                           ^
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_mul_in.sv:164:41: Operator ASSIGN expects 64 bits on the Assign RHS, but Assign RHS's SEL generates 32 bits.
+                                                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_mul_div.u_riscv_core_mul_in'
+  164 |                     o_mul_in_multiplier = i_mul_in_srcB[XLEN/2-1:0];
+      |                                         ^
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_mul_in.sv:170:37: Operator ASSIGN expects 64 bits on the Assign RHS, but Assign RHS's SEL generates 32 bits.
+                                                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_mul_div.u_riscv_core_mul_in'
+  170 |               o_mul_in_multiplicand = i_mul_in_srcA[XLEN/2-1:0];
+      |                                     ^
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_mul_in.sv:171:35: Operator ASSIGN expects 64 bits on the Assign RHS, but Assign RHS's SEL generates 32 bits.
+                                                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_mul_div.u_riscv_core_mul_in'
+  171 |               o_mul_in_multiplier = i_mul_in_srcB[XLEN/2-1:0];
+      |                                   ^
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_icache_memory.sv:60:46: Operator ADD expects 64 bits on the RHS, but RHS's CONST '2'h2' generates 2 bits.
+                                                                                       : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_i_cache_top.icache_memory'
+   60 | assign i_addr_from_core_2 = i_addr_from_core + 2'b10;
+      |                                              ^
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_icache_memory.sv:61:46: Operator ADD expects 64 bits on the RHS, but RHS's CONST '2'h3' generates 2 bits.
+                                                                                       : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_i_cache_top.icache_memory'
+   61 | assign i_addr_from_core_3 = i_addr_from_core + 2'b11;
+      |                                              ^
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_icache_controller.sv:175:55: Operator ADD expects 64 bits on the RHS, but RHS's CONST '2'h2' generates 2 bits.
+                                                                                            : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_i_cache_top.icache_controller'
+  175 | assign i_addr_from_core_next_block = i_addr_from_core + 2'b10 ;
+      |                                                       ^
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_div_in.sv:39:21: Operator NOT expects 64 bits on the LHS, but LHS's SEL generates 32 bits.
+                                                                                : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_mul_div.u_riscv_core_div_in'
+   39 | assign wsrcA_comp = ~i_div_in_srcA[XLEN/2-1:0] + 1'b1;
+      |                     ^
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_div_in.sv:40:21: Operator NOT expects 64 bits on the LHS, but LHS's SEL generates 32 bits.
+                                                                                : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_mul_div.u_riscv_core_div_in'
+   40 | assign wsrcB_comp = ~i_div_in_srcB[XLEN/2-1:0] + 1'b1;
+      |                     ^
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_div_in.sv:132:39: Operator ASSIGN expects 64 bits on the Assign RHS, but Assign RHS's SEL generates 32 bits.
+                                                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_mul_div.u_riscv_core_div_in'
+  132 |                     o_div_in_dividend = i_div_in_srcA[XLEN/2-1:0];
+      |                                       ^
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_div_in.sv:133:38: Operator ASSIGN expects 64 bits on the Assign RHS, but Assign RHS's SEL generates 32 bits.
+                                                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_mul_div.u_riscv_core_div_in'
+  133 |                     o_div_in_divisor = i_div_in_srcB[XLEN/2-1:0];
+      |                                      ^
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_div_in.sv:137:39: Operator ASSIGN expects 64 bits on the Assign RHS, but Assign RHS's SEL generates 32 bits.
+                                                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_mul_div.u_riscv_core_div_in'
+  137 |                     o_div_in_dividend = i_div_in_srcA[XLEN/2-1:0];
+      |                                       ^
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_div_in.sv:143:38: Operator ASSIGN expects 64 bits on the Assign RHS, but Assign RHS's SEL generates 32 bits.
+                                                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_mul_div.u_riscv_core_div_in'
+  143 |                     o_div_in_divisor = i_div_in_srcB[XLEN/2-1:0];
+      |                                      ^
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_div_in.sv:152:39: Operator ASSIGN expects 64 bits on the Assign RHS, but Assign RHS's SEL generates 32 bits.
+                                                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_mul_div.u_riscv_core_div_in'
+  152 |                     o_div_in_dividend = i_div_in_srcA[XLEN/2-1:0];
+      |                                       ^
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_div_in.sv:153:38: Operator ASSIGN expects 64 bits on the Assign RHS, but Assign RHS's SEL generates 32 bits.
+                                                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_mul_div.u_riscv_core_div_in'
+  153 |                     o_div_in_divisor = i_div_in_srcB[XLEN/2-1:0];
+      |                                      ^
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_div_in.sv:159:33: Operator ASSIGN expects 64 bits on the Assign RHS, but Assign RHS's SEL generates 32 bits.
+                                                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_mul_div.u_riscv_core_div_in'
+  159 |               o_div_in_dividend = i_div_in_srcA[XLEN/2-1:0];
+      |                                 ^
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_div_in.sv:160:32: Operator ASSIGN expects 64 bits on the Assign RHS, but Assign RHS's SEL generates 32 bits.
+                                                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_mul_div.u_riscv_core_div_in'
+  160 |               o_div_in_divisor = i_div_in_srcB[XLEN/2-1:0];
+      |                                ^
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_div_in.sv:167:39: Operator ASSIGN expects 64 bits on the Assign RHS, but Assign RHS's SEL generates 32 bits.
+                                                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_mul_div.u_riscv_core_div_in'
+  167 |                     o_div_in_dividend = i_div_in_srcA[XLEN/2-1:0];
+      |                                       ^
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_div_in.sv:168:38: Operator ASSIGN expects 64 bits on the Assign RHS, but Assign RHS's SEL generates 32 bits.
+                                                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_mul_div.u_riscv_core_div_in'
+  168 |                     o_div_in_divisor = i_div_in_srcB[XLEN/2-1:0];
+      |                                      ^
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_div_in.sv:172:39: Operator ASSIGN expects 64 bits on the Assign RHS, but Assign RHS's SEL generates 32 bits.
+                                                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_mul_div.u_riscv_core_div_in'
+  172 |                     o_div_in_dividend = i_div_in_srcA[XLEN/2-1:0];
+      |                                       ^
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_div_in.sv:178:38: Operator ASSIGN expects 64 bits on the Assign RHS, but Assign RHS's SEL generates 32 bits.
+                                                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_mul_div.u_riscv_core_div_in'
+  178 |                     o_div_in_divisor = i_div_in_srcB[XLEN/2-1:0];
+      |                                      ^
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_div_in.sv:187:39: Operator ASSIGN expects 64 bits on the Assign RHS, but Assign RHS's SEL generates 32 bits.
+                                                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_mul_div.u_riscv_core_div_in'
+  187 |                     o_div_in_dividend = i_div_in_srcA[XLEN/2-1:0];
+      |                                       ^
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_div_in.sv:188:38: Operator ASSIGN expects 64 bits on the Assign RHS, but Assign RHS's SEL generates 32 bits.
+                                                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_mul_div.u_riscv_core_div_in'
+  188 |                     o_div_in_divisor = i_div_in_srcB[XLEN/2-1:0];
+      |                                      ^
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_div_in.sv:194:33: Operator ASSIGN expects 64 bits on the Assign RHS, but Assign RHS's SEL generates 32 bits.
+                                                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_mul_div.u_riscv_core_div_in'
+  194 |               o_div_in_dividend = i_div_in_srcA[XLEN/2-1:0];
+      |                                 ^
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_div_in.sv:195:32: Operator ASSIGN expects 64 bits on the Assign RHS, but Assign RHS's SEL generates 32 bits.
+                                                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_mul_div.u_riscv_core_div_in'
+  195 |               o_div_in_divisor = i_div_in_srcB[XLEN/2-1:0];
+      |                                ^
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_div_in.sv:199:33: Operator ASSIGN expects 64 bits on the Assign RHS, but Assign RHS's SEL generates 32 bits.
+                                                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_mul_div.u_riscv_core_div_in'
+  199 |               o_div_in_dividend = i_div_in_srcA[XLEN/2-1:0];
+      |                                 ^
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_div_in.sv:200:32: Operator ASSIGN expects 64 bits on the Assign RHS, but Assign RHS's SEL generates 32 bits.
+                                                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_mul_div.u_riscv_core_div_in'
+  200 |               o_div_in_divisor = i_div_in_srcB[XLEN/2-1:0];
+      |                                ^
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_dcache_memory.sv:120:79: Operator ADD expects 32 bits on the LHS, but LHS's VARREF 'wr_base' generates 5 bits.
+                                                                                        : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_dcache_top.dcache_memory'
+  120 |         be_all[b]        = i_block_replace | ((b >= wr_base) && (b < (wr_base + wr_nbytes)));
+      |                                                                               ^
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_dcache_memory.sv:120:79: Operator ADD expects 32 bits on the RHS, but RHS's VARREF 'wr_nbytes' generates 4 bits.
+                                                                                        : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_dcache_top.dcache_memory'
+  120 |         be_all[b]        = i_block_replace | ((b >= wr_base) && (b < (wr_base + wr_nbytes)));
+      |                                                                               ^
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_dcache_memory.sv:162:35: Operator ASSIGN expects 64 bits on the Assign RHS, but Assign RHS's SEL generates 8 bits.
+                                                                                        : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_dcache_top.dcache_memory'
+  162 |          2'b00   : o_data_to_core = read_data_reg [ i_addr_from_core[4:0]*8 +: 8  ];
+      |                                   ^
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_dcache_memory.sv:165:35: Operator ASSIGN expects 64 bits on the Assign RHS, but Assign RHS's SEL generates 16 bits.
+                                                                                        : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_dcache_top.dcache_memory'
+  165 |          2'b01   : o_data_to_core = read_data_reg [ i_addr_from_core[4:0]*8 +: 16 ];
+      |                                   ^
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_dcache_memory.sv:168:35: Operator ASSIGN expects 64 bits on the Assign RHS, but Assign RHS's SEL generates 32 bits.
+                                                                                        : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_dcache_top.dcache_memory'
+  168 |          2'b10   : o_data_to_core = read_data_reg [ i_addr_from_core[4:0]*8 +: 32 ];
+      |                                   ^
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_csr_control_signals.sv:32:34: Operator EQ expects 7 bits on the RHS, but RHS's CONST '6'h33' generates 6 bits.
+                                                                                             : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_main_decoder.u2'
+   32 | else if(i_csr_control_instr[6:0] == 6'h73)
+      |                                  ^~
+%Warning-WIDTHTRUNC: rtl\c930_npu_core.sv:288:27: Bit extraction of array[95:0] requires 7 bit index, not 16 bits.
+                                                : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_core'
+  288 |   assign o_c_rdata = c_mem[i_c_raddr][31:0];
+      |                           ^
+%Warning-WIDTHTRUNC: rtl\c930_npu_core.sv:302:12: Bit extraction of array[95:0] requires 7 bit index, not 16 bits.
+                                                : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_core'
+  302 |       c_mem[(c_raddr_hi < 16'(MAX_M * MAX_N)) ? c_raddr_hi : 16'd0][31:0];
+      |            ^
+%Warning-WIDTHEXPAND: rtl\c930_npu_core.sv:346:27: Operator DIV expects 32 bits on the LHS, but LHS's VARREF 'a0_addr' generates 16 bits.
+                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_core'
+  346 |       a_bank0[sb][a0_addr / A_SUBS] <= a0_data;
+      |                           ^
+%Warning-WIDTHEXPAND: rtl\c930_npu_core.sv:357:27: Operator DIV expects 32 bits on the LHS, but LHS's VARREF 'a1_addr' generates 16 bits.
+                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_core'
+  357 |       a_bank1[sb][a1_addr / A_SUBS] <= a1_data;
+      |                           ^
+%Warning-WIDTHEXPAND: rtl\c930_npu_core.sv:371:27: Operator DIV expects 32 bits on the LHS, but LHS's VARREF 'b0_addr' generates 16 bits.
+                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_core'
+  371 |       b_bank0[sb][b0_addr / B_SUBS] <= b0_data;
+      |                           ^
+%Warning-WIDTHEXPAND: rtl\c930_npu_core.sv:382:27: Operator DIV expects 32 bits on the LHS, but LHS's VARREF 'b1_addr' generates 16 bits.
+                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_core'
+  382 |       b_bank1[sb][b1_addr / B_SUBS] <= b1_data;
+      |                           ^
+%Warning-WIDTHEXPAND: rtl\c930_npu_core.sv:487:33: Operator SUB expects 32 bits on the LHS, but LHS's VARREF 'i_dim_n' generates 16 bits.
+                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_core'
+  487 |   assign nc          = (i_dim_n - n_base >= NUM_COLS) ? NUM_COLS : (i_dim_n - n_base);
+      |                                 ^
+%Warning-WIDTHEXPAND: rtl\c930_npu_core.sv:487:77: Operator SUB expects 32 bits on the LHS, but LHS's VARREF 'i_dim_n' generates 16 bits.
+                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_core'
+  487 |   assign nc          = (i_dim_n - n_base >= NUM_COLS) ? NUM_COLS : (i_dim_n - n_base);
+      |                                                                             ^
+%Warning-WIDTHEXPAND: rtl\c930_npu_core.sv:494:33: Operator ADD expects 32 bits on the LHS, but LHS's VARREF 'i_dim_k' generates 16 bits.
+                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_core'
+  494 |   assign num_k_tiles = (i_dim_k + NUM_ROWS - 1) / NUM_ROWS;
+      |                                 ^
+%Warning-WIDTHEXPAND: rtl\c930_npu_core.sv:495:33: Operator ADD expects 32 bits on the LHS, but LHS's VARREF 'i_dim_n' generates 16 bits.
+                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_core'
+  495 |   assign num_n_tiles = (i_dim_n + NUM_COLS - 1) / NUM_COLS;
+      |                                 ^
+%Warning-WIDTHEXPAND: rtl\c930_npu_core.sv:496:51: Operator LTE expects 32 bits on the LHS, but LHS's VARREF 'i_dim_m' generates 16 bits.
+                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_core'
+  496 |   assign dims_ok     = (i_dim_m >= 1) && (i_dim_m <= MAX_M) &&
+      |                                                   ^~
+%Warning-WIDTHEXPAND: rtl\c930_npu_core.sv:497:51: Operator LTE expects 32 bits on the LHS, but LHS's VARREF 'i_dim_n' generates 16 bits.
+                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_core'
+  497 |                        (i_dim_n >= 1) && (i_dim_n <= MAX_N)  &&
+      |                                                   ^~
+%Warning-WIDTHEXPAND: rtl\c930_npu_core.sv:498:51: Operator LTE expects 32 bits on the LHS, but LHS's VARREF 'i_dim_k' generates 16 bits.
+                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_core'
+  498 |                        (i_dim_k >= 1) && (i_dim_k <= MAX_K);
+      |                                                   ^~
+%Warning-WIDTHEXPAND: rtl\c930_npu_core.sv:584:44: Operator SUB expects 32 bits on the LHS, but LHS's VARREF 'i_dim_m' generates 16 bits.
+                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_core'
+  584 |   wire  last_row_tile = (m_reg  == i_dim_m - 1) &&
+      |                                            ^
+%Warning-WIDTHEXPAND: rtl\c930_npu_core.sv:668:66: Operator SUB expects 32 bits on the LHS, but LHS's VARREF 'i_dim_m' generates 16 bits.
+                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_core'
+  668 |   wire cal_take_row   = cal_req && row_done && (m_reg != i_dim_m - 1);
+      |                                                                  ^
+%Warning-WIDTHEXPAND: rtl\c930_npu_core.sv:835:39: Operator SUB expects 32 bits on the LHS, but LHS's VARREF 'i_dim_k' generates 16 bits.
+                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_core'
+  835 |   wire [31:0] kr_next     = ((i_dim_k - (kt_reg + 1) * NUM_ROWS) >= NUM_ROWS)
+      |                                       ^
+%Warning-WIDTHEXPAND: rtl\c930_npu_core.sv:838:38: Operator GTE expects 32 bits on the LHS, but LHS's VARREF 'i_dim_k' generates 16 bits.
+                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_core'
+  838 |   wire [31:0] kr_first    = (i_dim_k >= NUM_ROWS) ? 32'(NUM_ROWS) : 32'(i_dim_k);
+      |                                      ^~
+%Warning-WIDTHTRUNC: rtl\c930_npu_core.sv:871:27: Operator ASSIGNW expects 16 bits on the Assign RHS, but Assign RHS's ADD generates 32 bits.
+                                                : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_core'
+  871 |   wire [15:0] b_read_addr = (k_base_reg + w_r)*i_dim_n + n_base + w_n;
+      |                           ^
+%Warning-WIDTHEXPAND: rtl\c930_npu_core.sv:873:52: Operator MODDIV expects 32 bits on the LHS, but LHS's VARREF 'b_flat' generates 8 bits.
+                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_core'
+  873 |   assign b_read_data = b_bank_sel ? b_bank1[b_flat % B_SUBS][b_flat / B_SUBS] :
+      |                                                    ^
+%Warning-WIDTHEXPAND: rtl\c930_npu_core.sv:873:69: Operator DIV expects 32 bits on the LHS, but LHS's VARREF 'b_flat' generates 8 bits.
+                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_core'
+  873 |   assign b_read_data = b_bank_sel ? b_bank1[b_flat % B_SUBS][b_flat / B_SUBS] :
+      |                                                                     ^
+%Warning-WIDTHEXPAND: rtl\c930_npu_core.sv:874:52: Operator MODDIV expects 32 bits on the LHS, but LHS's VARREF 'b_flat' generates 8 bits.
+                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_core'
+  874 |                                     b_bank0[b_flat % B_SUBS][b_flat / B_SUBS];
+      |                                                    ^
+%Warning-WIDTHEXPAND: rtl\c930_npu_core.sv:874:69: Operator DIV expects 32 bits on the LHS, but LHS's VARREF 'b_flat' generates 8 bits.
+                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_core'
+  874 |                                     b_bank0[b_flat % B_SUBS][b_flat / B_SUBS];
+      |                                                                     ^
+%Warning-WIDTHTRUNC: rtl\c930_npu_core.sv:1131:6: Input port connection 'i_wbank' expects 1 bits on the pin connection, but pin connection's VARREF 'w_load_bank' generates 2 bits.
+                                                : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_core'
+ 1131 |     .i_wbank    (w_load_bank),
+      |      ^~~~~~~
+%Warning-WIDTHEXPAND: rtl\c930_npu_core.sv:1322:38: Operator GTE expects 32 bits on the LHS, but LHS's VARREF 'i_dim_k' generates 16 bits.
+                                                  : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_core'
+ 1322 |               kr_reg     <= (i_dim_k >= NUM_ROWS) ? NUM_ROWS : i_dim_k;
+      |                                      ^~
+%Warning-WIDTHEXPAND: rtl\c930_npu_core.sv:1322:51: Operator COND expects 32 bits on the Conditional False, but Conditional False's VARREF 'i_dim_k' generates 16 bits.
+                                                  : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_core'
+ 1322 |               kr_reg     <= (i_dim_k >= NUM_ROWS) ? NUM_ROWS : i_dim_k;
+      |                                                   ^
+%Warning-WIDTHEXPAND: rtl\c930_npu_core.sv:1553:28: Operator ADD expects 32 bits on the RHS, but RHS's VARREF 'i_dim_k' generates 16 bits.
+                                                  : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_core'
+ 1553 |           m_base <= m_base + i_dim_k;
+      |                            ^
+%Warning-WIDTHEXPAND: rtl\c930_npu_core.sv:1550:39: Operator SUB expects 32 bits on the LHS, but LHS's VARREF 'i_dim_m' generates 16 bits.
+                                                  : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_core'
+ 1550 |         end else if (m_reg != i_dim_m - 1) begin
+      |                                       ^
+%Warning-WIDTHEXPAND: rtl\c930_npu_core.sv:1565:28: Operator ADD expects 32 bits on the RHS, but RHS's VARREF 'i_dim_k' generates 16 bits.
+                                                  : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_core'
+ 1565 |           m_base <= m_base + i_dim_k;
+      |                            ^
+%Warning-WIDTHEXPAND: rtl\c930_npu_core.sv:1596:37: Operator SUB expects 32 bits on the LHS, but LHS's VARREF 'i_dim_k' generates 16 bits.
+                                                  : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_core'
+ 1596 |             kr_reg     <= ((i_dim_k - (kt_reg + 1) * NUM_ROWS) >= NUM_ROWS) ?
+      |                                     ^
+%Warning-WIDTHEXPAND: rtl\c930_npu_core.sv:1597:48: Operator SUB expects 32 bits on the LHS, but LHS's VARREF 'i_dim_k' generates 16 bits.
+                                                  : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_core'
+ 1597 |                            NUM_ROWS : (i_dim_k - (kt_reg + 1) * NUM_ROWS);
+      |                                                ^
+%Warning-WIDTHEXPAND: rtl\c930_npu_core.sv:1602:36: Operator GTE expects 32 bits on the LHS, but LHS's VARREF 'i_dim_k' generates 16 bits.
+                                                  : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_core'
+ 1602 |             kr_reg     <= (i_dim_k >= NUM_ROWS) ? NUM_ROWS : i_dim_k;
+      |                                    ^~
+%Warning-WIDTHEXPAND: rtl\c930_npu_core.sv:1602:49: Operator COND expects 32 bits on the Conditional False, but Conditional False's VARREF 'i_dim_k' generates 16 bits.
+                                                  : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_core'
+ 1602 |             kr_reg     <= (i_dim_k >= NUM_ROWS) ? NUM_ROWS : i_dim_k;
+      |                                                 ^
+%Warning-WIDTHEXPAND: rtl\c930_npu_core.sv:1562:30: Operator SUB expects 32 bits on the LHS, but LHS's VARREF 'i_dim_m' generates 16 bits.
+                                                  : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_core'
+ 1562 |         if (m_reg != i_dim_m - 1) begin
+      |                              ^
+%Warning-WIDTHEXPAND: rtl\c930_npu_dma.sv:362:47: Operator LTE expects 32 bits on the LHS, but LHS's VARREF 'i_dim_m' generates 16 bits.
+                                                : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_dma'
+  362 |   assign dims_ok = (i_dim_m >= 1) && (i_dim_m <= MAX_M) &&
+      |                                               ^~
+%Warning-WIDTHEXPAND: rtl\c930_npu_dma.sv:363:47: Operator LTE expects 32 bits on the LHS, but LHS's VARREF 'i_dim_n' generates 16 bits.
+                                                : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_dma'
+  363 |                    (i_dim_n >= 1) && (i_dim_n <= MAX_N) &&
+      |                                               ^~
+%Warning-WIDTHEXPAND: rtl\c930_npu_dma.sv:364:47: Operator LTE expects 32 bits on the LHS, but LHS's VARREF 'i_dim_k' generates 16 bits.
+                                                : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_dma'
+  364 |                    (i_dim_k >= 1) && (i_dim_k <= MAX_K);
+      |                                               ^~
+%Warning-WIDTHEXPAND: rtl\c930_npu_dma.sv:531:29: Operator ASSIGNDLY expects 32 bits on the Assign RHS, but Assign RHS's VARREF 'i_dim_m' generates 16 bits.
+                                                : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_dma'
+  531 |                 pf_row      <= i_dim_m;
+      |                             ^~
+%Warning-WIDTHEXPAND: rtl\c930_npu_dma.sv:532:30: Operator ASSIGNDLY expects 4 bits on the Assign RHS, but Assign RHS's CONST '3'h0' generates 3 bits.
+                                                : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_dma'
+  532 |                 elem_size    <= 3'd0;
+      |                              ^~
+%Warning-WIDTHEXPAND: rtl\c930_npu_dma.sv:541:46: Operator COND expects 32 bits on the Conditional False, but Conditional False's VARREF 'i_dim_k' generates 16 bits.
+                                                : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_dma'
+  541 |                 total_elems <= i_pta_stage_a ? i_dim_m * i_dim_k : i_dim_k;
+      |                                              ^
+%Warning-WIDTHEXPAND: rtl\c930_npu_dma.sv:543:30: Operator ASSIGNDLY expects 4 bits on the Assign RHS, but Assign RHS's CONST '3'h1' generates 3 bits.
+                                                : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_dma'
+  543 |                 elem_size    <= 3'd1;
+      |                              ^~
+%Warning-WIDTHEXPAND: rtl\c930_npu_dma.sv:545:45: Operator COND expects 32 bits on the Conditional False, but Conditional False's VARREF 'i_dim_k' generates 16 bits.
+                                                : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_dma'
+  545 |                 elem_cnt   <= i_pta_stage_a ? i_dim_m * i_dim_k : i_dim_k;
+      |                                             ^
+%Warning-WIDTHEXPAND: rtl\c930_npu_dma.sv:546:47: Operator COND expects 32 bits on the Conditional False, but Conditional False's VARREF 'i_dim_k' generates 16 bits.
+                                                : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_dma'
+  546 |                 rd_beats   <= ((i_pta_stage_a ? i_dim_m * i_dim_k : i_dim_k)
+      |                                               ^
+%Warning-WIDTHEXPAND: rtl\c930_npu_dma.sv:549:43: Operator ADD expects 32 bits on the LHS, but LHS's VARREF 'i_dim_k' generates 16 bits.
+                                                : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_dma'
+  549 |                                : (i_dim_k + BYTES_PER_BEAT - 1) / BYTES_PER_BEAT;
+      |                                           ^
+%Warning-WIDTHEXPAND: rtl\c930_npu_dma.sv:551:46: Operator COND expects 32 bits on the Conditional False, but Conditional False's VARREF 'i_dim_k' generates 16 bits.
+                                                : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_dma'
+  551 |                 total_elems <= i_pta_stage_a ? i_dim_m * i_dim_k : i_dim_k;
+      |                                              ^
+%Warning-WIDTHEXPAND: rtl\c930_npu_dma.sv:553:30: Operator ASSIGNDLY expects 4 bits on the Assign RHS, but Assign RHS's CONST '3'h2' generates 3 bits.
+                                                : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_dma'
+  553 |                 elem_size    <= 3'd2;
+      |                              ^~
+%Warning-WIDTHEXPAND: rtl\c930_npu_dma.sv:555:46: Operator COND expects 32 bits on the Conditional False, but Conditional False's VARREF 'i_dim_k' generates 16 bits.
+                                                : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_dma'
+  555 |                 elem_cnt   <= (i_pta_stage_a ? i_dim_m * i_dim_k : i_dim_k) * 2;
+      |                                              ^
+%Warning-WIDTHEXPAND: rtl\c930_npu_dma.sv:556:47: Operator COND expects 32 bits on the Conditional False, but Conditional False's VARREF 'i_dim_k' generates 16 bits.
+                                                : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_dma'
+  556 |                 rd_beats   <= ((i_pta_stage_a ? i_dim_m * i_dim_k : i_dim_k) * 2
+      |                                               ^
+%Warning-WIDTHEXPAND: rtl\c930_npu_dma.sv:578:57: Operator COND expects 32 bits on the Conditional False, but Conditional False's VARREF 'i_dim_k' generates 16 bits.
+                                                : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_dma'
+  578 |                 staging_total  <= (i_precision == 3'd4) ? i_dim_m * i_dim_k
+      |                                                         ^
+%Warning-WIDTHTRUNC: rtl\c930_npu_dma.sv:627:31: Operator ASSIGNDLY expects 8 bits on the Assign RHS, but Assign RHS's SUB generates 32 bits.
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_dma'
+  627 |                 m_axi_arlen   <= rd_beats - 1;
+      |                               ^~
+%Warning-WIDTHEXPAND: rtl\c930_npu_dma.sv:685:44: Operator EQ expects 4 bits on the RHS, but RHS's CONST '3'h1' generates 3 bits.
+                                                : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_dma'
+  685 |                     end else if (elem_size == 3'd1) begin
+      |                                            ^~
+%Warning-WIDTHTRUNC: rtl\c930_npu_dma.sv:733:31: Operator ASSIGNDLY expects 8 bits on the Assign RHS, but Assign RHS's SUB generates 32 bits.
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_dma'
+  733 |                 m_axi_arlen   <= pf_rd_beats - 1;
+      |                               ^~
+%Warning-WIDTHTRUNC: rtl\c930_npu_dma.sv:833:31: Operator ASSIGNDLY expects 8 bits on the Assign RHS, but Assign RHS's SUB generates 32 bits.
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_dma'
+  833 |                 m_axi_arlen   <= pf_rd_beats - 1;
+      |                               ^~
+%Warning-WIDTHEXPAND: rtl\c930_npu_dma.sv:898:44: Operator ADD expects 32 bits on the LHS, but LHS's VARREF 'next_dk' generates 16 bits.
+                                                : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_dma'
+  898 |                   pf2_rd_beats <= (next_dk + BYTES_PER_BEAT - 1) / BYTES_PER_BEAT;
+      |                                            ^
+%Warning-WIDTHTRUNC: rtl\c930_npu_dma.sv:909:33: Operator ASSIGNDLY expects 8 bits on the Assign RHS, but Assign RHS's SUB generates 32 bits.
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_dma'
+  909 |                   m_axi_arlen   <= pf2_rd_beats - 1;
+      |                                 ^~
+%Warning-WIDTHEXPAND: rtl\c930_npu_dma.sv:930:62: Operator COND expects 32 bits on the Conditional False, but Conditional False's VARREF 'next_dk' generates 16 bits.
+                                                : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_dma'
+  930 |                   if (pf2_flat_idx < (next_precision == 3'd4 ? next_dm * next_dk
+      |                                                              ^
+%Warning-WIDTHTRUNC: rtl\c930_npu_dma.sv:1002:31: Operator ASSIGNDLY expects 8 bits on the Assign RHS, but Assign RHS's SUB generates 32 or 16 bits.
+                                                : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_dma'
+ 1002 |                 m_axi_awlen   <= (dm * dn + 1) / 2 - 1;
+      |                               ^~
+%Warning-WIDTHEXPAND: rtl\c930_npu_csr.sv:506:35: Operator EQ expects 32 bits on the LHS, but LHS's VARREF 'fifo_count' generates 3 bits.
+                                                : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_csr'
+  506 |   wire   fifo_full  = (fifo_count == CMD_QUEUE_DEPTH);
+      |                                   ^~
+%Warning-WIDTHEXPAND: rtl\c930_npu_csr.sv:908:36: Operator LT expects 32 bits on the LHS, but LHS's VARREF 'act_iaddr' generates 11 bits.
+                                                : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_csr'
+  908 |               IR_XS: if (act_iaddr < NUM_COLS)
+      |                                    ^
+%Warning-WIDTHEXPAND: rtl\c930_npu_csr.sv:910:36: Operator LT expects 32 bits on the LHS, but LHS's VARREF 'act_iaddr' generates 11 bits.
+                                                : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_csr'
+  910 |               IR_R:  if (act_iaddr < NUM_COLS)
+      |                                    ^
+%Warning-WIDTHEXPAND: rtl\c930_npu_csr.sv:1042:59: Operator LT expects 32 bits on the LHS, but LHS's VARREF 'act_iaddr' generates 11 bits.
+                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_csr'
+ 1042 |                          IR_XS:  s_axi_rdata <= act_iaddr < NUM_COLS
+      |                                                           ^
+%Warning-WIDTHEXPAND: rtl\c930_npu_csr.sv:1044:59: Operator LT expects 32 bits on the LHS, but LHS's VARREF 'act_iaddr' generates 11 bits.
+                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_csr'
+ 1044 |                          IR_R:   s_axi_rdata <= act_iaddr < NUM_COLS
+      |                                                           ^
+%Warning-WIDTHXZEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_mux4x1.sv:38:31: Unsized constant being X/Z extended to 64 bits: ?32?bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+                                                                                  : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_mux4x1'
+   38 |       default: o_mux4x1_out = 'bx;
+      |                               ^~~
+                        ... For warning description see https://verilator.org/warn/WIDTHXZEXPAND?v=5.051
+                        ... Use "/* verilator lint_off WIDTHXZEXPAND */" and lint_on around source to disable this message.
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_csr_unit.sv:561:38: Operator ASSIGNDLY expects 64 bits on the Assign RHS, but Assign RHS's VARREF 'i_csr_unit_instr' generates 32 bits.
+                                                                                   : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_csr_unit'
+  561 |                               mtinst <= i_csr_unit_instr;
+      |                                      ^~
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_csr_unit.sv:584:38: Operator ASSIGNDLY expects 64 bits on the Assign RHS, but Assign RHS's VARREF 'i_csr_unit_instr' generates 32 bits.
+                                                                                   : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_csr_unit'
+  584 |                               mtinst <= i_csr_unit_instr;
+      |                                      ^~
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_csr_unit.sv:605:38: Operator ASSIGNDLY expects 64 bits on the Assign RHS, but Assign RHS's VARREF 'i_csr_unit_instr' generates 32 bits.
+                                                                                   : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_csr_unit'
+  605 |                               mtinst <= i_csr_unit_instr;
+      |                                      ^~
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_csr_unit.sv:628:38: Operator ASSIGNDLY expects 64 bits on the Assign RHS, but Assign RHS's VARREF 'i_csr_unit_instr' generates 32 bits.
+                                                                                   : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_csr_unit'
+  628 |                               mtinst <= i_csr_unit_instr;
+      |                                      ^~
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_csr_unit.sv:647:28: Operator ASSIGNDLY expects 64 bits on the Assign RHS, but Assign RHS's VARREF 'i_csr_unit_instr' generates 32 bits.
+                                                                                   : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_csr_unit'
+  647 |                     mtinst <= i_csr_unit_instr;
+      |                            ^~
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_csr_unit.sv:665:38: Operator ASSIGNDLY expects 64 bits on the Assign RHS, but Assign RHS's VARREF 'i_csr_unit_instr' generates 32 bits.
+                                                                                   : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_csr_unit'
+  665 |                               mtinst <= i_csr_unit_instr;
+      |                                      ^~
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_csr_unit.sv:688:38: Operator ASSIGNDLY expects 64 bits on the Assign RHS, but Assign RHS's VARREF 'i_csr_unit_instr' generates 32 bits.
+                                                                                   : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_csr_unit'
+  688 |                               mtinst <= i_csr_unit_instr;
+      |                                      ^~
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_csr_unit.sv:708:38: Operator ASSIGNDLY expects 64 bits on the Assign RHS, but Assign RHS's VARREF 'i_csr_unit_instr' generates 32 bits.
+                                                                                   : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_csr_unit'
+  708 |                               mtinst <= i_csr_unit_instr;
+      |                                      ^~
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_csr_unit.sv:731:38: Operator ASSIGNDLY expects 64 bits on the Assign RHS, but Assign RHS's VARREF 'i_csr_unit_instr' generates 32 bits.
+                                                                                   : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_csr_unit'
+  731 |                               mtinst <= i_csr_unit_instr;
+      |                                      ^~
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_csr_unit.sv:751:38: Operator ASSIGNDLY expects 64 bits on the Assign RHS, but Assign RHS's VARREF 'i_csr_unit_instr' generates 32 bits.
+                                                                                   : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_csr_unit'
+  751 |                               mtinst <= i_csr_unit_instr;
+      |                                      ^~
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_csr_unit.sv:774:38: Operator ASSIGNDLY expects 64 bits on the Assign RHS, but Assign RHS's VARREF 'i_csr_unit_instr' generates 32 bits.
+                                                                                   : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_csr_unit'
+  774 |                               mtinst <= i_csr_unit_instr;
+      |                                      ^~
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_compressed_decoder.sv:451:67: Operator NEQ expects 10 bits on the RHS, but RHS's CONST '5'h0' generates 5 bits.
+                                                                                             : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_compressed_decoder'
+  451 |                         else if (i_compressed_decoder_instr[11:2] != 5'b0) begin
+      |                                                                   ^~
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_compressed_decoder.sv:437:62: Operator EQ expects 10 bits on the RHS, but RHS's CONST '5'h0' generates 5 bits.
+                                                                                             : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_compressed_decoder'
+  437 |                         if (i_compressed_decoder_instr[11:2] == 5'b0) begin
+      |                                                              ^~
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_alu.sv:42:33: Operator ASSIGN expects 64 bits on the Assign RHS, but Assign RHS's LTS generates 1 bits.
+                                                                             : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_alu'
+   42 |           4'b0101: o_alu_result = $signed(i_alu_srcA) < $signed(i_alu_srcB);
+      |                                 ^
+%Warning-WIDTHEXPAND: asic_gf180mcu/openlane2_rtl/src\riscv_core_alu.sv:43:33: Operator ASSIGN expects 64 bits on the Assign RHS, but Assign RHS's LT generates 1 bits.
+                                                                             : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_alu'
+   43 |           4'b1000: o_alu_result = $unsigned(i_alu_srcA) < $unsigned(i_alu_srcB);
+      |                                 ^
+%Warning-WIDTHTRUNC: asic_gf180mcu/openlane2_rtl/src\riscv_core_alu.sv:50:37: Operator ASSIGN expects 32 bits on the Assign RHS, but Assign RHS's ADD generates 64 bits.
+                                                                            : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_alu'
+   50 |           4'b0000: o_alu_resultword = i_alu_srcA + i_alu_srcB;
+      |                                     ^
+%Warning-WIDTHTRUNC: asic_gf180mcu/openlane2_rtl/src\riscv_core_alu.sv:51:37: Operator ASSIGN expects 32 bits on the Assign RHS, but Assign RHS's SUB generates 64 bits.
+                                                                            : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_alu'
+   51 |           4'b0001: o_alu_resultword = i_alu_srcA - i_alu_srcB;
+      |                                     ^
+%Warning-WIDTHEXPAND: rtl\c930_axi_dma_arb.sv:245:33: Operator ADD expects 32 bits on the LHS, but LHS's VARREF 'rd_rr' generates 2 bits.
+                                                    : ... note: In instance 'c930_soc4_verilator.u_soc.u_dma_arb'
+  245 |         rd_owner_next  = (rd_rr + i) % NUM_M;
+      |                                 ^
+%Warning-WIDTHTRUNC: rtl\c930_axi_dma_arb.sv:245:24: Operator ASSIGN expects 2 bits on the Assign RHS, but Assign RHS's MODDIV generates 32 bits.
+                                                   : ... note: In instance 'c930_soc4_verilator.u_soc.u_dma_arb'
+  245 |         rd_owner_next  = (rd_rr + i) % NUM_M;
+      |                        ^
+%Warning-WIDTHEXPAND: rtl\c930_axi_dma_arb.sv:244:47: Operator ADD expects 32 bits on the LHS, but LHS's VARREF 'rd_rr' generates 2 bits.
+                                                    : ... note: In instance 'c930_soc4_verilator.u_soc.u_dma_arb'
+  244 |       if (!rd_grant_valid && arvalid_v[(rd_rr + i) % NUM_M]) begin
+      |                                               ^
+%Warning-WIDTHEXPAND: rtl\c930_axi_dma_arb.sv:262:43: Operator ADD expects 32 bits on the LHS, but LHS's VARREF 'rd_owner_next' generates 2 bits.
+                                                    : ... note: In instance 'c930_soc4_verilator.u_soc.u_dma_arb'
+  262 |           rd_rr         <= (rd_owner_next + 1) % NUM_M;
+      |                                           ^
+%Warning-WIDTHTRUNC: rtl\c930_axi_dma_arb.sv:262:25: Operator ASSIGNDLY expects 2 bits on the Assign RHS, but Assign RHS's MODDIV generates 32 bits.
+                                                   : ... note: In instance 'c930_soc4_verilator.u_soc.u_dma_arb'
+  262 |           rd_rr         <= (rd_owner_next + 1) % NUM_M;
+      |                         ^~
+%Warning-WIDTHEXPAND: rtl\c930_axi_dma_arb.sv:334:33: Operator ADD expects 32 bits on the LHS, but LHS's VARREF 'wr_rr' generates 2 bits.
+                                                    : ... note: In instance 'c930_soc4_verilator.u_soc.u_dma_arb'
+  334 |         wr_owner_next  = (wr_rr + i) % NUM_M;
+      |                                 ^
+%Warning-WIDTHTRUNC: rtl\c930_axi_dma_arb.sv:334:24: Operator ASSIGN expects 2 bits on the Assign RHS, but Assign RHS's MODDIV generates 32 bits.
+                                                   : ... note: In instance 'c930_soc4_verilator.u_soc.u_dma_arb'
+  334 |         wr_owner_next  = (wr_rr + i) % NUM_M;
+      |                        ^
+%Warning-WIDTHEXPAND: rtl\c930_axi_dma_arb.sv:333:47: Operator ADD expects 32 bits on the LHS, but LHS's VARREF 'wr_rr' generates 2 bits.
+                                                    : ... note: In instance 'c930_soc4_verilator.u_soc.u_dma_arb'
+  333 |       if (!wr_grant_valid && awvalid_v[(wr_rr + i) % NUM_M]) begin
+      |                                               ^
+%Warning-WIDTHEXPAND: rtl\c930_axi_dma_arb.sv:351:43: Operator ADD expects 32 bits on the LHS, but LHS's VARREF 'wr_owner_next' generates 2 bits.
+                                                    : ... note: In instance 'c930_soc4_verilator.u_soc.u_dma_arb'
+  351 |           wr_rr         <= (wr_owner_next + 1) % NUM_M;
+      |                                           ^
+%Warning-WIDTHTRUNC: rtl\c930_axi_dma_arb.sv:351:25: Operator ASSIGNDLY expects 2 bits on the Assign RHS, but Assign RHS's MODDIV generates 32 bits.
+                                                   : ... note: In instance 'c930_soc4_verilator.u_soc.u_dma_arb'
+  351 |           wr_rr         <= (wr_owner_next + 1) % NUM_M;
+      |                         ^~
+%Warning-WIDTHEXPAND: rtl\c930_npu_top.sv:484:6: Input port connection 'i_pta_cal_bank' expects 2 bits on the pin connection, but pin connection's VARREF 'pta_cal_bank' generates 1 bits.
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1'
+  484 |     .i_pta_cal_bank    (pta_cal_bank),
+      |      ^~~~~~~~~~~~~~
+%Warning-WIDTHTRUNC: rtl\c930_axi_cache_adapter.sv:194:41: Operator ASSIGNDLY expects 64 bits on the Assign RHS, but Assign RHS's VARREF 'm_axi_rdata' generates 256 bits.
+                                                         : ... note: In instance 'c930_soc4_verilator.u_soc.u_dcache_adapter'
+  194 |             line_buf[beat_cnt*64 +: 64] <= m_axi_rdata;
+      |                                         ^~
+%Warning-WIDTHTRUNC: rtl\c930_axi_cache_adapter.sv:206:23: Operator ASSIGNW expects 8 bits on the Assign RHS, but Assign RHS's SUB generates 32 bits.
+                                                         : ... note: In instance 'c930_soc4_verilator.u_soc.u_dcache_adapter'
+  206 |   assign m_axi_arlen  = BEATS_PER_LINE - 1;
+      |                       ^
+%Warning-WIDTHEXPAND: rtl\c930_axi_cache_adapter.sv:224:35: Operator SHIFTL expects 256 bits on the LHS, but LHS's VARREF 'wr_data_r' generates 64 bits.
+                                                          : ... note: In instance 'c930_soc4_verilator.u_soc.u_dcache_adapter'
+  224 |   assign m_axi_wdata  = wr_data_r << (addr_r[2:0] * 8);
+      |                                   ^~
+%Warning-WIDTHEXPAND: rtl\c930_axi_cache_adapter.sv:225:23: Operator ASSIGNW expects 32 bits on the Assign RHS, but Assign RHS's VARREF 'wr_strobe_r' generates 8 bits.
+                                                          : ... note: In instance 'c930_soc4_verilator.u_soc.u_dcache_adapter'
+  225 |   assign m_axi_wstrb  = wr_strobe_r;
+      |                       ^
+%Warning-WIDTHEXPAND: rtl\c930_mmio_arb.sv:118:30: Operator ADD expects 32 bits on the LHS, but LHS's VARREF 'rr_ptr' generates 2 bits.
+                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.u_mmio_arb'
+  118 |         next_owner = (rr_ptr + i) % 4;
+      |                              ^
+%Warning-WIDTHTRUNC: rtl\c930_mmio_arb.sv:118:20: Operator ASSIGN expects 2 bits on the Assign RHS, but Assign RHS's MODDIV generates 32 bits.
+                                                : ... note: In instance 'c930_soc4_verilator.u_soc.u_mmio_arb'
+  118 |         next_owner = (rr_ptr + i) % 4;
+      |                    ^
+%Warning-WIDTHEXPAND: rtl\c930_mmio_arb.sv:117:40: Operator ADD expects 32 bits on the LHS, but LHS's VARREF 'rr_ptr' generates 2 bits.
+                                                 : ... note: In instance 'c930_soc4_verilator.u_soc.u_mmio_arb'
+  117 |       if (!have_grant && req_v[(rr_ptr + i) % 4]) begin
+      |                                        ^
+%Warning-WIDTHEXPAND: rtl\c930_aplic.sv:250:30: Operator ASSIGNDLY expects 32 bits on the Assign RHS, but Assign RHS's REPLICATE generates 31 bits.
+                                              : ... note: In instance 'c930_soc4_verilator.u_soc.u_aplic'
+  250 |           8'h0C: s_axi_rdata <= {28'd0, en_3, en_2, en_1};
+      |                              ^~
+%Warning-WIDTHEXPAND: rtl\c930_aplic.sv:253:32: Operator ASSIGNDLY expects 32 bits on the Assign RHS, but Assign RHS's REPLICATE generates 30 bits.
+                                              : ... note: In instance 'c930_soc4_verilator.u_soc.u_aplic'
+  253 |                    s_axi_rdata <= {28'd0, (sel_high == 2'd0) ? 2'd0 : sel_high};
+      |                                ^~
+%Warning-WIDTHTRUNC: rtl\c930_uart.sv:173:37: Bit extraction of var[7:0] requires 3 bit index, not 4 bits.
+                                            : ... note: In instance 'c930_soc4_verilator.u_soc.u_uart'
+  173 |           o_uart_txd <= tx_shift_reg[tx_bit_cnt];
+      |                                     ^
+%Warning-WIDTHTRUNC: rtl\c930_uart.sv:294:25: Bit extraction of var[7:0] requires 3 bit index, not 4 bits.
+                                            : ... note: In instance 'c930_soc4_verilator.u_soc.u_uart'
+  294 |             rx_shift_reg[rx_bit_cnt] <= rx_pin;
+      |                         ^
+%Warning-WIDTHTRUNC: rtl\c930_axi_crossbar.sv:354:21: Operator ASSIGN expects 2 bits on the Assign RHS, but Assign RHS's MODDIV generates 32 or 3 bits.
+                                                    : ... note: In instance 'c930_soc4_verilator.u_soc.u_crossbar'
+  354 |       r_grant_next  = (r_rr_ptr + 1) % 4;
+      |                     ^
+%Warning-WIDTHTRUNC: rtl\c930_axi_crossbar.sv:357:21: Operator ASSIGN expects 2 bits on the Assign RHS, but Assign RHS's MODDIV generates 32 or 3 bits.
+                                                    : ... note: In instance 'c930_soc4_verilator.u_soc.u_crossbar'
+  357 |       r_grant_next  = (r_rr_ptr + 2) % 4;
+      |                     ^
+%Warning-WIDTHTRUNC: rtl\c930_axi_crossbar.sv:360:21: Operator ASSIGN expects 2 bits on the Assign RHS, but Assign RHS's MODDIV generates 32 or 3 bits.
+                                                    : ... note: In instance 'c930_soc4_verilator.u_soc.u_crossbar'
+  360 |       r_grant_next  = (r_rr_ptr + 3) % 4;
+      |                     ^
+%Warning-WIDTHTRUNC: rtl\c930_axi_crossbar.sv:392:22: Operator ASSIGNDLY expects 2 bits on the Assign RHS, but Assign RHS's MODDIV generates 32 or 3 bits.
+                                                    : ... note: In instance 'c930_soc4_verilator.u_soc.u_crossbar'
+  392 |             r_grant  <= (r_rr_ptr + 1) % 4;
+      |                      ^~
+%Warning-WIDTHTRUNC: rtl\c930_axi_crossbar.sv:395:22: Operator ASSIGNDLY expects 2 bits on the Assign RHS, but Assign RHS's MODDIV generates 32 or 3 bits.
+                                                    : ... note: In instance 'c930_soc4_verilator.u_soc.u_crossbar'
+  395 |             r_rr_ptr <= (r_rr_ptr + 2) % 4;
+      |                      ^~
+%Warning-WIDTHTRUNC: rtl\c930_axi_crossbar.sv:397:22: Operator ASSIGNDLY expects 2 bits on the Assign RHS, but Assign RHS's MODDIV generates 32 or 3 bits.
+                                                    : ... note: In instance 'c930_soc4_verilator.u_soc.u_crossbar'
+  397 |             r_grant  <= (r_rr_ptr + 2) % 4;
+      |                      ^~
+%Warning-WIDTHTRUNC: rtl\c930_axi_crossbar.sv:400:22: Operator ASSIGNDLY expects 2 bits on the Assign RHS, but Assign RHS's MODDIV generates 32 or 3 bits.
+                                                    : ... note: In instance 'c930_soc4_verilator.u_soc.u_crossbar'
+  400 |             r_rr_ptr <= (r_rr_ptr + 3) % 4;
+      |                      ^~
+%Warning-WIDTHTRUNC: rtl\c930_axi_crossbar.sv:402:22: Operator ASSIGNDLY expects 2 bits on the Assign RHS, but Assign RHS's MODDIV generates 32 or 3 bits.
+                                                    : ... note: In instance 'c930_soc4_verilator.u_soc.u_crossbar'
+  402 |             r_grant  <= (r_rr_ptr + 3) % 4;
+      |                      ^~
+%Warning-WIDTHTRUNC: rtl\c930_axi_crossbar.sv:457:21: Operator ASSIGN expects 2 bits on the Assign RHS, but Assign RHS's MODDIV generates 32 or 3 bits.
+                                                    : ... note: In instance 'c930_soc4_verilator.u_soc.u_crossbar'
+  457 |       w_grant_next  = (w_rr_ptr + 1) % 4;
+      |                     ^
+%Warning-WIDTHTRUNC: rtl\c930_axi_crossbar.sv:460:21: Operator ASSIGN expects 2 bits on the Assign RHS, but Assign RHS's MODDIV generates 32 or 3 bits.
+                                                    : ... note: In instance 'c930_soc4_verilator.u_soc.u_crossbar'
+  460 |       w_grant_next  = (w_rr_ptr + 2) % 4;
+      |                     ^
+%Warning-WIDTHTRUNC: rtl\c930_axi_crossbar.sv:463:21: Operator ASSIGN expects 2 bits on the Assign RHS, but Assign RHS's MODDIV generates 32 or 3 bits.
+                                                    : ... note: In instance 'c930_soc4_verilator.u_soc.u_crossbar'
+  463 |       w_grant_next  = (w_rr_ptr + 3) % 4;
+      |                     ^
+%Warning-WIDTHTRUNC: rtl\c930_axi_crossbar.sv:492:22: Operator ASSIGNDLY expects 2 bits on the Assign RHS, but Assign RHS's MODDIV generates 32 or 3 bits.
+                                                    : ... note: In instance 'c930_soc4_verilator.u_soc.u_crossbar'
+  492 |             w_grant  <= (w_rr_ptr + 1) % 4;
+      |                      ^~
+%Warning-WIDTHTRUNC: rtl\c930_axi_crossbar.sv:495:22: Operator ASSIGNDLY expects 2 bits on the Assign RHS, but Assign RHS's MODDIV generates 32 or 3 bits.
+                                                    : ... note: In instance 'c930_soc4_verilator.u_soc.u_crossbar'
+  495 |             w_rr_ptr <= (w_rr_ptr + 2) % 4;
+      |                      ^~
+%Warning-WIDTHTRUNC: rtl\c930_axi_crossbar.sv:497:22: Operator ASSIGNDLY expects 2 bits on the Assign RHS, but Assign RHS's MODDIV generates 32 or 3 bits.
+                                                    : ... note: In instance 'c930_soc4_verilator.u_soc.u_crossbar'
+  497 |             w_grant  <= (w_rr_ptr + 2) % 4;
+      |                      ^~
+%Warning-WIDTHTRUNC: rtl\c930_axi_crossbar.sv:500:22: Operator ASSIGNDLY expects 2 bits on the Assign RHS, but Assign RHS's MODDIV generates 32 or 3 bits.
+                                                    : ... note: In instance 'c930_soc4_verilator.u_soc.u_crossbar'
+  500 |             w_rr_ptr <= (w_rr_ptr + 3) % 4;
+      |                      ^~
+%Warning-WIDTHTRUNC: rtl\c930_axi_crossbar.sv:502:22: Operator ASSIGNDLY expects 2 bits on the Assign RHS, but Assign RHS's MODDIV generates 32 or 3 bits.
+                                                    : ... note: In instance 'c930_soc4_verilator.u_soc.u_crossbar'
+  502 |             w_grant  <= (w_rr_ptr + 3) % 4;
+      |                      ^~
+%Warning-WIDTHEXPAND: rtl\c930_l2.sv:280:32: Operator SUB expects 32 bits on the LHS, but LHS's VARREF 'wr_seq' generates 8 bits.
+                                           : ... note: In instance 'c930_soc4_verilator.u_soc.g_l2.u_l2'
+  280 |   assign wr_log_full = (wr_seq - wr_log_head) >= WR_LOG_DEPTH;
+      |                                ^
+%Warning-WIDTHEXPAND: rtl\c930_l2.sv:280:32: Operator SUB expects 32 bits on the RHS, but RHS's VARREF 'wr_log_head' generates 8 bits.
+                                           : ... note: In instance 'c930_soc4_verilator.u_soc.g_l2.u_l2'
+  280 |   assign wr_log_full = (wr_seq - wr_log_head) >= WR_LOG_DEPTH;
+      |                                ^
+%Warning-WIDTHEXPAND: rtl\c930_l2.sv:382:25: Operator EQ expects 32 bits on the LHS, but LHS's VARREF 's_arlen' generates 8 bits.
+                                           : ... note: In instance 'c930_soc4_verilator.u_soc.g_l2.u_l2'
+  382 |             if (s_arlen == WORDS_PER_LINE-1 && s_araddr[OFF_BITS-1:0] == '0 &&
+      |                         ^~
+%Warning-WIDTHEXPAND: rtl\c930_l2.sv:460:36: Operator GTE expects 32 bits on the LHS, but LHS's ARRAYSEL generates 2 bits.
+                                           : ... note: In instance 'c930_soc4_verilator.u_soc.g_l2.u_l2'
+  460 |             if (victim_cnt[rd_set] >= NUM_WAYS - 1)
+      |                                    ^~
+%Warning-WIDTHEXPAND: rtl\c930_l2.sv:475:13: Operator CASE expects 3 bits on the Case Item, but Case Item's CONST '2'h0' generates 2 bits.
+                                           : ... note: In instance 'c930_soc4_verilator.u_soc.g_l2.u_l2'
+  475 |             case (rd_beat)
+      |             ^~~~
+%Warning-WIDTHEXPAND: rtl\c930_l2.sv:475:13: Operator CASE expects 3 bits on the Case Item, but Case Item's CONST '2'h1' generates 2 bits.
+                                           : ... note: In instance 'c930_soc4_verilator.u_soc.g_l2.u_l2'
+  475 |             case (rd_beat)
+      |             ^~~~
+%Warning-WIDTHEXPAND: rtl\c930_l2.sv:475:13: Operator CASE expects 3 bits on the Case Item, but Case Item's CONST '2'h2' generates 2 bits.
+                                           : ... note: In instance 'c930_soc4_verilator.u_soc.g_l2.u_l2'
+  475 |             case (rd_beat)
+      |             ^~~~
+%Warning-WIDTHEXPAND: rtl\c930_l2.sv:482:25: Operator EQ expects 32 bits on the LHS, but LHS's VARREF 'rd_beat' generates 3 bits.
+                                           : ... note: In instance 'c930_soc4_verilator.u_soc.g_l2.u_l2'
+  482 |             if (rd_beat == WORDS_PER_LINE-1)
+      |                         ^~
+%Warning-WIDTHTRUNC: rtl\c930_l2.sv:658:19: Operator ASSIGN expects 8 bits on the Assign RHS, but Assign RHS's SUB generates 32 bits.
+                                          : ... note: In instance 'c930_soc4_verilator.u_soc.g_l2.u_l2'
+  658 |         m_arlen   = WORDS_PER_LINE-1;
+      |                   ^
+%Warning-WIDTHEXPAND: rtl\c930_l2.sv:665:29: Operator EQ expects 32 bits on the LHS, but LHS's VARREF 'rd_beat' generates 3 bits.
+                                           : ... note: In instance 'c930_soc4_verilator.u_soc.g_l2.u_l2'
+  665 |         s_rlast  = (rd_beat == WORDS_PER_LINE-1);
+      |                             ^~
+%Warning-WIDTHTRUNC: rtl\c930_l2.sv:740:24: Bit extraction of array[7:0] requires 3 bit index, not 8 bits.
+                                          : ... note: In instance 'c930_soc4_verilator.u_soc.g_l2.u_l2'
+  740 |             wr_log_line[wr_log_head]  <= s_awaddr;
+      |                        ^
+%Warning-WIDTHTRUNC: rtl\c930_l2.sv:741:23: Bit extraction of array[7:0] requires 3 bit index, not 8 bits.
+                                          : ... note: In instance 'c930_soc4_verilator.u_soc.g_l2.u_l2'
+  741 |             wr_log_seq[wr_log_head]   <= wr_seq;
+      |                       ^
+%Warning-WIDTHTRUNC: rtl\c930_l2.sv:742:24: Bit extraction of array[7:0] requires 3 bit index, not 8 bits.
+                                          : ... note: In instance 'c930_soc4_verilator.u_soc.g_l2.u_l2'
+  742 |             wr_log_done[wr_log_head]  <= 1'b0;
+      |                        ^
+%Warning-WIDTHTRUNC: rtl\c930_l2.sv:743:25: Bit extraction of array[7:0] requires 3 bit index, not 8 bits.
+                                          : ... note: In instance 'c930_soc4_verilator.u_soc.g_l2.u_l2'
+  743 |             wr_log_valid[wr_log_head] <= 1'b1;
+      |                         ^
+%Warning-WIDTHEXPAND: rtl\c930_l2.sv:788:42: Operator ADD expects 64 bits on the RHS, but RHS's VARREF 'LINE_BYTES' generates 32 bits.
+                                           : ... note: In instance 'c930_soc4_verilator.u_soc.g_l2.u_l2'
+  788 |               wr_cur_line <= wr_cur_line + LINE_BYTES;
+      |                                          ^
+%Warning-WIDTHTRUNC: rtl\c930_l2.sv:808:24: Bit extraction of array[7:0] requires 3 bit index, not 8 bits.
+                                          : ... note: In instance 'c930_soc4_verilator.u_soc.g_l2.u_l2'
+  808 |             wr_log_done[wr_entry] <= 1'b1;
+      |                        ^
+%Warning-WIDTHEXPAND: rtl\c930_ddr.sv:112:36: Operator ADD expects 64 bits on the RHS, but RHS's VARREF 'i' generates 32 bits.
+                                            : ... note: In instance 'c930_soc4_verilator.u_soc.u_ddr'
+  112 |       line_at[i*8 +: 8] = mem[base + i];
+      |                                    ^
+%Warning-WIDTHTRUNC: rtl\c930_ddr.sv:112:30: Bit extraction of array[65535:0] requires 16 bit index, not 64 bits.
+                                           : ... note: In instance 'c930_soc4_verilator.u_soc.u_ddr'
+  112 |       line_at[i*8 +: 8] = mem[base + i];
+      |                              ^
+%Warning-WIDTHEXPAND: rtl\c930_ddr.sv:172:25: Operator ADD expects 64 bits on the RHS, but RHS's VARREF 'i' generates 32 bits.
+                                            : ... note: In instance 'c930_soc4_verilator.u_soc.u_ddr'
+  172 |             mem[wr_base + i] <= i_dcache_wr_data[(i - wr_off)*8 +: 8];
+      |                         ^
+%Warning-WIDTHTRUNC: rtl\c930_ddr.sv:172:16: Bit extraction of array[65535:0] requires 16 bit index, not 64 bits.
+                                           : ... note: In instance 'c930_soc4_verilator.u_soc.u_ddr'
+  172 |             mem[wr_base + i] <= i_dcache_wr_data[(i - wr_off)*8 +: 8];
+      |                ^
+%Warning-WIDTHEXPAND: rtl\c930_soc_top.sv:398:6: Output port connection 'm_axi_wdata' expects 256 bits on the pin connection, but pin connection's VARREF 'icache_wdata' generates 64 bits.
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc'
+  398 |     .m_axi_wdata     (icache_wdata),
+      |      ^~~~~~~~~~~
+%Warning-WIDTHEXPAND: rtl\c930_soc_top.sv:399:6: Output port connection 'm_axi_wstrb' expects 32 bits on the pin connection, but pin connection's VARREF 'icache_wstrb' generates 8 bits.
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc'
+  399 |     .m_axi_wstrb     (icache_wstrb),
+      |      ^~~~~~~~~~~
+%Warning-WIDTHEXPAND: rtl\c930_soc_top.sv:415:6: Input port connection 'm_axi_rdata' expects 256 bits on the pin connection, but pin connection's VARREF 'icache_rdata' generates 64 bits.
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc'
+  415 |     .m_axi_rdata     (icache_rdata),
+      |      ^~~~~~~~~~~
+%Warning-WIDTHEXPAND: rtl\c930_soc_top.sv:479:6: Output port connection 'm_axi_wdata' expects 256 bits on the pin connection, but pin connection's VARREF 'dcache_wdata' generates 64 bits.
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc'
+  479 |     .m_axi_wdata     (dcache_wdata),
+      |      ^~~~~~~~~~~
+%Warning-WIDTHEXPAND: rtl\c930_soc_top.sv:480:6: Output port connection 'm_axi_wstrb' expects 32 bits on the pin connection, but pin connection's VARREF 'dcache_wstrb' generates 8 bits.
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc'
+  480 |     .m_axi_wstrb     (dcache_wstrb),
+      |      ^~~~~~~~~~~
+%Warning-WIDTHEXPAND: rtl\c930_soc_top.sv:496:6: Input port connection 'm_axi_rdata' expects 256 bits on the pin connection, but pin connection's VARREF 'dcache_rdata' generates 64 bits.
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc'
+  496 |     .m_axi_rdata     (dcache_rdata),
+      |      ^~~~~~~~~~~
+%Warning-WIDTHEXPAND: rtl\c930_soc_top.sv:579:6: Output port connection 'm_axi_wdata' expects 256 bits on the pin connection, but pin connection's VARREF 'icache1_wdata' generates 64 bits.
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc'
+  579 |     .m_axi_wdata     (icache1_wdata),
+      |      ^~~~~~~~~~~
+%Warning-WIDTHEXPAND: rtl\c930_soc_top.sv:580:6: Output port connection 'm_axi_wstrb' expects 32 bits on the pin connection, but pin connection's VARREF 'icache1_wstrb' generates 8 bits.
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc'
+  580 |     .m_axi_wstrb     (icache1_wstrb),
+      |      ^~~~~~~~~~~
+%Warning-WIDTHEXPAND: rtl\c930_soc_top.sv:596:6: Input port connection 'm_axi_rdata' expects 256 bits on the pin connection, but pin connection's VARREF 'icache1_rdata' generates 64 bits.
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc'
+  596 |     .m_axi_rdata     (icache1_rdata),
+      |      ^~~~~~~~~~~
+%Warning-WIDTHEXPAND: rtl\c930_soc_top.sv:622:6: Output port connection 'm_axi_wdata' expects 256 bits on the pin connection, but pin connection's VARREF 'dcache1_wdata' generates 64 bits.
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc'
+  622 |     .m_axi_wdata     (dcache1_wdata),
+      |      ^~~~~~~~~~~
+%Warning-WIDTHEXPAND: rtl\c930_soc_top.sv:623:6: Output port connection 'm_axi_wstrb' expects 32 bits on the pin connection, but pin connection's VARREF 'dcache1_wstrb' generates 8 bits.
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc'
+  623 |     .m_axi_wstrb     (dcache1_wstrb),
+      |      ^~~~~~~~~~~
+%Warning-WIDTHEXPAND: rtl\c930_soc_top.sv:639:6: Input port connection 'm_axi_rdata' expects 256 bits on the pin connection, but pin connection's VARREF 'dcache1_rdata' generates 64 bits.
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc'
+  639 |     .m_axi_rdata     (dcache1_rdata),
+      |      ^~~~~~~~~~~
+%Warning-WIDTHEXPAND: rtl\c930_soc_top.sv:767:6: Output port connection 'm_axi_wdata' expects 256 bits on the pin connection, but pin connection's VARREF 'icache2_wdata' generates 64 bits.
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc'
+  767 |     .m_axi_wdata     (icache2_wdata),
+      |      ^~~~~~~~~~~
+%Warning-WIDTHEXPAND: rtl\c930_soc_top.sv:768:6: Output port connection 'm_axi_wstrb' expects 32 bits on the pin connection, but pin connection's VARREF 'icache2_wstrb' generates 8 bits.
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc'
+  768 |     .m_axi_wstrb     (icache2_wstrb),
+      |      ^~~~~~~~~~~
+%Warning-WIDTHEXPAND: rtl\c930_soc_top.sv:784:6: Input port connection 'm_axi_rdata' expects 256 bits on the pin connection, but pin connection's VARREF 'icache2_rdata' generates 64 bits.
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc'
+  784 |     .m_axi_rdata     (icache2_rdata),
+      |      ^~~~~~~~~~~
+%Warning-WIDTHEXPAND: rtl\c930_soc_top.sv:810:6: Output port connection 'm_axi_wdata' expects 256 bits on the pin connection, but pin connection's VARREF 'dcache2_wdata' generates 64 bits.
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc'
+  810 |     .m_axi_wdata     (dcache2_wdata),
+      |      ^~~~~~~~~~~
+%Warning-WIDTHEXPAND: rtl\c930_soc_top.sv:811:6: Output port connection 'm_axi_wstrb' expects 32 bits on the pin connection, but pin connection's VARREF 'dcache2_wstrb' generates 8 bits.
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc'
+  811 |     .m_axi_wstrb     (dcache2_wstrb),
+      |      ^~~~~~~~~~~
+%Warning-WIDTHEXPAND: rtl\c930_soc_top.sv:827:6: Input port connection 'm_axi_rdata' expects 256 bits on the pin connection, but pin connection's VARREF 'dcache2_rdata' generates 64 bits.
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc'
+  827 |     .m_axi_rdata     (dcache2_rdata),
+      |      ^~~~~~~~~~~
+%Warning-WIDTHEXPAND: rtl\c930_soc_top.sv:853:6: Output port connection 'm_axi_wdata' expects 256 bits on the pin connection, but pin connection's VARREF 'icache3_wdata' generates 64 bits.
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc'
+  853 |     .m_axi_wdata     (icache3_wdata),
+      |      ^~~~~~~~~~~
+%Warning-WIDTHEXPAND: rtl\c930_soc_top.sv:854:6: Output port connection 'm_axi_wstrb' expects 32 bits on the pin connection, but pin connection's VARREF 'icache3_wstrb' generates 8 bits.
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc'
+  854 |     .m_axi_wstrb     (icache3_wstrb),
+      |      ^~~~~~~~~~~
+%Warning-WIDTHEXPAND: rtl\c930_soc_top.sv:870:6: Input port connection 'm_axi_rdata' expects 256 bits on the pin connection, but pin connection's VARREF 'icache3_rdata' generates 64 bits.
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc'
+  870 |     .m_axi_rdata     (icache3_rdata),
+      |      ^~~~~~~~~~~
+%Warning-WIDTHEXPAND: rtl\c930_soc_top.sv:896:6: Output port connection 'm_axi_wdata' expects 256 bits on the pin connection, but pin connection's VARREF 'dcache3_wdata' generates 64 bits.
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc'
+  896 |     .m_axi_wdata     (dcache3_wdata),
+      |      ^~~~~~~~~~~
+%Warning-WIDTHEXPAND: rtl\c930_soc_top.sv:897:6: Output port connection 'm_axi_wstrb' expects 32 bits on the pin connection, but pin connection's VARREF 'dcache3_wstrb' generates 8 bits.
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc'
+  897 |     .m_axi_wstrb     (dcache3_wstrb),
+      |      ^~~~~~~~~~~
+%Warning-WIDTHEXPAND: rtl\c930_soc_top.sv:913:6: Input port connection 'm_axi_rdata' expects 256 bits on the pin connection, but pin connection's VARREF 'dcache3_rdata' generates 64 bits.
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc'
+  913 |     .m_axi_rdata     (dcache3_rdata),
+      |      ^~~~~~~~~~~
+%Warning-WIDTHTRUNC: rtl\c930_soc_top.sv:1479:6: Input port connection 's_axi_araddr' expects 32 bits on the pin connection, but pin connection's VARREF 'ddr_araddr' generates 64 bits.
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc'
+ 1479 |     .s_axi_araddr      (ddr_araddr),
+      |      ^~~~~~~~~~~~
+%Warning-WIDTHTRUNC: rtl\c930_soc_top.sv:1488:6: Input port connection 's_axi_awaddr' expects 32 bits on the pin connection, but pin connection's VARREF 'ddr_awaddr' generates 64 bits.
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc'
+ 1488 |     .s_axi_awaddr      (ddr_awaddr),
+      |      ^~~~~~~~~~~~
+%Warning-WIDTHTRUNC: rtl\c930_soc_top.sv:1836:6: Output port connection 'm_axi_araddr' expects 32 bits on the pin connection, but pin connection's VARREF 'npu_araddr' generates 64 bits.
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc'
+ 1836 |     .m_axi_araddr  (npu_araddr),
+      |      ^~~~~~~~~~~~
+%Warning-WIDTHTRUNC: rtl\c930_soc_top.sv:1847:6: Output port connection 'm_axi_awaddr' expects 32 bits on the pin connection, but pin connection's VARREF 'npu_awaddr' generates 64 bits.
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc'
+ 1847 |     .m_axi_awaddr  (npu_awaddr),
+      |      ^~~~~~~~~~~~
+%Warning-WIDTHTRUNC: rtl\c930_soc_top.sv:1996:6: Output port connection 'm_axi_araddr' expects 32 bits on the pin connection, but pin connection's VARREF 'npu1_araddr' generates 64 bits.
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc'
+ 1996 |     .m_axi_araddr  (npu1_araddr),
+      |      ^~~~~~~~~~~~
+%Warning-WIDTHTRUNC: rtl\c930_soc_top.sv:2007:6: Output port connection 'm_axi_awaddr' expects 32 bits on the pin connection, but pin connection's VARREF 'npu1_awaddr' generates 64 bits.
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc'
+ 2007 |     .m_axi_awaddr  (npu1_awaddr),
+      |      ^~~~~~~~~~~~
+%Warning-WIDTHEXPAND: rtl\c930_soc_top.sv:2226:23: Operator ASSIGNW expects 64 bits on the Assign RHS, but Assign RHS's VARREF 'mmio_awaddr_raw' generates 32 bits.
+                                                 : ... note: In instance 'c930_soc4_verilator.u_soc'
+ 2226 |   assign uart_awaddr  = mmio_awaddr_raw;
+      |                       ^
+%Warning-WIDTHTRUNC: rtl\c930_soc_top.sv:2232:23: Operator ASSIGNW expects 8 bits on the Assign RHS, but Assign RHS's REPLICATE generates 16 bits.
+                                                : ... note: In instance 'c930_soc4_verilator.u_soc'
+ 2232 |   assign uart_wstrb   = {{4{mmio_wstrb_raw[3]}}, {4{mmio_wstrb_raw[2]}},
+      |                       ^
+%Warning-WIDTHEXPAND: rtl\c930_soc_top.sv:2238:23: Operator ASSIGNW expects 64 bits on the Assign RHS, but Assign RHS's VARREF 'mmio_araddr_raw' generates 32 bits.
+                                                 : ... note: In instance 'c930_soc4_verilator.u_soc'
+ 2238 |   assign uart_araddr  = mmio_araddr_raw;
+      |                       ^
+%Warning-WIDTHEXPAND: rtl\c930_soc_top.sv:2246:24: Operator ASSIGNW expects 64 bits on the Assign RHS, but Assign RHS's VARREF 'mmio_awaddr_raw' generates 32 bits.
+                                                 : ... note: In instance 'c930_soc4_verilator.u_soc'
+ 2246 |   assign aplic_awaddr  = mmio_awaddr_raw;
+      |                        ^
+%Warning-WIDTHTRUNC: rtl\c930_soc_top.sv:2249:24: Operator ASSIGNW expects 8 bits on the Assign RHS, but Assign RHS's REPLICATE generates 16 bits.
+                                                : ... note: In instance 'c930_soc4_verilator.u_soc'
+ 2249 |   assign aplic_wstrb   = {{4{mmio_wstrb_raw[3]}}, {4{mmio_wstrb_raw[2]}},
+      |                        ^
+%Warning-WIDTHEXPAND: rtl\c930_soc_top.sv:2254:24: Operator ASSIGNW expects 64 bits on the Assign RHS, but Assign RHS's VARREF 'mmio_araddr_raw' generates 32 bits.
+                                                 : ... note: In instance 'c930_soc4_verilator.u_soc'
+ 2254 |   assign aplic_araddr  = mmio_araddr_raw;
+      |                        ^
+%Warning-WIDTHEXPAND: sim\c930_soc4_verilator.sv:159:25: Operator ASSIGNW expects 4 bits on the Assign RHS, but Assign RHS's VARXREF 'phase' generates 3 bits.
+                                                       : ... note: In instance 'c930_soc4_verilator'
+  159 |   assign o_dma0_phase   = u_soc.u_npu.u_dma.phase;
+      |                         ^
+%Warning-WIDTHEXPAND: sim\c930_soc4_verilator.sv:197:27: Operator ASSIGNW expects 4 bits on the Assign RHS, but Assign RHS's VARXREF 'fifo_count' generates 3 bits.
+                                                       : ... note: In instance 'c930_soc4_verilator'
+  197 |   assign o_csr0_fifo      = u_soc.u_npu.u_csr.fifo_count;
+      |                           ^
+%Warning-WIDTHEXPAND: sim\c930_soc4_verilator.sv:226:31: Operator ASSIGNW expects 4 bits on the Assign RHS, but Assign RHS's VARXREF 'phase' generates 3 bits.
+                                                       : ... note: In instance 'c930_soc4_verilator'
+  226 |   assign o_dma1_phase         = u_soc.g_npu1.u_npu1.u_dma.phase;
+      |                               ^
+%Warning-WIDTHEXPAND: sim\c930_soc4_verilator.sv:227:31: Operator ASSIGNW expects 3 bits on the Assign RHS, but Assign RHS's VARXREF 'pf_state' generates 2 bits.
+                                                       : ... note: In instance 'c930_soc4_verilator'
+  227 |   assign o_dma0_pf            = u_soc.u_npu.u_dma.pf_state;
+      |                               ^
+%Warning-WIDTHEXPAND: sim\c930_soc4_verilator.sv:228:31: Operator ASSIGNW expects 3 bits on the Assign RHS, but Assign RHS's VARXREF 'pf2_state' generates 2 bits.
+                                                       : ... note: In instance 'c930_soc4_verilator'
+  228 |   assign o_dma0_pf2           = u_soc.u_npu.u_dma.pf2_state;
+      |                               ^
+%Warning-WIDTHTRUNC: sim\c930_soc4_verilator.sv:229:31: Operator ASSIGNW expects 2 bits on the Assign RHS, but Assign RHS's VARXREF 'wr_sub' generates 3 bits.
+                                                      : ... note: In instance 'c930_soc4_verilator'
+  229 |   assign o_dma0_wr_sub        = u_soc.u_npu.u_dma.wr_sub;
+      |                               ^
+%Warning-WIDTHEXPAND: sim\c930_soc4_verilator.sv:230:31: Operator ASSIGNW expects 3 bits on the Assign RHS, but Assign RHS's VARXREF 'rd_sub' generates 2 bits.
+                                                       : ... note: In instance 'c930_soc4_verilator'
+  230 |   assign o_dma0_rdsub         = u_soc.u_npu.u_dma.rd_sub;
+      |                               ^
+%Warning-WIDTHTRUNC: sim\c930_soc4_verilator.sv:231:31: Operator ASSIGNW expects 32 bits on the Assign RHS, but Assign RHS's VARXREF 's_araddr' generates 64 bits.
+                                                      : ... note: In instance 'c930_soc4_verilator'
+  231 |   assign o_l2_s_araddr        = u_soc.g_l2.u_l2.s_araddr;
+      |                               ^
+%Warning-WIDTHEXPAND: sim\c930_soc4_verilator.sv:240:31: Operator ASSIGNW expects 8 bits on the Assign RHS, but Assign RHS's VARXREF 'wr_log_full' generates 1 bits.
+                                                       : ... note: In instance 'c930_soc4_verilator'
+  240 |   assign o_l2_wrlog_full      = u_soc.g_l2.u_l2.wr_log_full;
+      |                               ^
+%Warning-BLKSEQ: rtl\c930_ddr.sv:168:17: Blocking assignment '=' in sequential logic process
+                                       : ... note: In instance 'c930_soc4_verilator.u_soc.u_ddr'
+                                       : ... Suggest using delayed assignment '<='
+  168 |         wr_off  = lowest_set_bit(i_dcache_wr_strobe);
+      |                 ^
+                 ... For warning description see https://verilator.org/warn/BLKSEQ?v=5.051
+                 ... Use "/* verilator lint_off BLKSEQ */" and lint_on around source to disable this message.
+%Warning-BLKSEQ: rtl\c930_ddr.sv:169:17: Blocking assignment '=' in sequential logic process
+                                       : ... note: In instance 'c930_soc4_verilator.u_soc.u_ddr'
+                                       : ... Suggest using delayed assignment '<='
+  169 |         wr_base = {i_dcache_wr_addr[ADDR_WIDTH-1:3], 3'b0};
+      |                 ^
+%Warning-BLKSEQ: asic_gf180mcu/openlane2_rtl/src\riscv_core_csr_unit.sv:376:16: Blocking assignment '=' in sequential logic process
+                                                                              : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_csr_unit'
+                                                                              : ... Suggest using delayed assignment '<='
+  376 |         sepc   = 64'b0;
+      |                ^
+%Warning-BLKSEQ: asic_gf180mcu/openlane2_rtl/src\riscv_core_csr_unit.sv:482:38: Blocking assignment '=' in sequential logic process
+                                                                              : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_csr_unit'
+                                                                              : ... Suggest using delayed assignment '<='
+  482 |                               sepc   = i_csr_unit_pc;
+      |                                      ^
+%Warning-BLKSEQ: asic_gf180mcu/openlane2_rtl/src\riscv_core_csr_unit.sv:527:38: Blocking assignment '=' in sequential logic process
+                                                                              : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_csr_unit'
+                                                                              : ... Suggest using delayed assignment '<='
+  527 |                               sepc   = i_csr_unit_pc;
+      |                                      ^
+%Warning-BLKSEQ: asic_gf180mcu/openlane2_rtl/src\riscv_core_csr_unit.sv:571:38: Blocking assignment '=' in sequential logic process
+                                                                              : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_csr_unit'
+                                                                              : ... Suggest using delayed assignment '<='
+  571 |                               sepc   = i_csr_unit_pc;
+      |                                      ^
+%Warning-BLKSEQ: asic_gf180mcu/openlane2_rtl/src\riscv_core_csr_unit.sv:615:38: Blocking assignment '=' in sequential logic process
+                                                                              : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_csr_unit'
+                                                                              : ... Suggest using delayed assignment '<='
+  615 |                               sepc   = i_csr_unit_pc;
+      |                                      ^
+%Warning-BLKSEQ: asic_gf180mcu/openlane2_rtl/src\riscv_core_csr_unit.sv:675:38: Blocking assignment '=' in sequential logic process
+                                                                              : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_csr_unit'
+                                                                              : ... Suggest using delayed assignment '<='
+  675 |                               sepc   = i_csr_unit_pc;
+      |                                      ^
+%Warning-BLKSEQ: asic_gf180mcu/openlane2_rtl/src\riscv_core_csr_unit.sv:718:38: Blocking assignment '=' in sequential logic process
+                                                                              : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_csr_unit'
+                                                                              : ... Suggest using delayed assignment '<='
+  718 |                               sepc   = i_csr_unit_pc;
+      |                                      ^
+%Warning-BLKSEQ: asic_gf180mcu/openlane2_rtl/src\riscv_core_csr_unit.sv:761:38: Blocking assignment '=' in sequential logic process
+                                                                              : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_csr_unit'
+                                                                              : ... Suggest using delayed assignment '<='
+  761 |                               sepc   = i_csr_unit_pc;
+      |                                      ^
+%Warning-MULTIDRIVEN: rtl\c930_uart.sv:365:7: Variable written to in always_ff also written by other process (IEEE 1800-2023 9.2.2.4): 'baud_divisor'
+                                            : ... note: In instance 'c930_soc4_verilator.u_soc.u_uart'
+                      rtl\c930_uart.sv:365:7:
+  365 |       baud_divisor <= DEFAULT_DIVISOR[15:0];
+      |       ^~~~~~~~~~~~
+                      rtl\c930_uart.sv:80:7: ... Location of other write
+   80 |       baud_divisor <= DEFAULT_DIVISOR[15:0];
+      |       ^~~~~~~~~~~~
+                      ... For warning description see https://verilator.org/warn/MULTIDRIVEN?v=5.051
+                      ... Use "/* verilator lint_off MULTIDRIVEN */" and lint_on around source to disable this message.
+%Warning-MULTIDRIVEN: rtl\c930_npu_csr.sv:592:7: Variable written to in always_ff also written by other process (IEEE 1800-2023 9.2.2.4): 'fifo_pop'
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_csr'
+                      rtl\c930_npu_csr.sv:592:7:
+  592 |       fifo_pop      <= 1'b0;
+      |       ^~~~~~~~
+                      rtl\c930_npu_csr.sv:529:5: ... Location of other write
+  529 |     fifo_pop    = 0;
+      |     ^~~~~~~~
+%Warning-MULTIDRIVEN: rtl\c930_npu_csr.sv:734:7: Variable written to in always_ff also written by other process (IEEE 1800-2023 9.2.2.4): 'fifo_wr_ptr'
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_csr'
+                      rtl\c930_npu_csr.sv:734:7:
+  734 |       fifo_wr_ptr <= 0;
+      |       ^~~~~~~~~~~
+                      rtl\c930_npu_csr.sv:526:5: ... Location of other write
+  526 |     fifo_wr_ptr = 0;
+      |     ^~~~~~~~~~~
+%Warning-MULTIDRIVEN: rtl\c930_npu_csr.sv:735:7: Variable written to in always_ff also written by other process (IEEE 1800-2023 9.2.2.4): 'fifo_rd_ptr'
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_csr'
+                      rtl\c930_npu_csr.sv:735:7:
+  735 |       fifo_rd_ptr <= 0;
+      |       ^~~~~~~~~~~
+                      rtl\c930_npu_csr.sv:527:5: ... Location of other write
+  527 |     fifo_rd_ptr = 0;
+      |     ^~~~~~~~~~~
+%Warning-MULTIDRIVEN: rtl\c930_npu_csr.sv:736:7: Variable written to in always_ff also written by other process (IEEE 1800-2023 9.2.2.4): 'fifo_count'
+                                               : ... note: In instance 'c930_soc4_verilator.u_soc.g_npu1.u_npu1.u_csr'
+                      rtl\c930_npu_csr.sv:736:7:
+  736 |       fifo_count  <= 0;
+      |       ^~~~~~~~~~
+                      rtl\c930_npu_csr.sv:528:5: ... Location of other write
+  528 |     fifo_count  = 0;
+      |     ^~~~~~~~~~
+%Warning-MULTIDRIVEN: asic_gf180mcu/openlane2_rtl/src\riscv_core_dcache_controller.sv:199:9: Variable written to in always_ff also written by other process (IEEE 1800-2023 9.2.2.4): 'VALID_RES'
+                                                                                           : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_dcache_top.dcache_controller'
+                      asic_gf180mcu/openlane2_rtl/src\riscv_core_dcache_controller.sv:199:9:
+  199 |         VALID_RES <= 0;
+      |         ^~~~~~~~~
+                      asic_gf180mcu/openlane2_rtl/src\riscv_core_dcache_controller.sv:155:5: ... Location of other write
+  155 |     VALID_RES = 1'b0;
+      |     ^~~~~~~~~
+%Warning-MULTIDRIVEN: asic_gf180mcu/openlane2_rtl/src\riscv_core_dcache_controller.sv:200:9: Variable written to in always_ff also written by other process (IEEE 1800-2023 9.2.2.4): 'RES_SET'
+                                                                                           : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_dcache_top.dcache_controller'
+                      asic_gf180mcu/openlane2_rtl/src\riscv_core_dcache_controller.sv:200:9:
+  200 |         RES_SET <= 0;
+      |         ^~~~~~~
+                      asic_gf180mcu/openlane2_rtl/src\riscv_core_dcache_controller.sv:156:5: ... Location of other write
+  156 |     RES_SET = 'b0;
+      |     ^~~~~~~
+%Warning-MULTIDRIVEN: asic_gf180mcu/openlane2_rtl/src\riscv_core_dcache_controller.sv:201:9: Variable written to in always_ff also written by other process (IEEE 1800-2023 9.2.2.4): 'RES_SET_SIZE'
+                                                                                           : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_dcache_top.dcache_controller'
+                      asic_gf180mcu/openlane2_rtl/src\riscv_core_dcache_controller.sv:201:9:
+  201 |         RES_SET_SIZE <= 0;
+      |         ^~~~~~~~~~~~
+                      asic_gf180mcu/openlane2_rtl/src\riscv_core_dcache_controller.sv:157:5: ... Location of other write
+  157 |     RES_SET_SIZE = 2'b0;
+      |     ^~~~~~~~~~~~
+%Warning-MULTIDRIVEN: asic_gf180mcu/openlane2_rtl/src\riscv_core_dcache_controller.sv:206:9: Variable written to in always_ff also written by other process (IEEE 1800-2023 9.2.2.4): 'STATE'
+                                                                                           : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_dcache_top.dcache_controller'
+                      asic_gf180mcu/openlane2_rtl/src\riscv_core_dcache_controller.sv:206:9:
+  206 |         STATE <= IDLE;
+      |         ^~~~~
+                      asic_gf180mcu/openlane2_rtl/src\riscv_core_dcache_controller.sv:158:5: ... Location of other write
+  158 |     STATE = IDLE;
+      |     ^~~~~
+%Warning-MULTIDRIVEN: asic_gf180mcu/openlane2_rtl/src\riscv_core_dcache_controller.sv:316:1: Variable written to in always_comb also written by other process (IEEE 1800-2023 9.2.2.2): 'NEXT'
+                                                                                           : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_dcache_top.dcache_controller'
+                      asic_gf180mcu/openlane2_rtl/src\riscv_core_dcache_controller.sv:316:1:
+  316 | NEXT = STATE ;
+      | ^~~~
+                      asic_gf180mcu/openlane2_rtl/src\riscv_core_dcache_controller.sv:159:5: ... Location of other write
+  159 |     NEXT = IDLE;
+      |     ^~~~
+%Warning-MULTIDRIVEN: asic_gf180mcu/openlane2_rtl/src\riscv_core_icache_controller.sv:101:9: Variable written to in always_ff also written by other process (IEEE 1800-2023 9.2.2.4): 'STATE'
+                                                                                           : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_i_cache_top.icache_controller'
+                      asic_gf180mcu/openlane2_rtl/src\riscv_core_icache_controller.sv:101:9:
+  101 |         STATE <= IDLE;
+      |         ^~~~~
+                      asic_gf180mcu/openlane2_rtl/src\riscv_core_icache_controller.sv:91:5: ... Location of other write
+   91 |     STATE = IDLE;
+      |     ^~~~~
+%Warning-MULTIDRIVEN: asic_gf180mcu/openlane2_rtl/src\riscv_core_icache_controller.sv:204:1: Variable written to in always_comb also written by other process (IEEE 1800-2023 9.2.2.2): 'NEXT'
+                                                                                           : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_i_cache_top.icache_controller'
+                      asic_gf180mcu/openlane2_rtl/src\riscv_core_icache_controller.sv:204:1:
+  204 | NEXT = STATE;
+      | ^~~~
+                      asic_gf180mcu/openlane2_rtl/src\riscv_core_icache_controller.sv:92:5: ... Location of other write
+   92 |     NEXT = IDLE;
+      |     ^~~~
+%Warning-UNDRIVEN: sim\c930_soc4_verilator.sv:38:23: Signal is not driven: 'o_dma0_rd_sub'
+                                                   : ... note: In instance 'c930_soc4_verilator'
+   38 |   output logic [2:0]  o_dma0_rd_sub,
+      |                       ^~~~~~~~~~~~~
+                   ... For warning description see https://verilator.org/warn/UNDRIVEN?v=5.051
+                   ... Use "/* verilator lint_off UNDRIVEN */" and lint_on around source to disable this message.
+%Warning-UNDRIVEN: sim\c930_soc4_verilator.sv:59:23: Signal is not driven: 'o_xbar_m2_arvalid'
+                                                   : ... note: In instance 'c930_soc4_verilator'
+   59 |   output logic        o_xbar_m2_arvalid,
+      |                       ^~~~~~~~~~~~~~~~~
+%Warning-PROCASSINIT: asic_gf180mcu/openlane2_rtl/src\riscv_core_icache_controller.sv:59:43: Procedural assignment to declaration with initial value: 'fill_addr'
+                                                                                           : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_i_cache_top.icache_controller'
+                                                                                           : ... Location of variable initialization
+   59 | logic [ADDR_WIDTH-1      : 0] fill_addr = 'b0;
+      |                                           ^~~
+                      asic_gf180mcu/openlane2_rtl/src\riscv_core_icache_controller.sv:102:9: ... Location of variable process write
+                                                                                           : ... Perhaps should initialize instead using a reset in this process
+  102 |         fill_addr <= 'b0;
+      |         ^~~~~~~~~
+                      ... For warning description see https://verilator.org/warn/PROCASSINIT?v=5.051
+                      ... Use "/* verilator lint_off PROCASSINIT */" and lint_on around source to disable this message.
+%Warning-UNDRIVEN: rtl\c930_soc_top.sv:223:17: Signal is not driven: 'npu_awid'
+                                             : ... note: In instance 'c930_soc4_verilator.u_soc'
+  223 |   logic [3:0]   npu_awid;
+      |                 ^~~~~~~~
+%Warning-UNDRIVEN: rtl\c930_soc_top.sv:239:17: Signal is not driven: 'npu_arid'
+                                             : ... note: In instance 'c930_soc4_verilator.u_soc'
+  239 |   logic [3:0]   npu_arid;
+      |                 ^~~~~~~~
+%Warning-UNDRIVEN: rtl\c930_soc_top.sv:277:17: Signal is not driven: 'npu1_awid'
+                                             : ... note: In instance 'c930_soc4_verilator.u_soc'
+  277 |   logic [3:0]   npu1_awid;
+      |                 ^~~~~~~~~
+%Warning-UNDRIVEN: rtl\c930_soc_top.sv:293:17: Signal is not driven: 'npu1_arid'
+                                             : ... note: In instance 'c930_soc4_verilator.u_soc'
+  293 |   logic [3:0]   npu1_arid;
+      |                 ^~~~~~~~~
+%Warning-UNDRIVEN: rtl\c930_soc_top.sv:1112:17: Signal is not driven: 'ddr_bid'
+                                              : ... note: In instance 'c930_soc4_verilator.u_soc'
+ 1112 |   logic [3:0]   ddr_bid;
+      |                 ^~~~~~~
+%Warning-UNDRIVEN: rtl\c930_soc_top.sv:1123:17: Signal is not driven: 'ddr_rid'
+                                              : ... note: In instance 'c930_soc4_verilator.u_soc'
+ 1123 |   logic [3:0]   ddr_rid;
+      |                 ^~~~~~~
+%Warning-PROCASSINIT: asic_gf180mcu/openlane2_rtl/src\riscv_core_pipe.sv:22:48: Procedural assignment to declaration with initial value: 'o_pipe_out'
+                                                                              : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_pipe_csr_wen_mem_wb'
+                                                                              : ... Location of variable initialization
+   22 |     output logic [W_PIPE_BUS-1:0] o_pipe_out = 'b0
+      |                                                ^~~
+                      asic_gf180mcu/openlane2_rtl/src\riscv_core_pipe.sv:30:9: ... Location of variable process write
+                                                                             : ... Perhaps should initialize instead using a reset in this process
+   30 |         o_pipe_out <= PIPE_RST_VAL;
+      |         ^~~~~~~~~~
+%Warning-PROCASSINIT: asic_gf180mcu/openlane2_rtl/src\riscv_core_dcache_controller.sv:165:42: Procedural assignment to declaration with initial value: 'pending_inv'
+                                                                                            : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_dcache_top.dcache_controller'
+                                                                                            : ... Location of variable initialization
+  165 | logic                      pending_inv = 1'b0;
+      |                                          ^~~~
+                      asic_gf180mcu/openlane2_rtl/src\riscv_core_dcache_controller.sv:205:9: ... Location of variable process write
+                                                                                           : ... Perhaps should initialize instead using a reset in this process
+  205 |         pending_inv <= 1'b0;
+      |         ^~~~~~~~~~~
+%Warning-PROCASSINIT: asic_gf180mcu/openlane2_rtl/src\riscv_core_dcache_controller.sv:166:47: Procedural assignment to declaration with initial value: 'pending_inv_addr'
+                                                                                            : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_dcache_top.dcache_controller'
+                                                                                            : ... Location of variable initialization
+  166 | logic [ADDR_WIDTH-1:0]     pending_inv_addr = 'b0;
+      |                                               ^~~
+                      asic_gf180mcu/openlane2_rtl/src\riscv_core_dcache_controller.sv:214:13: ... Location of variable process write
+                                                                                            : ... Perhaps should initialize instead using a reset in this process
+  214 |             pending_inv_addr <= i_inv_addr;
+      |             ^~~~~~~~~~~~~~~~
+%Warning-PROCASSINIT: asic_gf180mcu/openlane2_rtl/src\riscv_core_icache_controller.sv:60:38: Procedural assignment to declaration with initial value: 'fill_s2'
+                                                                                           : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_i_cache_top.icache_controller'
+                                                                                           : ... Location of variable initialization
+   60 | logic                      fill_s2 = 1'b0;
+      |                                      ^~~~
+                      asic_gf180mcu/openlane2_rtl/src\riscv_core_icache_controller.sv:103:9: ... Location of variable process write
+                                                                                           : ... Perhaps should initialize instead using a reset in this process
+  103 |         fill_s2 <= 1'b0;
+      |         ^~~~~~~
+%Warning-PROCASSINIT: asic_gf180mcu/openlane2_rtl/src\riscv_core_icache_controller.sv:68:43: Procedural assignment to declaration with initial value: 'served_pc'
+                                                                                           : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_i_cache_top.icache_controller'
+                                                                                           : ... Location of variable initialization
+   68 | logic [ADDR_WIDTH-1      : 0] served_pc = 'b0;
+      |                                           ^~~
+                      asic_gf180mcu/openlane2_rtl/src\riscv_core_icache_controller.sv:104:9: ... Location of variable process write
+                                                                                           : ... Perhaps should initialize instead using a reset in this process
+  104 |         served_pc <= 'b0;
+      |         ^~~~~~~~~
+%Warning-PROCASSINIT: asic_gf180mcu/openlane2_rtl/src\riscv_core_icache_controller.sv:76:41: Procedural assignment to declaration with initial value: 'post_fill'
+                                                                                           : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_i_cache_top.icache_controller'
+                                                                                           : ... Location of variable initialization
+   76 | logic                       post_fill = 1'b0;
+      |                                         ^~~~
+                      asic_gf180mcu/openlane2_rtl/src\riscv_core_icache_controller.sv:105:9: ... Location of variable process write
+                                                                                           : ... Perhaps should initialize instead using a reset in this process
+  105 |         post_fill <= 1'b0;
+      |         ^~~~~~~~~
+%Warning-PROCASSINIT: asic_gf180mcu/openlane2_rtl/src\riscv_core_icache_controller.sv:80:43: Procedural assignment to declaration with initial value: 'pending_inv'
+                                                                                           : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_i_cache_top.icache_controller'
+                                                                                           : ... Location of variable initialization
+   80 | logic                       pending_inv = 1'b0;
+      |                                           ^~~~
+                      asic_gf180mcu/openlane2_rtl/src\riscv_core_icache_controller.sv:106:9: ... Location of variable process write
+                                                                                           : ... Perhaps should initialize instead using a reset in this process
+  106 |         pending_inv <= 1'b0;
+      |         ^~~~~~~~~~~
+%Warning-PROCASSINIT: asic_gf180mcu/openlane2_rtl/src\riscv_core_icache_controller.sv:81:48: Procedural assignment to declaration with initial value: 'pending_inv_addr'
+                                                                                           : ... note: In instance 'c930_soc4_verilator.u_soc.u_cpu3.u_riscv_core_i_cache_top.icache_controller'
+                                                                                           : ... Location of variable initialization
+   81 | logic [ADDR_WIDTH-1:0]      pending_inv_addr = 'b0;
+      |                                                ^~~
+                      asic_gf180mcu/openlane2_rtl/src\riscv_core_icache_controller.sv:113:13: ... Location of variable process write
+                                                                                            : ... Perhaps should initialize instead using a reset in this process
+  113 |             pending_inv_addr <= i_inv_addr;
+      |             ^~~~~~~~~~~~~~~~
+%Warning-UNSIGNED: rtl\c930_axi_crossbar.sv:315:14: Comparison is constant due to unsigned arithmetic
+                                                  : ... note: In instance 'c930_soc4_verilator.u_soc.u_crossbar'
+  315 |     if (addr >= DDR_BASE && addr <= DDR_END)
+      |              ^~
+                   ... For warning description see https://verilator.org/warn/UNSIGNED?v=5.051
+                   ... Use "/* verilator lint_off UNSIGNED */" and lint_on around source to disable this message.
+%Warning-CASEX: asic_gf180mcu/openlane2_rtl/src\riscv_core_mul_out.sv:63:15: Suggest casez (with ?'s) in place of casex (with X's)
+   63 |               casex (srcA_srcB_sign)
+      |               ^~~~~
+                ... For warning description see https://verilator.org/warn/CASEX?v=5.051
+                ... Use "/* verilator lint_off CASEX */" and lint_on around source to disable this message.
+%Warning-CASEX: asic_gf180mcu/openlane2_rtl/src\riscv_core_mul_in.sv:105:15: Suggest casez (with ?'s) in place of casex (with X's)
+  105 |               casex (srcA_srcB_sign)
+      |               ^~~~~
+%Warning-CASEX: asic_gf180mcu/openlane2_rtl/src\riscv_core_mul_div_ctrl.sv:299:9: Suggest casez (with ?'s) in place of casex (with X's)
+  299 |         casex (fastw_reg)
+      |         ^~~~~
+%Warning-CASEX: asic_gf180mcu/openlane2_rtl/src\riscv_core_mul_div_ctrl.sv:53:9: Suggest casez (with ?'s) in place of casex (with X's)
+   53 |         casex (fast_reg)
+      |         ^~~~~
+%Warning-CASEINCOMPLETE: asic_gf180mcu/openlane2_rtl/src\riscv_core_csr_unit.sv:465:23: Case values incompletely covered (example pattern 0x0)
+  465 |                       case (current_mode)
+      |                       ^~~~
+                         ... For warning description see https://verilator.org/warn/CASEINCOMPLETE?v=5.051
+                         ... Use "/* verilator lint_off CASEINCOMPLETE */" and lint_on around source to disable this message.
+%Warning-CASEINCOMPLETE: asic_gf180mcu/openlane2_rtl/src\riscv_core_csr_unit.sv:511:23: Case values incompletely covered (example pattern 0x0)
+  511 |                       case (current_mode)
+      |                       ^~~~
+%Warning-CASEINCOMPLETE: asic_gf180mcu/openlane2_rtl/src\riscv_core_csr_unit.sv:555:23: Case values incompletely covered (example pattern 0x0)
+  555 |                       case (current_mode)
+      |                       ^~~~
+%Warning-CASEINCOMPLETE: asic_gf180mcu/openlane2_rtl/src\riscv_core_csr_unit.sv:599:23: Case values incompletely covered (example pattern 0x0)
+  599 |                       case (current_mode)
+      |                       ^~~~
+%Warning-CASEINCOMPLETE: asic_gf180mcu/openlane2_rtl/src\riscv_core_csr_unit.sv:659:23: Case values incompletely covered (example pattern 0x0)
+  659 |                       case (current_mode)
+      |                       ^~~~
+%Warning-CASEINCOMPLETE: asic_gf180mcu/openlane2_rtl/src\riscv_core_csr_unit.sv:702:23: Case values incompletely covered (example pattern 0x0)
+  702 |                       case (current_mode)
+      |                       ^~~~
+%Warning-CASEINCOMPLETE: asic_gf180mcu/openlane2_rtl/src\riscv_core_csr_unit.sv:745:23: Case values incompletely covered (example pattern 0x0)
+  745 |                       case (current_mode)
+      |                       ^~~~
+%Warning-CASEINCOMPLETE: asic_gf180mcu/openlane2_rtl/src\riscv_core_csr_unit.sv:864:13: Case values incompletely covered (example pattern 0x0)
+  864 |             case (i_csr_unit_csr_addr)
+      |             ^~~~
+%Warning-CASEINCOMPLETE: asic_gf180mcu/openlane2_rtl/src\riscv_core_csr_unit.sv:949:9: Case values incompletely covered (example pattern 0x0)
+  949 |         case (current_state)
+      |         ^~~~
+%Warning-CASEINCOMPLETE: rtl\c930_npu_dma.sv:620:11: Case values incompletely covered (example pattern 0x3)
+  620 |           case (rd_sub)
+      |           ^~~~
+%Warning-MULTIDRIVEN: rtl\c930_ddr.sv:81:15: Signal has multiple driving blocks with different clocking: 'c930_soc4_verilator.u_soc.u_ddr.mem'
+                      rtl\c930_ddr.sv:250:13: ... Location of first driving block
+  250 |             mem[w_addr + w_beat*8 + i] <= s_axi_wdata[i*8 +: 8];
+      |             ^~~
+                      rtl\c930_ddr.sv:120:7: ... Location of other driving block
+  120 |       mem[i_tb_wr_addr[31:0]] <= i_tb_wr_data;
+      |       ^~~
+- V e r i l a t i o n   R e p o r t: Verilator 5.051 devel rev v5.050-194-ga3553e7be (mod)
+- Verilator: Built from 17.125 MB sources in 63 modules, into 19.487 MB in 30 C++ files needing 0.018 MB
+- Verilator: Walltime 5.304 s (elab=0.257, cvt=3.927, bld=0.000); cpu 0.000 s on 1 threads; allocated 234.309 MB
