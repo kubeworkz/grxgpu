@@ -106,7 +106,13 @@ module VX_kmu_arb import VX_gpu_pkg::*; #(
             end else if (in_push) begin
                 ibuf_valid_r <= 1'b1;
                 ibuf_data_r  <= data_in[0];
-                ibuf_dst_r   <= route_dst;
+                if (is_first) begin
+                    // The old sticky destination is still visible here because
+                    // sticky_dst_r is updated nonblocking below.
+                    ibuf_dst_r   <= rr_ptr_r;
+                end else begin
+                    ibuf_dst_r   <= route_dst;
+                end
                 if (is_first) begin
                     sticky_dst_r   <= rr_ptr_r;
                     members_left_r <= (cluster_k_raw <= (NW_WIDTH+1)'(1))
