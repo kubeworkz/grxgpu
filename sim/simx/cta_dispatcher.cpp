@@ -73,7 +73,7 @@ bool CtaDispatcher::step(const WarpMask& active_warps, uint32_t* wid_out, cta_wa
   if (!has_cta_) {
     // Load next CTA: use stashed pending CTA if available, else request from KMU.
     if (!has_pending_) {
-      if (!kmu_->step(&pending_cta_)) return false;
+      if (!kmu_->step(&pending_cta_, core_->id())) return false;
       has_pending_ = true;
     }
 
@@ -96,17 +96,21 @@ bool CtaDispatcher::step(const WarpMask& active_warps, uint32_t* wid_out, cta_wa
     // Cluster start: reserve K consecutive usable slots. Pre-wrap to 0 if the
     // window would overrun the usable range so the cluster stays contiguous
     // (members must occupy consecutive slots for multicast). All K must be free
-    // up front so the following members never stall mid-cluster.
+    // up front so the following members never stall mid-cluster. The base is
+    // also rounded DOWN to a multiple of K: get_cluster_rank() is CTA_ID % K
+    // and CTA_ID is the per-core slot index, so rank r must sit at base + r
+    // with base ≡ 0 (mod K) — otherwise the wrong member fires the multicast.
     uint32_t k = 1;
     if (pending_cta_.is_first_of_cluster) {
       k = pending_cta_.cluster_dim[0]
         * pending_cta_.cluster_dim[1]
         * pending_cta_.cluster_dim[2];
       if (k == 0) k = 1;
-      if (base + k > max_slots)
-        base = 0;
       if (k > max_slots)
         k = max_slots;  // cluster larger than co-residency: clamp (degenerate)
+      if (base + k > max_slots)
+        base = 0;
+      base -= base % k;
       for (uint32_t i = 0; i < k; ++i) {
         if (slot_rem_warps_[base + i] != 0)
           return false;  // window not free yet — wait

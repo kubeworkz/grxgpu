@@ -223,7 +223,8 @@ tests:
   app: diverge
   configs: -DVX_CFG_SOCKET_SIZE=1
   shape:
-    cores: 4
+    cores: 2
+    clusters: 2
     l2cache: true
   args: -n1
 - id: diverge-3

@@ -279,7 +279,26 @@ module VX_cta_dispatch import VX_gpu_pkg::*; #(
     wire [CS_BITS-1:0] base_tail = (tail_ext >= usable_ext) ? CS_BITS'(0) : tail_r;
     wire cluster_prewrap = is_first_of_cluster
         && (({2'b0, base_tail} + {1'b0, cluster_k}) > usable_ext);
-    wire [CS_BITS-1:0] base_slot = cluster_prewrap ? CS_BITS'(0) : base_tail;
+    // The cluster window base is rounded DOWN to a multiple of K:
+    // cta_csrs.cta_id is the per-core slot index and get_cluster_rank() is
+    // CTA_ID % K, so rank r must sit at base + r with base ≡ 0 (mod K) —
+    // otherwise the wrong member fires the intra-core multicast. Applies
+    // only to the cluster start; standalone CTAs and followers keep the raw
+    // round-robin base. Repeated subtraction — no divider.
+    wire [CS_BITS-1:0] base_prewrap = cluster_prewrap ? CS_BITS'(0) : base_tail;
+    reg  [NW_WIDTH+1:0] base_mod_k;
+    integer rsi;
+    always_comb begin
+        base_mod_k = (NW_WIDTH+2)'(base_prewrap);
+        for (rsi = 0; rsi < NUM_CTA_SLOTS; rsi = rsi + 1) begin
+            if ((cluster_k > '0) && (base_mod_k >= (NW_WIDTH+2)'(cluster_k)))
+                base_mod_k = base_mod_k - (NW_WIDTH+2)'(cluster_k);
+        end
+    end
+    wire [CS_BITS-1:0] base_slot = (cluster_k <= 'd1) ? base_prewrap
+                                 : (is_first_of_cluster
+                                     ? (base_prewrap - CS_BITS'(base_mod_k))
+                                     : base_prewrap);
 
     // Round-robin advance: next slot wraps to 0 at usable_slots_r.
     wire [NW_WIDTH+1:0] next_tail_raw = {2'b0, base_slot} + (NW_WIDTH+2)'(1);
@@ -693,7 +712,8 @@ module VX_cta_dispatch import VX_gpu_pkg::*; #(
     end
 
     always @(posedge clk) begin
-        // CTA accepted from KMU. cta_id is the dispatcher slot (= VX_CSR_CTA_ID
+        // CTA accepted from KMU. cta_id is the dispatcher slot (= VX_CSR_CTA_ID,
+        // cluster rank = slot % K with K-aligned cluster windows
         // value seen by the kernel); kmu_cta_idx is the KMU's global grid-rank
         // counter for cross-CTA correlation.
         if (kmu_bus_if_fire) begin

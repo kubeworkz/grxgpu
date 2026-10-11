@@ -24,6 +24,10 @@ Kmu::Kmu(const SimContext& ctx, const char* name)
   , block_size_(0)
   , running_(false)
   , cta_id_(0)
+  , rr_ptr_(0)
+  , lease_active_(false)
+  , lease_owner_(0)
+  , lease_remaining_(0)
 {
   block_dim_[0]    = block_dim_[1]    = block_dim_[2]    = 1;
   grid_dim_[0]     = grid_dim_[1]     = grid_dim_[2]     = 1;
@@ -40,6 +44,10 @@ void Kmu::on_reset() {
   // SimPlatform::on_reset().
   running_         = false;
   cta_id_          = 0;
+  lease_active_    = false;
+  lease_owner_     = 0;
+  lease_remaining_ = 0;
+  rr_ptr_          = 0;
   group_origin_[0] = group_origin_[1] = group_origin_[2] = 0;
   intra_offset_[0] = intra_offset_[1] = intra_offset_[2] = 0;
 }
@@ -80,13 +88,45 @@ void Kmu::start() {
            && (cluster_dim_[2] > 0);
   if (running_) {
     cta_id_          = 0;
+    lease_active_    = false;
+    lease_owner_     = 0;
+    lease_remaining_ = 0;
+    rr_ptr_          = 0;
     group_origin_[0] = group_origin_[1] = group_origin_[2] = 0;
     intra_offset_[0] = intra_offset_[1] = intra_offset_[2] = 0;
   }
 }
 
-bool Kmu::step(kmu_req_t* req) {
+bool Kmu::step(kmu_req_t* req, uint32_t requestor) {
   if (!running_) return false;
+
+  // A cluster head is any CTA emitted at intra-cluster offset 0 (the lease
+  // flag is not a reliable head indicator: it stays armed until the first
+  // follower of the *next* cluster drains it).
+  bool is_cluster_head = (intra_offset_[0] == 0)
+                      && (intra_offset_[1] == 0)
+                      && (intra_offset_[2] == 0);
+
+  if (is_cluster_head) {
+    // Cluster head: admit only on the round-robin-designated core (rr_ptr_),
+    // mirroring the RTL kmu_arb sticky demux whose rr_ptr_r rotates each
+    // cluster's destination across cores. The old lease_owner_=requestor
+    // pinned every cluster to whichever core polled the KMU first (always
+    // core0), serializing the whole grid onto one core and diverging from
+    // RTL placement.
+    if (requestor != rr_ptr_) return false;
+  } else {
+    // Cluster follower: must go to the lease owner (co-resident group
+    // barrier / multicast releases). Drain the lease armed by the head.
+    if (lease_active_ && (requestor != lease_owner_)) return false;
+    if (lease_active_) {
+      if (lease_remaining_ == 0) {
+        lease_active_ = false;
+      } else {
+        --lease_remaining_;
+      }
+    }
+  }
 
   // Effective block_idx = group_origin + intra_offset.
   uint32_t block_idx[3] = {
@@ -116,9 +156,16 @@ bool Kmu::step(kmu_req_t* req) {
   req->cluster_dim[0] = cluster_dim_[0];
   req->cluster_dim[1] = cluster_dim_[1];
   req->cluster_dim[2] = cluster_dim_[2];
-  req->is_first_of_cluster = (intra_offset_[0] == 0)
-                          && (intra_offset_[1] == 0)
-                          && (intra_offset_[2] == 0);
+  req->is_first_of_cluster = is_cluster_head;
+  if (is_cluster_head) {
+    uint32_t k = cluster_dim_[0] * cluster_dim_[1] * cluster_dim_[2];
+    lease_active_    = (k > 1);
+    lease_owner_     = rr_ptr_;   // == requestor, gated above
+    lease_remaining_ = (k > 1) ? (k - 1) : 0;
+    // Rotate the cluster destination to the next core (RTL rr_ptr_r).
+    uint32_t total_cores = VX_CFG_NUM_CORES * VX_CFG_NUM_CLUSTERS;
+    rr_ptr_ = (rr_ptr_ + 1 == total_cores) ? 0 : rr_ptr_ + 1;
+  }
 
   // Advance the intra-cluster offset first (fills the cluster), then the
   // group_origin in (X, Y, Z) order when the inner loop wraps.

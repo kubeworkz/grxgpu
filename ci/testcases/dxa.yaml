@@ -7,6 +7,16 @@ defaults:
   tier: smoke
   configs: "-DVX_CFG_EXT_DXA_ENABLE"
   touches: [hw/rtl/dxa, sim/simx/dxa]
+  # gen-11: 2-way split (gen-10: the unsharded simx cell hit the 360m cap in
+  # both gens — collection order shows dxa_copy_mcast-1 in-flight at kill,
+  # >5h49m). Watchdogs below bound any single case at 60m, so the split only
+  # has to halve the family weight, not balance it perfectly.
+  # gen-11 category-wide watchdog: the gen-9/10 kills mean most legs below
+  # never executed in CI, so their runtimes are unmeasured — default-bound
+  # every case at 60m (simx mcast legs keep their explicit 30m; measured
+  # fast dirs sit 60x under it).
+  timeout: 60
+  shards: 2
 tests:
 - id: dxa_copy-1
   via: blackbox
@@ -15,6 +25,9 @@ tests:
   app: dxa_copy
   configs: -DVX_CFG_EXT_DXA_ENABLE
   args: -d1
+  # gen-11 watchdog: dxa_copy legs measured 1.5-2m in-cell (gen-10 dxa-32
+  # log); 30m is >15x headroom incl. the per-test driver build.
+  timeout: 30
   flags: --debug=3 --perf=6
 - id: dxa_copy-2
   via: blackbox
@@ -23,6 +36,7 @@ tests:
   app: dxa_copy
   configs: -DVX_CFG_EXT_DXA_ENABLE
   args: -d2
+  timeout: 30
   flags: --perf=6
 - id: dxa_copy-3
   via: blackbox
@@ -33,6 +47,7 @@ tests:
   shape:
     cores: 2
   args: -d3
+  timeout: 30
 - id: dxa_copy-4
   via: blackbox
   drivers:
@@ -40,6 +55,7 @@ tests:
   app: dxa_copy
   configs: -DVX_CFG_EXT_DXA_ENABLE
   args: -d4
+  timeout: 30
 - id: dxa_copy-5
   via: blackbox
   drivers:
@@ -47,6 +63,7 @@ tests:
   app: dxa_copy
   configs: -DVX_CFG_EXT_DXA_ENABLE
   args: -d5
+  timeout: 30
 - id: dxa_copy-6
   via: blackbox
   drivers:
@@ -97,6 +114,7 @@ tests:
     clusters: 2
     cores: 2
     l2cache: true
+  timeout: 30
   args: -d3
 - id: dxa_copy_mcast-1
   via: blackbox
@@ -104,6 +122,9 @@ tests:
   - simx
   app: dxa_copy_mcast
   configs: -DVX_CFG_EXT_DXA_ENABLE
+  # Cluster-scatter livelock is fixed: the KMU lease pins a K-CTA cluster
+  # to one core and the window base is K-aligned, so rendezvous completes.
+  timeout: 30
 - id: dxa_copy_mcast-2
   via: blackbox
   drivers:
@@ -116,6 +137,7 @@ tests:
   - simx
   app: dxa_copy_mcast
   configs: -DVX_CFG_EXT_DXA_ENABLE -DVX_CFG_L2_ENABLE
+  timeout: 30
 - id: dxa_copy_mcast-4
   via: blackbox
   drivers:
@@ -131,12 +153,14 @@ tests:
   shape:
     threads: 8
   args: -r16 -c16 -R16 -C8
+  timeout: 30
 - id: sgemm2_dxa-1
   via: blackbox
   drivers:
   - simx
   app: sgemm2_dxa
   configs: -DVX_CFG_EXT_DXA_ENABLE
+  timeout: 30
 - id: sgemm2_dxa-2
   via: blackbox
   drivers:
@@ -149,6 +173,9 @@ tests:
   - simx
   app: sgemm2_dxa_mcast
   configs: -DVX_CFG_EXT_DXA_ENABLE
+  # Cluster-scatter livelock is fixed: the KMU lease pins a K-CTA cluster
+  # to one core and the window base is K-aligned, so rendezvous completes.
+  timeout: 30
 - id: sgemm2_dxa_mcast-2
   via: blackbox
   drivers:
@@ -162,16 +189,53 @@ tests:
   app: sgemm2_dxa_mcast
   configs: -DVX_CFG_EXT_DXA_ENABLE
   args: -n32 -t4
+  timeout: 30
 - id: sgemm_tcu_wg_dxa_mcast-1
   via: blackbox
   drivers:
   - simx
   app: sgemm_tcu_wg_dxa_mcast
   configs: -DVX_CFG_EXT_TCU_ENABLE -DVX_CFG_EXT_DXA_ENABLE
+  # Cluster-scatter livelock is fixed: the KMU lease pins a K-CTA cluster
+  # to one core and the window base is K-aligned, so rendezvous completes.
+  timeout: 30
 - id: sgemm_tcu_wg_dxa_mcast-2
   via: blackbox
   drivers:
   - rtlsim
+  app: sgemm_tcu_wg_dxa_mcast
+  configs: -DVX_CFG_EXT_TCU_ENABLE -DVX_CFG_EXT_DXA_ENABLE
+# Gen-12: model_parity twin of sgemm_tcu_wg_dxa_mcast-2 (simx + rtlsim).
+# Root cause: VX_kmu_arb.sv g_sticky_cluster_demux NBA-ordering bug — on a
+# cluster-head beat (is_first), ibuf_dst_r <= route_dst read sticky_dst_r *before*
+# the NBA sticky_dst_r <= rr_ptr_r in the same if(is_first) arm took effect, so
+# each new cluster head was routed to the PREVIOUS group's socket, fragmenting
+# every K=4 group across two sockets and dropping the 4th member (rank 3) on
+# cores 1-3. Fix: on is_first, set ibuf_dst_r <= rr_ptr_r directly (the new
+# socket) instead of route_dst. Verified attempt-8 (dev server, 2026-10-07/08):
+# rtlsim RC=0 PASSED, instrs=58880, cycles=67763, IPC=0.869, elapsed 792s.
+# The RTL/SimX divergence was twofold: (1) the kmu_arb sticky-demux routing bug
+# (fixed), and (2) SimX's KMU co-located every cluster on the first requestor
+# core (always core0) instead of round-robin across cores like RTL's rr_ptr_r —
+# this cost +192 retired instrs (3 extra active cores x 64 per-core launch
+# overhead) and ~45% cycles (1-core serialize vs 4-core parallel). SimX's KMU
+# now round-robins cluster placement (kmu.cpp rr_ptr_), matching RTL.
+# Both legs are pinned to 1x4 here: CI_RTL_BOUND clamps only rtlsim/opae to
+# 1x4, so without an explicit shape the simx leg runs ambient (8x16) and the
+# round-robin placement (hence the retired-instr count) would not match.
+# Verified 2026-10-09 after the SimX KMU round-robin fix: both legs PASSED,
+# instrs=58880 (delta 0); cycles were 56069/67763 (17.26% gap), so the parity
+# pytest still fails its independent 5% cycle-tolerance assertion.
+- id: model_parity-sgemm_tcu_wg_dxa_mcast-2
+  check: model_parity
+  via: blackbox
+  app: sgemm_tcu_wg_dxa_mcast
+  configs: -DVX_CFG_EXT_TCU_ENABLE -DVX_CFG_EXT_DXA_ENABLE -DVX_CFG_NUM_CLUSTERS=1 -DVX_CFG_NUM_CORES=4
+# Perf-regression twin of the model_parity-sgemm_tcu_wg_dxa_mcast-2 case (same
+# run, cycles-vs-baseline).
+- id: perf_gate-sgemm_tcu_wg_dxa_mcast-2
+  check: perf_gate
+  via: blackbox
   app: sgemm_tcu_wg_dxa_mcast
   configs: -DVX_CFG_EXT_TCU_ENABLE -DVX_CFG_EXT_DXA_ENABLE
 - id: sgemm_tcu_wg_dxa_mcast-3
@@ -181,6 +245,7 @@ tests:
   app: sgemm_tcu_wg_dxa_mcast
   configs: -DVX_CFG_EXT_TCU_ENABLE -DVX_CFG_EXT_DXA_ENABLE
   args: -m 128 -n 64 -k 32
+  timeout: 30
 - id: sgemm_tcu_wg_dxa_mcast-4
   via: blackbox
   drivers:
@@ -196,6 +261,7 @@ tests:
   configs: -DVX_CFG_EXT_DXA_ENABLE -DVX_CFG_EXT_TCU_ENABLE
   shape:
     threads: 8
+  timeout: 30
 - id: sgemm_tcu-2
   via: blackbox
   drivers:
@@ -352,11 +418,18 @@ tests:
   via: blackbox
   app: dxa_copy_mcast
   configs: -DVX_CFG_EXT_DXA_ENABLE
+  # gen-11: parity/gate legs run the app that livelocks on simx (see
+  # dxa_copy_mcast-1) — watchdog-bound so a hang lands as tracked failure
+  # instead of sinking the check cell. These cells did not run in gen-9/10
+  # push matrices (parity excluded), so the hang is unobserved here; 30m
+  # still exceeds any healthy parity run by an order of magnitude.
+  timeout: 30
 - id: perf_gate-copy-mcast
   check: perf_gate
   via: blackbox
   app: dxa_copy_mcast
   configs: -DVX_CFG_EXT_DXA_ENABLE
+  timeout: 30
 # DXA-staged shared-memory SGEMM (sgemm2 kernel with DXA operand producer).
 # tile 4 fits one 16-thread block on the default NT4/NW4 core.
 - id: model_parity-sgemm2-dxa
@@ -378,12 +451,18 @@ tests:
   app: sgemm2_dxa_mcast
   args: -n128
   configs: -DVX_CFG_EXT_DXA_ENABLE
+  # gen-11: mcast app on simx — same livelock family as dxa_copy_mcast-1;
+  # watchdog-bound so a nightly hang lands as a bounded failure.
+  timeout: 30
 - id: perf_gate-sgemm2-dxa-mcast
   check: perf_gate
   via: blackbox
   app: sgemm2_dxa_mcast
   args: -n128
   configs: -DVX_CFG_EXT_DXA_ENABLE
+  # gen-11: mcast app on simx — same livelock family as dxa_copy_mcast-1;
+  # watchdog-bound so a nightly hang lands as a bounded failure.
+  timeout: 30
 # WGMMA consumer fed by a DXA producer pipeline. K stays at 64: the test's
 # CPU reference does not replicate the TCU fp32 accumulation order, so K=128
 # drifts past the 10-ULP gate.
@@ -431,9 +510,15 @@ tests:
   app: sgemm_tcu_wg_dxa_mcast
   args: -m 128 -n 128 -k 64
   configs: -DVX_CFG_EXT_TCU_ENABLE -DVX_CFG_EXT_DXA_ENABLE
+  # gen-11: mcast app on simx — same livelock family as dxa_copy_mcast-1;
+  # watchdog-bound so a nightly hang lands as a bounded failure.
+  timeout: 30
 - id: perf_gate-wgmma-dxa-mcast
   check: perf_gate
   via: blackbox
   app: sgemm_tcu_wg_dxa_mcast
   args: -m 128 -n 128 -k 64
   configs: -DVX_CFG_EXT_TCU_ENABLE -DVX_CFG_EXT_DXA_ENABLE
+  # gen-11: mcast app on simx — same livelock family as dxa_copy_mcast-1;
+  # watchdog-bound so a nightly hang lands as a bounded failure.
+  timeout: 30

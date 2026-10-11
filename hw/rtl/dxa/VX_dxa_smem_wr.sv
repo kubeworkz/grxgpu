@@ -772,4 +772,39 @@ module VX_dxa_smem_wr import VX_gpu_pkg::*, VX_dxa_pkg::*; #(
     end
 `endif
 
+// ═══════════════════════════════════════════════════════════════════════════
+// DXA multicast replay walk trace (DBG_TRACE_DXA level 2).
+// Each accepted beat reduces the receiver mask, and completion must follow
+// the final receiver. MC_LAST_EARLY counts violations and should remain zero.
+// ═══════════════════════════════════════════════════════════════════════════
+`ifdef DBG_TRACE_DXA
+    wire mc_last_early_w = transfer_done && (replay_vec_r != replay_onehot_r);
+    reg [31:0] mc_early_cnt_r;
+    always @(posedge clk) begin
+        if (reset || transfer_start) begin
+            mc_early_cnt_r <= '0;
+        end else if (mc_last_early_w) begin
+            mc_early_cnt_r <= mc_early_cnt_r + 32'd1;
+        end
+    end
+    always @(posedge clk) begin
+        if (~reset) begin
+            if (transfer_start) begin
+                $write("DXA_MC,%0d,START,ctx=%0d,multicast=%0d,mask=0x%0h\n",
+                    $time, active_core_id, is_multicast, cta_mask);
+            end
+            if (replay_beat_fire) begin
+                $write("DXA_MC,%0d,BEAT,vec=0x%0h,idx=%0d,last=%0d,off=%0d\n",
+                    $time, replay_vec_r, replay_next_idx_r,
+                    replay_is_last_r, beat_offset_r);
+            end
+            if (transfer_done) begin
+                $write("DXA_MC,%0d,DONE,ctx=%0d,count=%0d,last_idx=%0d,early=%0d\n",
+                    $time, active_core_id, wr_done_count,
+                    replay_next_idx_r, mc_early_cnt_r);
+            end
+        end
+    end
+`endif
+
 endmodule

@@ -59,8 +59,11 @@ public:
   // Distributor reuses it as the launch PC for injected fragment warps.
   uint64_t startup_pc() const { return PC_; }
 
-  // fill *req with next CTA; returns false when grid is exhausted
-  bool step(kmu_req_t* req);
+  // fill *req with next CTA; returns false when grid is exhausted.
+  // `requestor` selects among racing dispatchers: a cluster is assigned to
+  // its round-robin destination and its remaining CTAs stay leased there so
+  // intra-core group barriers can complete.
+  bool step(kmu_req_t* req, uint32_t requestor);
 
 protected:
   void on_reset();
@@ -77,10 +80,20 @@ private:
   uint32_t cluster_dim_[3];
   bool     running_;
   uint32_t cta_id_;
+  // Round-robin destination core for the next cluster head. Mirrors the
+  // RTL kmu_arb rr_ptr_r: each first-of-cluster CTA is admitted only by the
+  // core this pointer designates, so clusters rotate across cores instead of
+  // all pinning to whichever core polls the KMU first.
+  uint32_t rr_ptr_;
   // Nested counter: group_origin advances by cluster_dim per axis;
   // intra_offset walks within the cluster.
   uint32_t group_origin_[3];
   uint32_t intra_offset_[3];
+
+  // Cluster lease state (see step()).
+  bool     lease_active_;
+  uint32_t lease_owner_;
+  uint32_t lease_remaining_;
 
   friend class SimObject<Kmu>;
 };
