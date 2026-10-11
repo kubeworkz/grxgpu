@@ -1,0 +1,408 @@
+# Reconciling the First Development Board — the Charter's Modular Carrier and GRXCP's Board Plan
+
+**Status:** Proposal. No RTL and no code requested. It asks for edits to three draft
+documents (§8) and for five rulings (§6), and for nothing to be built.
+**Decision behind it:** on 2026-10-11 the program chose the charter's modular layout
+for the first development board. GRXCP's in-package arrangement stays as the later
+board.
+**Scope:** `docs/grxgpu_product_family_charter.md` and
+`docs/grxgpu_engineering_task_list.md`, each version 0.1 of 2026-10-10, and
+`docs/grxgpu_first_board_demo.md`, which carries no version (read, not changed).
+They were read on 2026-10-11 as drafts in the team's working tree and are not yet
+on a branch of this repository, so this proposal quotes what it answers and does
+not link to it. Nothing here patches grxgpu.
+**Baseline:** grxgpu `main` at `1d761117f`; GRXCP `main` at `c789929`; grx930 `main`
+at `8a0723f`.
+**Origin:** GRXCP's board plan (`docs/designs/board_program_plan.md`), decisions B1
+to B17, and its interface control document (`docs/designs/board_icd.md`). The PTA's
+register map is `docs/designs/pta_chiplet_regmap.md` there. Its error model and its
+calibration engine are in grx930 (`c930/doc/pta_error_model_design_note.md`).
+**Related:** [pta_chiplet_host_path.md](pta_chiplet_host_path.md) and
+[pta_weight_set_policies.md](pta_weight_set_policies.md), both written for the
+arrangement that §3.2 moves to the later board.
+
+---
+
+## 1. What this is, and why now
+
+Two sets of documents now describe "the board", and they describe different boards.
+
+The charter and its first-board demo were written without GRXCP's plan in view, and
+are careful about it: they mark the PTA's compute method, its numeric format, its
+calibration and its interface as things still to be selected or proven. GRXCP's
+plan has settled most of those over the last three weeks, on paper and in a model,
+for a board the charter does not draw. Neither set mentions the other. Before
+either team builds to its own, they have to be one.
+
+The program has chosen: **the charter's layout is the first board.** This proposal
+does three things with that.
+
+1. It sets out where the two boards differ, and what each difference becomes
+   (§2, §3).
+2. It gives the charter the PTA facts it lists as open and that are decided (§4).
+3. It says how the demo's PTA gates read from the PTA's side, what would have to
+   be defined before anyone could pass or fail them, and what we can and cannot
+   yet say (§5).
+
+**What it is not evidence of.** There is no PTA. Everything GRXCP and grx930 hold
+about one is a decision on paper or a measurement in a model, and §4 says which is
+which. Nothing below claims a photonic device, a measured module or a product
+figure.
+
+---
+
+## 2. The two boards
+
+| | GRXCP's board plan, on `main` | The charter and the demo, drafts of 2026-10-10 |
+|---|---|---|
+| Layout | Two packages: the GRX930, and a GPU package holding the G100 die and the PTA chiplet (B1) | A carrier with the GRX930 SoC as host, and the G100 and the PTA as separately attachable modules |
+| Where the PTA sits | Inside the GPU package, joined to the G100 die by UCIe (B4) | Its own module on the board |
+| Who drives the PTA | The G100: its driver owns the PTA's registers, and a copy engine feeds the tile from GPU memory (B4, B7, B9) | The CPU: it converts the G100's output and hands FC3 to the PTA |
+| CPU to GPU | CXL 2.0 over a PCIe 5.0 x16 link, the GRX930 as host and the G100 as a Type-2 device (B3) | Open: "Do not assume PCIe or a specific generation is implemented" |
+| The board before silicon | An FPGA platform with CXL hard IP, the PTA on it as the error-model tile (B6) | A modular carrier; FPGA or ASIC status to be confirmed (charter §9, item 4) |
+| What stands in for the PTA | The error-model tile, by name, with a bit in a register that says so | A physical module; "host emulation does not count" |
+| Calibration | Every six minutes while the tile runs (B15) | A cold-start cost: "PTA setup/calibration if required" |
+| What the PTA is held to | Points of accuracy lost on a named workload | A raw-output error and a class agreement |
+
+The first five rows are layout. The decision settles them, and §3 says how. The
+last three are not layout and no decision settles them: they are §3.5 and §5.
+
+---
+
+## 3. What each difference becomes
+
+### 3.1 Where the PTA sits
+
+**First board: its own module**, as the charter has it. GRXCP's B1 and B4 become the
+later board's.
+
+The charter already allows for that later board: "consider GPU package integration
+only after a measured workload/system benefit and a credible thermal, memory, test
+and package plan". GRXCP's plan is that arrangement worked through as far as paper
+goes: the split of packages, what the interface chip holds, the link's sizing, a
+floorplan bound.
+
+**Asked:** that the charter's PTA row and its §6 name the in-package chiplet as the
+arrangement the module is expected to become, and require that the module's
+interface not foreclose it. Concretely that is one register map and one GEMM
+contract for both attachments (§3.3).
+
+### 3.2 Who drives it
+
+**First board: the host CPU submits FC3 to the PTA module**, as the demo draws it.
+
+GRXCP's B7, the PTA's registers as MMIO behind the GPU's CXL.io function, and B9,
+the PTA as a device whose parent is its GPU with its operands in GPU memory, become
+the later board's. So does what was asked of the G100 in
+[pta_chiplet_host_path.md](pta_chiplet_host_path.md): a DCR range, one command and
+one capability bit.
+
+**Nothing in that proposal is needed for the first board, and nothing in it is
+withdrawn.** No number it asks for has to be assigned now. It is the path the later
+board uses, and it should not be built ahead of that board on this one's account.
+[pta_weight_set_policies.md](pta_weight_set_policies.md) is in the same position.
+
+On GRXCP's side the change is small and is ours. The PTA driver ends in three
+hooks: read a register, write one, and submit a GEMM and learn how it ended. On the
+later board the calls that proposal asks for would fill them. On the first board a
+transport from the GRX930 host does (§7).
+
+### 3.3 One register map, two attachments
+
+The PTA's register block already exists in three places, laid out the same in each.
+
+| Where | State |
+|---|---|
+| On the c930 core, at `0x4000_0100` | Built, in RTL |
+| The chiplet's window | Drafted, for a page of the GPU's BAR |
+| Behind GRXCP's C model of the chiplet, the "twin" | Built; GRXCP's driver and runtime are gated against it |
+
+It carries what the charter's shared platform contract asks of every engine (§4,
+"Device discovery: stable product/engine IDs, capability/version registers,
+precision and shape limits ... and fault state"):
+
+| Register | What it says |
+|---|---|
+| `PTA_ID` | A magic, "PTA", and the map's version |
+| `PTA_CAPS0` | The tile's rows and columns, and its operand and accumulator widths |
+| `PTA_CAPS1` | Which impairments are built, how many weight banks, and the widest activation, weight and ADC settings |
+| `PTA_CAPS2` | The shot rate as built; whether the calibration engine and the activation stage are present; and bit 31, "this is the twin and not silicon" |
+
+**Asked:** that this map be the PTA's discovery contract on the first board,
+whatever bus it is reached over. If something in it is wrong for the charter's
+purposes we would rather hear that than see a second map specified.
+
+### 3.4 Links
+
+**First board: the charter's rule stands.** The connector and the protocol are
+chosen after the traffic is measured, and B3's CXL 2.0 over PCIe 5.0 is the later
+board's. Two facts for whoever sizes the PTA module's link.
+
+- **The demo's traffic is nothing.** FC3 at a batch of 16 is 1,024 bytes of
+  activations in and 256 sums out, a job.
+- **The demo is not the sizing case.** GRXCP's link model (`pta_chiplet_link.py`,
+  the board plan's step X2) has a 4096 × 4096 layer at a batch of 64, on the
+  128 × 64 tile at 1 GS/s, needing 130 GB/s in and 8 GB/s out. That is a model's
+  prediction and has been measured on no hardware.
+
+A connector chosen on the demo's kilobyte will carry the demo and not the product.
+
+**Asked:** that the board's PTA link decision record which of the two it was sized
+for.
+
+### 3.5 What the PTA module is, on the first board
+
+The charter's first demonstrator for the PTA is an "Independently addressable
+electro-photonic module or measured prototype connected to the board". The demo
+adds: "Do not silently emulate PTA on the CPU and count that as a PTA pass", and
+"host emulation does not count".
+
+There is no photonic module, and the task list's E-303 rightly files one under
+discovery. What exists:
+
+| | What it is | Where | State |
+|---|---|---|---|
+| The error model | The contract a tile's arithmetic is held to: its quantisers, receiver and shot noise, weight programming error, drift and crosstalk | grx930, the design note's §4, with a C reference | Built |
+| An emulated tile | The c930's 8 × 8 array with that model in its datapath | grx930, RTL | Built, and held to the C reference (the note's gates P0 to P6) |
+| A calibration engine | The probes and trims that hold a drifting tile | grx930, RTL | Built, and agrees with the C reference cell for cell (gates P7 to P9) |
+| The chiplet's twin | The model behind the chiplet's register map, at 128 × 64 | GRXCP, C | Built. **No RTL at that geometry** |
+| A physical tile | | | None |
+
+Read strictly, the demo's full chain cannot be run until E-303 delivers, and the
+charter's Stage 3, the common runtime on the board, waits with it.
+
+**Proposed: a third category beside "PTA" and "host emulation", a PTA stand-in.**
+It is the emulated tile on its own module, an FPGA, behind the PTA's register map
+and reached over the module's real link, reporting `PTA_CAPS2[31]`. It is separate
+hardware doing FC3's arithmetic under the PTA's contract, so it exercises
+everything the integration gates test: discovery, the job and buffer contract, the
+format conversion, completion, faults, and the soak. It is not a photonic device,
+and so:
+
+- it may pass Gate F's integration items and the reliability package;
+- its raw outputs are checked exactly and not to a tolerance (§5.1);
+- its latency and energy are an FPGA's, and are reported as a stand-in's;
+- C3's product-value targets in Gates L and E are **not evaluable** on it;
+- the run manifest records the bit, and no report calls the run a PTA result.
+
+This is GRXCP's own rule, applied to the board: an emulation is allowed when a
+property reports it, and never behind an interface that implies hardware.
+
+**A gap, stated.** The emulated tile exists in RTL at the c930's 8 × 8 and not at
+the chiplet's 128 × 64. A stand-in at the working geometry is RTL that nobody has
+built and nobody owns. An 8 × 8 one would run FC3 as 16 tiles and give an 8 × 8
+tile's numbers, which are not a 128 × 64 tile's: each tile's sums pass a converter
+of their own. Either way the reference names its geometry.
+
+---
+
+## 4. What the charter lists as open, and what is decided
+
+The charter's PTA exit criteria (§6) begin: "Select the initial optical-compute
+mechanism and supported numeric representation". For the first board those are
+settled in GRXCP's plan. **Every row below is a decision on paper, costed in a
+model. None is a device, and none has been measured on one.**
+
+| The charter asks for | Decided | Where |
+|---|---|---|
+| The compute mechanism | A bank of ring weights lit by a comb; a weight is signed by a balanced pair of photodiodes | B12, B13 |
+| The photonic platform | Thin-film lithium tantalate, a Pockels material | B5 |
+| The geometry | 128 inputs by 64 outputs a shot | B10 |
+| The shot rate | 1 GS/s | B11 |
+| The numeric representation | 8-bit operands. Weights are 6-bit codes held behind an 8-bit DAC, activations 6-bit, and each column has an 8-bit ADC | B14, B16 |
+| The error budget, "version 2" | Receiver noise within a quarter of an LSB of that 8-bit ADC, rms; 30 photons per such LSB; weight programming error of 1 LSB of an 8-bit weight, rms; crosstalk between neighbouring inputs of 2% | B14 |
+| The optical and electronic split | The interface chip holds the converters, the resident weights, the activation buffers, the accumulation and the calibration engine | B4 |
+| Calibration and drift | Every six minutes: a trim for each cell and a read of the comb's lines, 70.0 µs at the most, one part in 5.1 million | B15, and `pta_chiplet_calibration.md` §3 |
+| The source | Noise within 1% rms a shot for the lines together and 5% for a line on its own; lines level to 20%, read at each calibration and corrected on the weights | B16 |
+| The software view | A GEMM-only device behind capability registers, whose results are reported as analog and never silently | B9, and GRXCP's `AGENTS.md` §3 |
+| The networks | Trained for the tile: eight epochs with noise of 10% on the sums | B17 |
+
+**What the tile costs, in the unit it is budgeted in:** points of accuracy lost
+against the same network on its host. On the working tile at version 2, for five
+networks a data set of B17's kind, each 784-100-10 with both layers on the tile:
+
+| | MNIST | Fashion-MNIST | MNIST, inverted |
+|---|---|---|---|
+| As budgeted | 0.14 ± 0.04 | 0.53 ± 0.07 | 0.47 ± 0.06 |
+| At the end of a six-minute cycle, with the source lit | 0.20 ± 0.04 | 0.63 ± 0.09 | 0.82 ± 0.09 |
+
+**Measured in a model**, by grx930's harness, and held in GRXCP's
+`docs/designs/pta_reference_rows.py`.
+
+**For the demo's FC3**, which the demo leaves as a "PTA-native supported
+representation":
+
+- 64 → 16 fits one 128 × 64 tile. It is one shot a vector and sixteen a batch.
+- The conversion before it is a truncation. The G100's int8 output after the ReLU
+  is not negative, and the tile takes its top 6 bits, which is the contract's
+  quantiser.
+- Its weights are 6-bit, and **should be trained for the tile**. On the one bright
+  workload we have, a network that was not loses 0.71 ± 0.10 of a point as budgeted
+  where B17's lose 0.47 ± 0.06. On the other two the difference cannot be seen.
+- A fixed-weight classifier's weights are resident. They are programmed once, in
+  the cold path, and not for each job.
+
+---
+
+## 5. The demo's gates, from the PTA's side
+
+### 5.1 Gate F: the raw outputs
+
+The demo holds FC3's raw outputs to "normalized RMS error ≤ 1.0% and maximum
+absolute error ≤ 2.0% of the reference full-scale output", against "its
+declared-format reference". Three things.
+
+**For a stand-in the check can be exact, and should be.** The error model is
+deterministic in its seed. A reference built from the capability registers, the
+seed and the GEMM's index reproduces a conforming tile's output bit for bit. That
+is how GRXCP gates the twin today: 4,164 results, each equal to the model, in
+`tests/libs/test_grxblas_pta_chiplet.cpp`. It was also the gate GRXCP's plan held
+its own first board to. So for a stand-in the proposal is zero differing outputs
+and no tolerance. That is stricter than 1%, and it is the only check that tells a
+correct emulated tile from a broken one that happens to land close.
+
+**For a physical module a tolerance is right, and it is a band.** No seed
+reproduces a device's noise. What is bounded then is the module against its
+budget, above and below. GRXCP's rule (`AGENTS.md` §4) is that a bound on an
+analog error is a prediction: an error far under the prediction is as much a sign
+of a wrong measurement as one over it.
+
+**The 1.0% has no unit yet.** The demo normalises the largest error by full scale,
+and does not say what the RMS is normalised by. In the unit grx930's harness
+reports, the rms error of a layer's sums over the rms of the reference's, a PTA
+layer at version 2 is at 7 to 8%:
+
+| | MNIST | Fashion-MNIST | MNIST, inverted |
+|---|---|---|---|
+| The last layer's own error, rms over rms | 7.4% | 7.9% | 7.1% |
+
+That is B17's networks on the tile as budgeted, 25 runs a data set, read from the
+lines grx930's `refrows` sweep wrote. It is **measured in a model**. Its reference
+has unquantised activations, so the figure includes the 6-bit quantiser as well as
+the noise. Against full scale it would be smaller, by the ratio of a layer's rms
+output to its full scale, and we have not computed that ratio for any network, the
+demo's least of all. **So we cannot say whether the tile passes 1.0% and 2.0%, and
+neither can the demo as it is written.**
+
+**Asked:** that the demo name the normaliser. We would propose the reference's own
+rms, which does not move with how much headroom a format leaves.
+
+### 5.2 Gate F: class agreement
+
+The demo asks that the final class agree with the reference on at least 99.5% of
+1,000 vectors. From the same runs, the class the tile gives against the class the
+network's host gives:
+
+| | MNIST | Fashion-MNIST | MNIST, inverted |
+|---|---|---|---|
+| Agreement with the host | 99.3% | 96.4% | 98.2% |
+
+These are not the demo's classifier. They have two layers on the tile where the
+demo has one of three, ten classes where it has sixteen, and 784 inputs where it
+has 64. Nothing we hold says the demo's classifier passes 99.5% or fails it. What
+the table does say is that 99.5% is not something the PTA meets as a matter of
+course, and that it turns on the workload more than on the tile: the same tile is
+at 96.4% and at 99.3%.
+
+**Asked, and offered:** freeze the classifier's weights and its 1,000 inputs, or
+give us FC1 and FC2 and let FC3 be trained as B17 has it. grx930's harness will
+then run it through the error model at version 2 before the thresholds are
+ratified. The demo's own rule is that thresholds are approved before results are
+seen and are not loosened after. A model's figure in hand beforehand is what makes
+a threshold a prediction.
+
+### 5.3 Calibration is in the warm path
+
+The demo counts "PTA setup/calibration if required" in the cold start and nowhere
+else. B15 has the tile calibrated every six minutes for as long as it runs. Three
+things follow.
+
+- **Warm latency.** A job that meets a calibration waits for it. At the chiplet's
+  rates that is 70.0 µs at the most. It is bounded, and the warm boundary should
+  declare it. On a stand-in the engine's time is the FPGA's, not that figure.
+- **The soak.** Twenty-four hours cross 240 calibrations, so the soak is the first
+  test at the level of a system that B15's interval has had. Its "defined recovery
+  outcome" should say what a calibration that fails is: the engine raises
+  `DRIFT_ALARM` in the status register when a trim cannot reach what it measured.
+- **Energy.** It is one part in 5.1 million. That is worth a line, so that it is
+  stated and not omitted.
+
+### 5.4 Gates L and E
+
+The boundary the charter draws for the PTA's energy, with the laser, the drivers,
+the converters, the control and the calibration inside it, is the one GRXCP's plan
+budgets within. It has the interface chip at 0.64 to 4.18 W at version 2, derived
+from a published survey of converters, and a laser of watts: B5 has 0.7 to 7 W for
+the working tile at version 1's light, and version 2 asks twice the light.
+**Neither is a measurement, and no figure in joules a batch exists for the demo.**
+
+One piece of arithmetic on those decisions, offered as that and no more. FC3 at a
+batch of 16 is sixteen shots, which is 16 ns of the tile's time at 1 GS/s. At that
+size what the PTA spends on a batch is its standing power for as long as the job
+is on the board. So the demo's shape tests the integration, which is its stated
+purpose, and cannot by itself make the PTA's case or unmake it. The charter's §5
+already asks separately for "a tensor workload suitable for PTA evaluation", and
+that is the right place for the case.
+
+On a stand-in, Gates L and E are not evaluable for the PTA at all (§3.5).
+
+---
+
+## 6. What this asks you to rule on
+
+1. **The stand-in** (§3.5). Whether an emulated tile on its own FPGA module, behind
+   the PTA's register map and reporting that it is a model, may take the PTA's
+   place in the first board's integration runs, with the limits listed there.
+2. **The register map** (§3.3). Whether the PTA's existing map is its discovery
+   contract on the first board.
+3. **Gate F's raw check** (§5.1). The normaliser for the RMS error; and, for a
+   stand-in, equality with the seeded reference in place of a tolerance.
+4. **FC3's weights** (§5.2). Who trains them, and whether they are trained for the
+   tile.
+5. **The PTA module's link** (§3.4). Which bus it is from the GRX930 host. That is
+   yours and the board lead's to choose, and we need it to write the transport.
+
+---
+
+## 7. What GRXCP and grx930 owe as a result
+
+Ours to do, and listed here so that it is on record and not assumed.
+
+| What | Whose | State |
+|---|---|---|
+| The decision recorded in GRXCP's board plan, as B18: the first board is the charter's, and B1, B3, B4, B6, B7 and B9 are the later board's | GRXCP | Recorded alongside this proposal |
+| A first-board section in the interface control document | GRXCP | Waits on §6, question 5 |
+| A transport for the driver's three hooks from the GRX930 host, and the PTA's parent device on a host-attached module | GRXCP, grx930 | Waits on §6, question 5 |
+| The demo's classifier run through the error model at version 2 | grx930's harness, GRXCP | Waits on §6, question 4 |
+| A stand-in at 128 × 64, in RTL | Unowned | Waits on §6, question 1 |
+
+---
+
+## 8. Edits asked of the three drafts
+
+| Document | Where | Edit |
+|---|---|---|
+| Charter | §2, the PTA row; §6, PTA | Cite GRXCP's board plan for what is decided (§4 here), marked as decisions in a model. Name the in-package chiplet as the later arrangement the module must not foreclose |
+| Charter | §3, "PTA connection" | Add the stand-in as a named, limited option, if §6's first question is ruled yes |
+| Charter | §4, "Device discovery" | Name the PTA's register map |
+| Charter | §6, PTA | "No PTA RTL ... is asserted" is right of a product. An emulated tile and a calibration engine do exist in grx930's RTL, and saying so costs the sentence nothing |
+| Demo | §2, FC3's row | The format of §4 here: 6-bit weights trained for the tile, 6-bit activations, an 8-bit ADC, one 128 × 64 tile, and the geometry named in the golden manifest |
+| Demo | §2, "End-to-end boundary" | Calibration every six minutes is in the warm path, and bounded |
+| Demo | §4, Gate F | Name the RMS normaliser. For a stand-in, equality with the seeded reference. Ratify the tolerance and the 99.5% after the classifier has been run through the model |
+| Demo | §4, Gates L and E; §5, item 5 | C3 on a stand-in gives "integration demonstrated" and cannot give "product-value target met" |
+| Task list | E-303, E-401 | E-401 may proceed on a stand-in before E-303 delivers, within those limits |
+
+---
+
+## 9. What this is not
+
+**A photonic device, or evidence of one.** Every PTA figure here is a decision or a
+model's output, and each says so where it stands.
+**A claim that the PTA fails the demo's gates, or passes them.** §5 says what would
+have to be defined and run before either could be said.
+**A design for the first board's links.** That is the charter's Stage 1 and the
+board lead's.
+**A withdrawal of anything already proposed.** The two earlier PTA proposals
+describe the later board and stand for it.
+**A change to grxgpu.** It asks for rulings and for edits to drafts, and patches
+nothing.
