@@ -45,7 +45,24 @@
 - **Owner:** Verification lead + GRX930 RTL lead
 - **Depends on:** E-002 and access to runnable RTL/test sources
 - **Work:** Rebuild the documented Verilator SoC/test path from a clean, identified revision; rerun available UART and GEMM cases; archive exact commands, tool versions, test vectors and logs. Record failures and unsupported cases instead of editing historical results.
-- **Done when:** Another engineer can reproduce the same reported pass/fail outcomes from the manifest, and the evidence report clearly limits claims to the tested single-core/model configuration and sizes.
+- **Done when:** Another engineer can reproduce the same reported pass/fail outcomes from the manifest, and the evidence report clearly limits claims to the tested single-core/model configuration and sizes. An authoritative source/revision and required dependencies must be identified before claiming E-004 closure.
+
+- **Current blocker:** The expected `../rv64imac/RTL` dependency is now present in the worktree (38 `.sv` source files, two `.sv.bak` backups, and one `.v` file) and a fresh four-core Verilator build/suite plus UART echo and UART-GEMM tests passed against it. However, the C930 and CPU directories remain copied/untracked snapshots without nested Git metadata, so source provenance/owner confirmation and independent reproduction are outstanding. See the [E-004 simulation report](grx930_e004_simulation_baseline.md).
+
+#### E-004 reproduced supplied-snapshot evidence (not closure)
+
+On 2026-10-12, `../rv64imac/RTL` was present with 38 `.sv` source files, two `.sv.bak` backups and one `.v` file; it has no nested Git metadata. A fresh isolated Verilator generation and WSL g++ build ran the CPU0-driven full-SoC suite: both phases passed, all four mixed-precision GEMM masks were zero (1,853 + 3,205 cycles). A fresh single-core model passed UART echo and the UART-driven GEMM sweep (18/18). This advances the evidence beyond the earlier alternate-CPU candidate, but the supplied C930/CPU sources are still untracked snapshots with unconfirmed upstream identity. It does not prove source authority or concurrent four-core correctness. The [E-004 simulation report](grx930_e004_simulation_baseline.md) records fingerprints, commands, tool details, logs and remaining blockers.
+
+**Next step:** Have the source owner confirm the CPU/SoC snapshot's authoritative provenance, then ask an independent engineer to reproduce the clean Verilator build and full-SoC, UART echo, and UART-GEMM tests against that identified baseline.
+
+| Run ID | Source / config | Result | Evidence |
+|---|---|---|---|
+| E004-CAND-2026-10-11 | Earlier unverified 35-file CPU candidate + C930 RTL; existing four-core model reused | Exit 0; both phases pass, four GEMM error masks zero | Historical rerun in [E-004 report](grx930_e004_simulation_baseline.md) |
+| E004-SNAPSHOT-SUITE-2026-10-12 | Supplied `rv64imac/RTL` snapshot (38 build-input `.sv` files; 41 files total) + C930 RTL; fresh Verilator generation and WSL C++ build | Exit 0; both phases pass, all four masks zero | [Raw full-SoC log](../grx930/c930/build/e004_authoritative_clean_suite_run.log), source fingerprint and build log in report |
+| E004-SNAPSHOT-UART-ECHO-2026-10-12 | Same supplied CPU snapshot; fresh single-core model and echo firmware | Exit 0; banner/PING/ECHO/VERSION/unknown-command checks pass; GEMM intentionally skipped | [Raw echo log](../grx930/c930/build/e004_authoritative_uart_echo_run.log) |
+| E004-SNAPSHOT-UART-GEMM-2026-10-12 | Same supplied CPU snapshot; same fresh single-core model and GEMM firmware | Exit 0; UART checks and 18/18 GEMM cases pass | [Raw GEMM log](../grx930/c930/build/e004_authoritative_uart_gemm_run.log) |
+
+Keep historical records immutable; future runs should append source revision/digest, tools, commands, inputs, logs, exit status and reviewer. E-004 remains open pending source-owner confirmation of provenance and independent reproduction.
 
 ### [ ] E-005 — Freeze the acceptance workload and numerical contract — **P0 / G0–G2**
 
