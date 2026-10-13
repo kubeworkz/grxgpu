@@ -1,0 +1,437 @@
+%Warning-PINCONNECTEMPTY: rtl\c930_npu_top.sv:411:6: Instance pin connected by name with empty reference: 'o_busy'
+  411 |     .o_busy     (),              
+      |      ^~~~~~
+                          ... For warning description see https://verilator.org/warn/PINCONNECTEMPTY?v=5.051
+                          ... Use "/* verilator lint_off PINCONNECTEMPTY */" and lint_on around source to disable this message.
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:388:6: Instance pin connected by name with empty reference: 'o_cache_wr_done'
+  388 |     .o_cache_wr_done  (),
+      |      ^~~~~~~~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:571:6: Instance pin connected by name with empty reference: 'o_cache_wr_done'
+  571 |     .o_cache_wr_done  (),
+      |      ^~~~~~~~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:759:6: Instance pin connected by name with empty reference: 'o_cache_wr_done'
+  759 |     .o_cache_wr_done  (),
+      |      ^~~~~~~~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:845:6: Instance pin connected by name with empty reference: 'o_cache_wr_done'
+  845 |     .o_cache_wr_done  (),
+      |      ^~~~~~~~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1316:6: Instance pin connected by name with empty reference: 's3_awid'
+ 1316 |     .s3_awid    (),              .s3_awaddr  (),               .s3_awlen  (),
+      |      ^~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1316:35: Instance pin connected by name with empty reference: 's3_awaddr'
+ 1316 |     .s3_awid    (),              .s3_awaddr  (),               .s3_awlen  (),
+      |                                   ^~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1316:65: Instance pin connected by name with empty reference: 's3_awlen'
+ 1316 |     .s3_awid    (),              .s3_awaddr  (),               .s3_awlen  (),
+      |                                                                 ^~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1317:6: Instance pin connected by name with empty reference: 's3_awsize'
+ 1317 |     .s3_awsize  (),              .s3_awburst (),               .s3_awvalid(),
+      |      ^~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1317:35: Instance pin connected by name with empty reference: 's3_awburst'
+ 1317 |     .s3_awsize  (),              .s3_awburst (),               .s3_awvalid(),
+      |                                   ^~~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1317:65: Instance pin connected by name with empty reference: 's3_awvalid'
+ 1317 |     .s3_awsize  (),              .s3_awburst (),               .s3_awvalid(),
+      |                                                                 ^~~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1319:6: Instance pin connected by name with empty reference: 's3_wdata'
+ 1319 |     .s3_wdata   (),              .s3_wstrb   (),               .s3_wlast  (),
+      |      ^~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1319:35: Instance pin connected by name with empty reference: 's3_wstrb'
+ 1319 |     .s3_wdata   (),              .s3_wstrb   (),               .s3_wlast  (),
+      |                                   ^~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1319:65: Instance pin connected by name with empty reference: 's3_wlast'
+ 1319 |     .s3_wdata   (),              .s3_wstrb   (),               .s3_wlast  (),
+      |                                                                 ^~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1320:6: Instance pin connected by name with empty reference: 's3_wvalid'
+ 1320 |     .s3_wvalid  (),              .s3_wready  (1'b1),
+      |      ^~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1321:6: Instance pin connected by name with empty reference: 's3_bid'
+ 1321 |     .s3_bid     (),              .s3_bresp   (2'b00),          .s3_bvalid (1'b0),
+      |      ^~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1322:6: Instance pin connected by name with empty reference: 's3_bready'
+ 1322 |     .s3_bready  (),
+      |      ^~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1323:6: Instance pin connected by name with empty reference: 's3_arid'
+ 1323 |     .s3_arid    (),              .s3_araddr  (),               .s3_arlen  (),
+      |      ^~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1323:35: Instance pin connected by name with empty reference: 's3_araddr'
+ 1323 |     .s3_arid    (),              .s3_araddr  (),               .s3_arlen  (),
+      |                                   ^~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1323:65: Instance pin connected by name with empty reference: 's3_arlen'
+ 1323 |     .s3_arid    (),              .s3_araddr  (),               .s3_arlen  (),
+      |                                                                 ^~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1324:6: Instance pin connected by name with empty reference: 's3_arsize'
+ 1324 |     .s3_arsize  (),              .s3_arburst (),               .s3_arvalid(),
+      |      ^~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1324:35: Instance pin connected by name with empty reference: 's3_arburst'
+ 1324 |     .s3_arsize  (),              .s3_arburst (),               .s3_arvalid(),
+      |                                   ^~~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1324:65: Instance pin connected by name with empty reference: 's3_arvalid'
+ 1324 |     .s3_arsize  (),              .s3_arburst (),               .s3_arvalid(),
+      |                                                                 ^~~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1326:6: Instance pin connected by name with empty reference: 's3_rid'
+ 1326 |     .s3_rid     (),              .s3_rdata   (64'd0),          .s3_rresp  (2'b00),
+      |      ^~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1327:65: Instance pin connected by name with empty reference: 's3_rready'
+ 1327 |     .s3_rlast   (1'b1),          .s3_rvalid  (1'b0),           .s3_rready ()
+      |                                                                 ^~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1457:6: Instance pin connected by name with empty reference: 'o_icache_rd_done'
+ 1457 |     .o_icache_rd_done  (),
+      |      ^~~~~~~~~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1458:6: Instance pin connected by name with empty reference: 'o_icache_rd_line'
+ 1458 |     .o_icache_rd_line  (),
+      |      ^~~~~~~~~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1462:6: Instance pin connected by name with empty reference: 'o_dcache_rd_done'
+ 1462 |     .o_dcache_rd_done  (),
+      |      ^~~~~~~~~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1463:6: Instance pin connected by name with empty reference: 'o_dcache_rd_line'
+ 1463 |     .o_dcache_rd_line  (),
+      |      ^~~~~~~~~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1469:6: Instance pin connected by name with empty reference: 'o_dcache_wr_done'
+ 1469 |     .o_dcache_wr_done  (),
+      |      ^~~~~~~~~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1607:6: Instance pin connected by name with empty reference: 'o_riscv_core_ack'
+ 1607 |     .o_riscv_core_ack                  (),
+      |      ^~~~~~~~~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1657:6: Instance pin connected by name with empty reference: 'o_riscv_core_ack'
+ 1657 |     .o_riscv_core_ack                  (),
+      |      ^~~~~~~~~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1708:6: Instance pin connected by name with empty reference: 'o_riscv_core_ack'
+ 1708 |     .o_riscv_core_ack                  (),
+      |      ^~~~~~~~~~~~~~~~
+%Warning-PINCONNECTEMPTY: rtl\c930_soc_top.sv:1758:6: Instance pin connected by name with empty reference: 'o_riscv_core_ack'
+ 1758 |     .o_riscv_core_ack                  (),
+      |      ^~~~~~~~~~~~~~~~
+%Warning-VARHIDDEN: rtl\c930_l2.sv:552:18: Declaration of signal hides declaration in upper scope: 'j'
+  552 |         for (int j = 0; j < NUM_SETS; j++) begin
+      |                  ^
+                    rtl\c930_l2.sv:250:14: ... Location of original declaration
+  250 |   integer i, j;
+      |              ^
+                    ... For warning description see https://verilator.org/warn/VARHIDDEN?v=5.051
+                    ... Use "/* verilator lint_off VARHIDDEN */" and lint_on around source to disable this message.
+%Warning-SIMILARNAME: ../rv64imac/RTL\riscv_core_mul_div_ctrl.sv:39:18: Declaration overlaps another with different case: 'overflow'
+   39 | logic            overflow;
+      |                  ^~~~~~~~
+                      ../rv64imac/RTL\riscv_core_mul_div_ctrl.sv:30:18: ... Location of original declaration
+   30 | localparam [6:0] OVERFLOW = 7'b0000001;
+      |                  ^~~~~~~~
+                      ... For warning description see https://verilator.org/warn/SIMILARNAME?v=5.051
+                      ... Use "/* verilator lint_off SIMILARNAME */" and lint_on around source to disable this message.
+%Warning-IMPLICIT: rtl\c930_soc_top.sv:1594:10: Signal definition not found, creating implicitly: 'aplic_bid'
+                                              : ... Suggested alternative: 'aplic_bvalid'
+ 1594 |   assign aplic_bid    = '0;
+      |          ^~~~~~~~~
+                   ... For warning description see https://verilator.org/warn/IMPLICIT?v=5.051
+                   ... Use "/* verilator lint_off IMPLICIT */" and lint_on around source to disable this message.
+%Warning-IMPLICIT: rtl\c930_soc_top.sv:1595:10: Signal definition not found, creating implicitly: 'aplic_rid'
+                                              : ... Suggested alternative: 'aplic_bid'
+ 1595 |   assign aplic_rid    = '0;
+      |          ^~~~~~~~~
+%Warning-BLKSEQ: rtl\c930_ddr.sv:168:17: Blocking assignment '=' in sequential logic process
+                                       : ... note: In instance 'c930_soc_verilator.u_soc.u_ddr'
+                                       : ... Suggest using delayed assignment '<='
+  168 |         wr_off  = lowest_set_bit(i_dcache_wr_strobe);
+      |                 ^
+                 ... For warning description see https://verilator.org/warn/BLKSEQ?v=5.051
+                 ... Use "/* verilator lint_off BLKSEQ */" and lint_on around source to disable this message.
+%Warning-BLKSEQ: rtl\c930_ddr.sv:169:17: Blocking assignment '=' in sequential logic process
+                                       : ... note: In instance 'c930_soc_verilator.u_soc.u_ddr'
+                                       : ... Suggest using delayed assignment '<='
+  169 |         wr_base = {i_dcache_wr_addr[ADDR_WIDTH-1:3], 3'b0};
+      |                 ^
+%Warning-BLKSEQ: ../rv64imac/RTL\riscv_core_csr_unit.sv:376:16: Blocking assignment '=' in sequential logic process
+                                                              : ... note: In instance 'c930_soc_verilator.u_soc.u_cpu3.u_riscv_core_csr_unit'
+                                                              : ... Suggest using delayed assignment '<='
+  376 |         sepc   = 64'b0;
+      |                ^
+%Warning-BLKSEQ: ../rv64imac/RTL\riscv_core_csr_unit.sv:482:38: Blocking assignment '=' in sequential logic process
+                                                              : ... note: In instance 'c930_soc_verilator.u_soc.u_cpu3.u_riscv_core_csr_unit'
+                                                              : ... Suggest using delayed assignment '<='
+  482 |                               sepc   = i_csr_unit_pc;
+      |                                      ^
+%Warning-BLKSEQ: ../rv64imac/RTL\riscv_core_csr_unit.sv:527:38: Blocking assignment '=' in sequential logic process
+                                                              : ... note: In instance 'c930_soc_verilator.u_soc.u_cpu3.u_riscv_core_csr_unit'
+                                                              : ... Suggest using delayed assignment '<='
+  527 |                               sepc   = i_csr_unit_pc;
+      |                                      ^
+%Warning-BLKSEQ: ../rv64imac/RTL\riscv_core_csr_unit.sv:571:38: Blocking assignment '=' in sequential logic process
+                                                              : ... note: In instance 'c930_soc_verilator.u_soc.u_cpu3.u_riscv_core_csr_unit'
+                                                              : ... Suggest using delayed assignment '<='
+  571 |                               sepc   = i_csr_unit_pc;
+      |                                      ^
+%Warning-BLKSEQ: ../rv64imac/RTL\riscv_core_csr_unit.sv:615:38: Blocking assignment '=' in sequential logic process
+                                                              : ... note: In instance 'c930_soc_verilator.u_soc.u_cpu3.u_riscv_core_csr_unit'
+                                                              : ... Suggest using delayed assignment '<='
+  615 |                               sepc   = i_csr_unit_pc;
+      |                                      ^
+%Warning-BLKSEQ: ../rv64imac/RTL\riscv_core_csr_unit.sv:675:38: Blocking assignment '=' in sequential logic process
+                                                              : ... note: In instance 'c930_soc_verilator.u_soc.u_cpu3.u_riscv_core_csr_unit'
+                                                              : ... Suggest using delayed assignment '<='
+  675 |                               sepc   = i_csr_unit_pc;
+      |                                      ^
+%Warning-BLKSEQ: ../rv64imac/RTL\riscv_core_csr_unit.sv:718:38: Blocking assignment '=' in sequential logic process
+                                                              : ... note: In instance 'c930_soc_verilator.u_soc.u_cpu3.u_riscv_core_csr_unit'
+                                                              : ... Suggest using delayed assignment '<='
+  718 |                               sepc   = i_csr_unit_pc;
+      |                                      ^
+%Warning-BLKSEQ: ../rv64imac/RTL\riscv_core_csr_unit.sv:761:38: Blocking assignment '=' in sequential logic process
+                                                              : ... note: In instance 'c930_soc_verilator.u_soc.u_cpu3.u_riscv_core_csr_unit'
+                                                              : ... Suggest using delayed assignment '<='
+  761 |                               sepc   = i_csr_unit_pc;
+      |                                      ^
+%Warning-MULTIDRIVEN: rtl\c930_uart.sv:365:7: Variable written to in always_ff also written by other process (IEEE 1800-2023 9.2.2.4): 'baud_divisor'
+                                            : ... note: In instance 'c930_soc_verilator.u_soc.u_uart'
+                      rtl\c930_uart.sv:365:7: 
+  365 |       baud_divisor <= DEFAULT_DIVISOR[15:0];
+      |       ^~~~~~~~~~~~
+                      rtl\c930_uart.sv:80:7: ... Location of other write
+   80 |       baud_divisor <= DEFAULT_DIVISOR[15:0];
+      |       ^~~~~~~~~~~~
+                      ... For warning description see https://verilator.org/warn/MULTIDRIVEN?v=5.051
+                      ... Use "/* verilator lint_off MULTIDRIVEN */" and lint_on around source to disable this message.
+%Warning-MULTIDRIVEN: rtl\c930_npu_csr.sv:592:7: Variable written to in always_ff also written by other process (IEEE 1800-2023 9.2.2.4): 'fifo_pop'
+                                               : ... note: In instance 'c930_soc_verilator.u_soc.g_npu1.u_npu1.u_csr'
+                      rtl\c930_npu_csr.sv:592:7: 
+  592 |       fifo_pop      <= 1'b0;
+      |       ^~~~~~~~
+                      rtl\c930_npu_csr.sv:529:5: ... Location of other write
+  529 |     fifo_pop    = 0;
+      |     ^~~~~~~~
+%Warning-MULTIDRIVEN: rtl\c930_npu_csr.sv:734:7: Variable written to in always_ff also written by other process (IEEE 1800-2023 9.2.2.4): 'fifo_wr_ptr'
+                                               : ... note: In instance 'c930_soc_verilator.u_soc.g_npu1.u_npu1.u_csr'
+                      rtl\c930_npu_csr.sv:734:7: 
+  734 |       fifo_wr_ptr <= 0;
+      |       ^~~~~~~~~~~
+                      rtl\c930_npu_csr.sv:526:5: ... Location of other write
+  526 |     fifo_wr_ptr = 0;
+      |     ^~~~~~~~~~~
+%Warning-MULTIDRIVEN: rtl\c930_npu_csr.sv:735:7: Variable written to in always_ff also written by other process (IEEE 1800-2023 9.2.2.4): 'fifo_rd_ptr'
+                                               : ... note: In instance 'c930_soc_verilator.u_soc.g_npu1.u_npu1.u_csr'
+                      rtl\c930_npu_csr.sv:735:7: 
+  735 |       fifo_rd_ptr <= 0;
+      |       ^~~~~~~~~~~
+                      rtl\c930_npu_csr.sv:527:5: ... Location of other write
+  527 |     fifo_rd_ptr = 0;
+      |     ^~~~~~~~~~~
+%Warning-MULTIDRIVEN: rtl\c930_npu_csr.sv:736:7: Variable written to in always_ff also written by other process (IEEE 1800-2023 9.2.2.4): 'fifo_count'
+                                               : ... note: In instance 'c930_soc_verilator.u_soc.g_npu1.u_npu1.u_csr'
+                      rtl\c930_npu_csr.sv:736:7: 
+  736 |       fifo_count  <= 0;
+      |       ^~~~~~~~~~
+                      rtl\c930_npu_csr.sv:528:5: ... Location of other write
+  528 |     fifo_count  = 0;
+      |     ^~~~~~~~~~
+%Warning-MULTIDRIVEN: ../rv64imac/RTL\riscv_core_dcache_controller.sv:213:9: Variable written to in always_ff also written by other process (IEEE 1800-2023 9.2.2.4): 'VALID_RES'
+                                                                           : ... note: In instance 'c930_soc_verilator.u_soc.u_cpu3.u_riscv_core_dcache_top.dcache_controller'
+                      ../rv64imac/RTL\riscv_core_dcache_controller.sv:213:9: 
+  213 |         VALID_RES <= 0;
+      |         ^~~~~~~~~
+                      ../rv64imac/RTL\riscv_core_dcache_controller.sv:169:5: ... Location of other write
+  169 |     VALID_RES = 1'b0;
+      |     ^~~~~~~~~
+%Warning-MULTIDRIVEN: ../rv64imac/RTL\riscv_core_dcache_controller.sv:214:9: Variable written to in always_ff also written by other process (IEEE 1800-2023 9.2.2.4): 'RES_SET'
+                                                                           : ... note: In instance 'c930_soc_verilator.u_soc.u_cpu3.u_riscv_core_dcache_top.dcache_controller'
+                      ../rv64imac/RTL\riscv_core_dcache_controller.sv:214:9: 
+  214 |         RES_SET <= 0;
+      |         ^~~~~~~
+                      ../rv64imac/RTL\riscv_core_dcache_controller.sv:170:5: ... Location of other write
+  170 |     RES_SET = 'b0;
+      |     ^~~~~~~
+%Warning-MULTIDRIVEN: ../rv64imac/RTL\riscv_core_dcache_controller.sv:215:9: Variable written to in always_ff also written by other process (IEEE 1800-2023 9.2.2.4): 'RES_SET_SIZE'
+                                                                           : ... note: In instance 'c930_soc_verilator.u_soc.u_cpu3.u_riscv_core_dcache_top.dcache_controller'
+                      ../rv64imac/RTL\riscv_core_dcache_controller.sv:215:9: 
+  215 |         RES_SET_SIZE <= 0;
+      |         ^~~~~~~~~~~~
+                      ../rv64imac/RTL\riscv_core_dcache_controller.sv:171:5: ... Location of other write
+  171 |     RES_SET_SIZE = 2'b0;
+      |     ^~~~~~~~~~~~
+%Warning-MULTIDRIVEN: ../rv64imac/RTL\riscv_core_dcache_controller.sv:220:9: Variable written to in always_ff also written by other process (IEEE 1800-2023 9.2.2.4): 'STATE'
+                                                                           : ... note: In instance 'c930_soc_verilator.u_soc.u_cpu3.u_riscv_core_dcache_top.dcache_controller'
+                      ../rv64imac/RTL\riscv_core_dcache_controller.sv:220:9: 
+  220 |         STATE <= IDLE;
+      |         ^~~~~
+                      ../rv64imac/RTL\riscv_core_dcache_controller.sv:172:5: ... Location of other write
+  172 |     STATE = IDLE;
+      |     ^~~~~
+%Warning-MULTIDRIVEN: ../rv64imac/RTL\riscv_core_dcache_controller.sv:330:1: Variable written to in always_comb also written by other process (IEEE 1800-2023 9.2.2.2): 'NEXT'
+                                                                           : ... note: In instance 'c930_soc_verilator.u_soc.u_cpu3.u_riscv_core_dcache_top.dcache_controller'
+                      ../rv64imac/RTL\riscv_core_dcache_controller.sv:330:1: 
+  330 | NEXT = STATE ;
+      | ^~~~
+                      ../rv64imac/RTL\riscv_core_dcache_controller.sv:173:5: ... Location of other write
+  173 |     NEXT = IDLE;
+      |     ^~~~
+%Warning-MULTIDRIVEN: ../rv64imac/RTL\riscv_core_icache_controller.sv:115:9: Variable written to in always_ff also written by other process (IEEE 1800-2023 9.2.2.4): 'STATE'
+                                                                           : ... note: In instance 'c930_soc_verilator.u_soc.u_cpu3.u_riscv_core_i_cache_top.icache_controller'
+                      ../rv64imac/RTL\riscv_core_icache_controller.sv:115:9: 
+  115 |         STATE <= IDLE;
+      |         ^~~~~
+                      ../rv64imac/RTL\riscv_core_icache_controller.sv:105:5: ... Location of other write
+  105 |     STATE = IDLE;
+      |     ^~~~~
+%Warning-MULTIDRIVEN: ../rv64imac/RTL\riscv_core_icache_controller.sv:218:1: Variable written to in always_comb also written by other process (IEEE 1800-2023 9.2.2.2): 'NEXT'
+                                                                           : ... note: In instance 'c930_soc_verilator.u_soc.u_cpu3.u_riscv_core_i_cache_top.icache_controller'
+                      ../rv64imac/RTL\riscv_core_icache_controller.sv:218:1: 
+  218 | NEXT = STATE;
+      | ^~~~
+                      ../rv64imac/RTL\riscv_core_icache_controller.sv:106:5: ... Location of other write
+  106 |     NEXT = IDLE;
+      |     ^~~~
+%Warning-UNDRIVEN: rtl\c930_soc_top.sv:223:17: Signal is not driven: 'npu_awid'
+                                             : ... note: In instance 'c930_soc_verilator.u_soc'
+  223 |   logic [3:0]   npu_awid;
+      |                 ^~~~~~~~
+                   ... For warning description see https://verilator.org/warn/UNDRIVEN?v=5.051
+                   ... Use "/* verilator lint_off UNDRIVEN */" and lint_on around source to disable this message.
+%Warning-UNDRIVEN: rtl\c930_soc_top.sv:239:17: Signal is not driven: 'npu_arid'
+                                             : ... note: In instance 'c930_soc_verilator.u_soc'
+  239 |   logic [3:0]   npu_arid;
+      |                 ^~~~~~~~
+%Warning-UNDRIVEN: rtl\c930_soc_top.sv:277:17: Signal is not driven: 'npu1_awid'
+                                             : ... note: In instance 'c930_soc_verilator.u_soc'
+  277 |   logic [3:0]   npu1_awid;
+      |                 ^~~~~~~~~
+%Warning-UNDRIVEN: rtl\c930_soc_top.sv:293:17: Signal is not driven: 'npu1_arid'
+                                             : ... note: In instance 'c930_soc_verilator.u_soc'
+  293 |   logic [3:0]   npu1_arid;
+      |                 ^~~~~~~~~
+%Warning-UNDRIVEN: rtl\c930_soc_top.sv:1112:17: Signal is not driven: 'ddr_bid'
+                                              : ... note: In instance 'c930_soc_verilator.u_soc'
+ 1112 |   logic [3:0]   ddr_bid;
+      |                 ^~~~~~~
+%Warning-UNDRIVEN: rtl\c930_soc_top.sv:1123:17: Signal is not driven: 'ddr_rid'
+                                              : ... note: In instance 'c930_soc_verilator.u_soc'
+ 1123 |   logic [3:0]   ddr_rid;
+      |                 ^~~~~~~
+%Warning-PROCASSINIT: ../rv64imac/RTL\riscv_core_pipe.sv:22:48: Procedural assignment to declaration with initial value: 'o_pipe_out'
+                                                              : ... note: In instance 'c930_soc_verilator.u_soc.u_cpu3.u_riscv_core_pipe_csr_wen_mem_wb'
+                                                              : ... Location of variable initialization
+   22 |     output logic [W_PIPE_BUS-1:0] o_pipe_out = 'b0
+      |                                                ^~~
+                      ../rv64imac/RTL\riscv_core_pipe.sv:30:9: ... Location of variable process write
+                                                             : ... Perhaps should initialize instead using a reset in this process
+   30 |         o_pipe_out <= PIPE_RST_VAL;
+      |         ^~~~~~~~~~
+                      ... For warning description see https://verilator.org/warn/PROCASSINIT?v=5.051
+                      ... Use "/* verilator lint_off PROCASSINIT */" and lint_on around source to disable this message.
+%Warning-PROCASSINIT: ../rv64imac/RTL\riscv_core_dcache_controller.sv:179:42: Procedural assignment to declaration with initial value: 'pending_inv'
+                                                                            : ... note: In instance 'c930_soc_verilator.u_soc.u_cpu3.u_riscv_core_dcache_top.dcache_controller'
+                                                                            : ... Location of variable initialization
+  179 | logic                      pending_inv = 1'b0;
+      |                                          ^~~~
+                      ../rv64imac/RTL\riscv_core_dcache_controller.sv:219:9: ... Location of variable process write
+                                                                           : ... Perhaps should initialize instead using a reset in this process
+  219 |         pending_inv <= 1'b0;
+      |         ^~~~~~~~~~~
+%Warning-PROCASSINIT: ../rv64imac/RTL\riscv_core_dcache_controller.sv:180:47: Procedural assignment to declaration with initial value: 'pending_inv_addr'
+                                                                            : ... note: In instance 'c930_soc_verilator.u_soc.u_cpu3.u_riscv_core_dcache_top.dcache_controller'
+                                                                            : ... Location of variable initialization
+  180 | logic [ADDR_WIDTH-1:0]     pending_inv_addr = 'b0;
+      |                                               ^~~
+                      ../rv64imac/RTL\riscv_core_dcache_controller.sv:228:13: ... Location of variable process write
+                                                                            : ... Perhaps should initialize instead using a reset in this process
+  228 |             pending_inv_addr <= i_inv_addr;
+      |             ^~~~~~~~~~~~~~~~
+%Warning-PROCASSINIT: ../rv64imac/RTL\riscv_core_icache_controller.sv:73:43: Procedural assignment to declaration with initial value: 'fill_addr'
+                                                                           : ... note: In instance 'c930_soc_verilator.u_soc.u_cpu3.u_riscv_core_i_cache_top.icache_controller'
+                                                                           : ... Location of variable initialization
+   73 | logic [ADDR_WIDTH-1      : 0] fill_addr = 'b0;
+      |                                           ^~~
+                      ../rv64imac/RTL\riscv_core_icache_controller.sv:116:9: ... Location of variable process write
+                                                                           : ... Perhaps should initialize instead using a reset in this process
+  116 |         fill_addr <= 'b0;
+      |         ^~~~~~~~~
+%Warning-PROCASSINIT: ../rv64imac/RTL\riscv_core_icache_controller.sv:74:38: Procedural assignment to declaration with initial value: 'fill_s2'
+                                                                           : ... note: In instance 'c930_soc_verilator.u_soc.u_cpu3.u_riscv_core_i_cache_top.icache_controller'
+                                                                           : ... Location of variable initialization
+   74 | logic                      fill_s2 = 1'b0;    
+      |                                      ^~~~
+                      ../rv64imac/RTL\riscv_core_icache_controller.sv:117:9: ... Location of variable process write
+                                                                           : ... Perhaps should initialize instead using a reset in this process
+  117 |         fill_s2 <= 1'b0;
+      |         ^~~~~~~
+%Warning-PROCASSINIT: ../rv64imac/RTL\riscv_core_icache_controller.sv:82:43: Procedural assignment to declaration with initial value: 'served_pc'
+                                                                           : ... note: In instance 'c930_soc_verilator.u_soc.u_cpu3.u_riscv_core_i_cache_top.icache_controller'
+                                                                           : ... Location of variable initialization
+   82 | logic [ADDR_WIDTH-1      : 0] served_pc = 'b0;
+      |                                           ^~~
+                      ../rv64imac/RTL\riscv_core_icache_controller.sv:118:9: ... Location of variable process write
+                                                                           : ... Perhaps should initialize instead using a reset in this process
+  118 |         served_pc <= 'b0;
+      |         ^~~~~~~~~
+%Warning-PROCASSINIT: ../rv64imac/RTL\riscv_core_icache_controller.sv:90:41: Procedural assignment to declaration with initial value: 'post_fill'
+                                                                           : ... note: In instance 'c930_soc_verilator.u_soc.u_cpu3.u_riscv_core_i_cache_top.icache_controller'
+                                                                           : ... Location of variable initialization
+   90 | logic                       post_fill = 1'b0;
+      |                                         ^~~~
+                      ../rv64imac/RTL\riscv_core_icache_controller.sv:119:9: ... Location of variable process write
+                                                                           : ... Perhaps should initialize instead using a reset in this process
+  119 |         post_fill <= 1'b0;
+      |         ^~~~~~~~~
+%Warning-PROCASSINIT: ../rv64imac/RTL\riscv_core_icache_controller.sv:94:43: Procedural assignment to declaration with initial value: 'pending_inv'
+                                                                           : ... note: In instance 'c930_soc_verilator.u_soc.u_cpu3.u_riscv_core_i_cache_top.icache_controller'
+                                                                           : ... Location of variable initialization
+   94 | logic                       pending_inv = 1'b0;
+      |                                           ^~~~
+                      ../rv64imac/RTL\riscv_core_icache_controller.sv:120:9: ... Location of variable process write
+                                                                           : ... Perhaps should initialize instead using a reset in this process
+  120 |         pending_inv <= 1'b0;
+      |         ^~~~~~~~~~~
+%Warning-PROCASSINIT: ../rv64imac/RTL\riscv_core_icache_controller.sv:95:48: Procedural assignment to declaration with initial value: 'pending_inv_addr'
+                                                                           : ... note: In instance 'c930_soc_verilator.u_soc.u_cpu3.u_riscv_core_i_cache_top.icache_controller'
+                                                                           : ... Location of variable initialization
+   95 | logic [ADDR_WIDTH-1:0]      pending_inv_addr = 'b0;
+      |                                                ^~~
+                      ../rv64imac/RTL\riscv_core_icache_controller.sv:127:13: ... Location of variable process write
+                                                                            : ... Perhaps should initialize instead using a reset in this process
+  127 |             pending_inv_addr <= i_inv_addr;
+      |             ^~~~~~~~~~~~~~~~
+%Warning-UNSIGNED: rtl\c930_axi_crossbar.sv:315:14: Comparison is constant due to unsigned arithmetic
+                                                  : ... note: In instance 'c930_soc_verilator.u_soc.u_crossbar'
+  315 |     if (addr >= DDR_BASE && addr <= DDR_END)
+      |              ^~
+                   ... For warning description see https://verilator.org/warn/UNSIGNED?v=5.051
+                   ... Use "/* verilator lint_off UNSIGNED */" and lint_on around source to disable this message.
+%Warning-CASEINCOMPLETE: ../rv64imac/RTL\riscv_core_csr_unit.sv:465:23: Case values incompletely covered (example pattern 0x0)
+  465 |                       case (current_mode)
+      |                       ^~~~
+                         ... For warning description see https://verilator.org/warn/CASEINCOMPLETE?v=5.051
+                         ... Use "/* verilator lint_off CASEINCOMPLETE */" and lint_on around source to disable this message.
+%Warning-CASEINCOMPLETE: ../rv64imac/RTL\riscv_core_csr_unit.sv:511:23: Case values incompletely covered (example pattern 0x0)
+  511 |                       case (current_mode)
+      |                       ^~~~
+%Warning-CASEINCOMPLETE: ../rv64imac/RTL\riscv_core_csr_unit.sv:555:23: Case values incompletely covered (example pattern 0x0)
+  555 |                       case (current_mode)
+      |                       ^~~~
+%Warning-CASEINCOMPLETE: ../rv64imac/RTL\riscv_core_csr_unit.sv:599:23: Case values incompletely covered (example pattern 0x0)
+  599 |                       case (current_mode)
+      |                       ^~~~
+%Warning-CASEINCOMPLETE: ../rv64imac/RTL\riscv_core_csr_unit.sv:659:23: Case values incompletely covered (example pattern 0x0)
+  659 |                       case (current_mode)
+      |                       ^~~~
+%Warning-CASEINCOMPLETE: ../rv64imac/RTL\riscv_core_csr_unit.sv:702:23: Case values incompletely covered (example pattern 0x0)
+  702 |                       case (current_mode)
+      |                       ^~~~
+%Warning-CASEINCOMPLETE: ../rv64imac/RTL\riscv_core_csr_unit.sv:745:23: Case values incompletely covered (example pattern 0x0)
+  745 |                       case (current_mode)
+      |                       ^~~~
+%Warning-CASEINCOMPLETE: ../rv64imac/RTL\riscv_core_csr_unit.sv:864:13: Case values incompletely covered (example pattern 0x0)
+  864 |             case (i_csr_unit_csr_addr)
+      |             ^~~~
+%Warning-CASEINCOMPLETE: ../rv64imac/RTL\riscv_core_csr_unit.sv:949:9: Case values incompletely covered (example pattern 0x0)
+  949 |         case (current_state)
+      |         ^~~~
+%Warning-CASEINCOMPLETE: rtl\c930_npu_dma.sv:620:11: Case values incompletely covered (example pattern 0x3)
+  620 |           case (rd_sub)
+      |           ^~~~
+%Warning-MULTIDRIVEN: rtl\c930_ddr.sv:81:15: Signal has multiple driving blocks with different clocking: 'c930_soc_verilator.u_soc.u_ddr.mem'
+                      rtl\c930_ddr.sv:250:13: ... Location of first driving block
+  250 |             mem[w_addr + w_beat*8 + i] <= s_axi_wdata[i*8 +: 8];
+      |             ^~~
+                      rtl\c930_ddr.sv:120:7: ... Location of other driving block
+  120 |       mem[i_tb_wr_addr[31:0]] <= i_tb_wr_data;
+      |       ^~~
+- V e r i l a t i o n   R e p o r t: Verilator 5.051 devel rev v5.050-194-ga3553e7be (mod)
+- Verilator: Built from 16.704 MB sources in 66 modules, into 10.354 MB in 18 C++ files needing 0.010 MB
+- Verilator: Walltime 3.938 s (elab=0.273, cvt=2.938, bld=0.000); cpu 0.000 s on 1 threads; allocated 161.422 MB
