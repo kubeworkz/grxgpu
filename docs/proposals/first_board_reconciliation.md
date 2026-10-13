@@ -3,6 +3,7 @@
 **Status:** Proposal. No RTL and no code requested. It asks for edits to three draft
 documents (§8) and for five rulings (§6), and for nothing to be built. *Amended
 2026-10-13:* §10 is new, and §5.1, §5.2, §6 and §7 point to it where it changes them.
+*And again the same day:* §10.5 is new, and withdraws §10.3's first item as it stood.
 **Decision behind it:** on 2026-10-11 the program chose the charter's modular layout
 for the first development board. GRXCP's in-package arrangement stays as the later
 board.
@@ -492,7 +493,7 @@ of the 30 networks then have a reference that reaches past the converter's full 
 somewhere in the 10,000 test images, and 2 in the first 1,000. With no noise at all,
 their largest error is 2.2 to 24.1% of the largest the reference takes. That is a fault
 in how the range was set, and not noise. A range that clips nothing costs a larger step.
-We did not run one.
+~~We did not run one.~~ *Run the same day: §10.5.*
 
 ### 10.2 Gate F's class agreement
 
@@ -535,6 +536,10 @@ thresholds are yours. What follows is what we would set them against.
    for a tile at version 2 is 1.42 to 1.78 steps rms, which is 1.12 to 1.40% of a
    127-step full scale.
 
+   *Withdrawn as it stands, 2026-10-13. It does not move with the vectors, and it does
+   move with the range: a bound in steps is met by declaring a wider one. §10.5 has the
+   runs and what replaces it.*
+
 2. **Make it a band.** A module that measures far under the model's figure is as likely
    to be a wrong measurement as one that measures over it (GRXCP `AGENTS.md` §4).
 
@@ -545,7 +550,8 @@ thresholds are yours. What follows is what we would set them against.
 
 4. **Check clipping by itself, and require none.** The golden manifest's full scale
    should be at least the largest value the reference takes, and a clipped output should
-   fail as a range fault, not be averaged into an error figure.
+   fail as a range fault, not be averaged into an error figure. *And no wider than that:
+   §10.5 has what a bit of headroom costs.*
 
 5. **Set the 99.5% after the frozen classifier has been through the model**, and require
    FC3's weights to be trained for the tile. This is §6's fourth question, and it now
@@ -571,3 +577,92 @@ board's last layer", and `sim/pta_mnist.sh ... chain`. GRXCP
 harness's tables cell for cell, and asserts each figure quoted here. The harness trains
 its own networks. Running yours needs its weights in the harness's format, which is a
 small converter that nobody has written.
+
+### 10.5 The range that clips nothing (added 2026-10-13)
+
+§10.1 found that one clipped output reads as an error of 2 to 24%, and said a range that
+clips nothing had not been run. It has now (kubeworkz/grx930#68). It is the same
+stand-in, ours and not yours, **measured in a model**, with everything §10.4 says of it.
+
+**What was run.** The output converter's range set as the demo says, from the golden
+manifest: the smallest step at which the largest value the declared-format reference
+takes, over the vectors that are run, fits the converter's 127 codes. And the same with
+one bit of headroom, so that the largest fits 63. Both against the range the harness had
+been setting on training images.
+
+**What a wider range costs, as it is modelled.** GRXCP budgets the tile's noise in LSB
+of the output converter: the receiver's at a quarter of an LSB, the light at thirty
+photons an LSB. A converter's range is hardware, and an output is brought inside it by
+turning the light or the gain down. So a wider range is a larger LSB and more noise in
+the output's own units. A converter with one more bit at the same LSB is the other way
+to buy range. That is a hardware choice, and is not modelled here.
+
+| The reference networks, as budgeted: MNIST, Fashion-MNIST, inverted | Range from training images | Fitted to the manifest | One bit of headroom |
+|---|---|---|---|
+| Networks of five whose step grows | none | 1, 2, 0 | 5, 5, 5 |
+| Most outputs clipped in a run, of 160,000 | 27, 161, 0 | 0, 0, 0 | 0, 0, 0 |
+| Largest error, the most in any run, % of the largest reference value | 8.97, 24.05, 8.59 | 8.97, 8.95, 8.59 | 12.70, 11.84, 11.40 |
+| rms error, % of the reference's rms | 4.46, 4.67, 4.18 | 4.64, 5.05, 4.18 | 5.75, 6.75, 5.23 |
+| rms error, in steps of its own converter | 1.83, 1.43, 1.60 | 1.67, 1.15, 1.60 | 1.03, 0.77, 1.00 |
+| rms error, % of its own converter's full scale | 1.44, 1.13, 1.26 | 1.32, 0.91, 1.26 | 0.81, 0.61, 0.79 |
+| The declared reference's class, % of 10,000 images | 99.59, 96.78, 99.23 | 99.55, 96.20, 99.23 | 99.26, 93.20, 98.83 |
+| On the first 1,000: runs of 25 at 99.5% or more | 13, 0, 1 | 13, 0, 1 | 3, 0, 0 |
+| Top-1 accuracy, % | 96.97, 83.47, 95.19 | 96.95, 83.35, 95.19 | 96.85, 82.41, 95.02 |
+
+**Fitted to the manifest, nothing clips.** Not one output, in any of the 600 fitted
+runs, with the tile's noise or without it. Fitting changes the step of 5 networks of 30
+on 10,000 images and of 2 on the first 1,000, by one bit each. A tile with no noise is
+then off by half a step at the most, 0.40 to 0.77% of the largest reference value, and
+is inside the 2.0% in every run.
+
+**It does not bring a tile with noise inside the 2.0%.** The largest error is then the
+noise's alone: 7.2 to 8.4% in a data set's mean and 9.7% at the most, where it was
+24.1%. The least any of the 300 runs has is 6.1%. §10.3's third item stands by itself
+now.
+
+**Where the fit was needed it costs a fifth more error.** A network whose step grew by a
+bit has 1.20 to 1.24 times the rms error it had. Its class agreement goes with it: on
+10,000 images the three data sets are at 99.55, 96.20 and 99.23%, where they were at
+99.59, 96.78 and 99.23%.
+
+**Headroom is not free.** One bit more than fits costs every network 1.21 to 1.38 times
+its fitted rms error. Class agreement falls to 99.26, 93.20 and 98.83%, and top-1
+accuracy by 0.10, 0.94 and 0.17 of a point. On pooled MNIST's first 1,000 images the
+runs at 99.5% go from 13 of 25 to 3. A noiseless tile that only rounds twice as coarsely
+is at 99.59, 95.31 and 99.43%.
+
+**And a wider range reads better as a share of full scale.** The table's fifth and sixth
+rows fall from left to right while its fourth rises. Of the 150 runs as budgeted, both
+kinds of network, 20, 45 and 150 are within 1.0% of the converter's full scale as the
+range grows, and none is within 1.0% of the reference's rms at any of the three. A bound
+in steps, or as a share of full scale, is met by declaring a wider range, with a tile
+that is worse.
+
+**What this changes in §10.3.**
+
+1. **Its first item is withdrawn as it stood.** It asked for the rms bound in steps of
+   the declared output format. That is safe only if the range is not the engine's to
+   choose.
+
+2. **Fix the output range in the golden manifest, by rule**: the smallest step at which
+   the largest value the reference takes fits the format, and no wider. Then nothing
+   clips, and the range is not a free parameter. This sharpens the fourth item.
+
+3. **State the rms bound against the reference**, its rms or its largest value. With the
+   range fixed by the rule above a bound in steps says the same thing, and may be given
+   beside it. The model's figures for a tile at version 2 with a fitted range, on the
+   first 1,000 images of the networks trained for the tile: 4.24 to 4.85% of the
+   reference's rms, 1.47 to 1.72% of its largest value, 1.27 to 1.78 steps.
+
+4. **The second, third and fifth items stand**: a band and not a ceiling, a
+   largest-error bound written for an engine with noise, and the 99.5% set after the
+   frozen classifier has been through the model.
+
+**What this is not.** A range a board could set without its golden manifest: this one is
+fitted to the very vectors it is then run on, which is what the demo describes. A
+converter with more bits. A remedy for the largest error. And of nine predictions
+written before these runs, four held: the cost of a bit of range was put at 1.3 to 1.5
+times and is 1.2 where the fit needs it and 1.3 for a spare one, and what a spare bit
+does to the class was put too low. It is held in grx930's design note §5, "The first
+board's last layer, with a range that clips nothing", and in GRXCP's
+`docs/designs/pta_board_range.py`.
