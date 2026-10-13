@@ -7,6 +7,7 @@ documents (§8) and for five rulings (§6), and for nothing to be built. *Amende
 *And a third time:* §10.6 is new, and takes two words out of §10.5's second item.
 *And its third item was settled the same day:* the PTA's converter stays at 8 bits.
 *And a fourth time:* §10.7 is new, and has the same layer with a light source over it.
+*A one-page cover for §10 is in [first_board_pta_note.md](first_board_pta_note.md).*
 **Decision behind it:** on 2026-10-11 the program chose the charter's modular layout
 for the first development board. GRXCP's in-package arrangement stays as the later
 board.
