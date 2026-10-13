@@ -1,7 +1,8 @@
 # Reconciling the First Development Board — the Charter's Modular Carrier and GRXCP's Board Plan
 
 **Status:** Proposal. No RTL and no code requested. It asks for edits to three draft
-documents (§8) and for five rulings (§6), and for nothing to be built.
+documents (§8) and for five rulings (§6), and for nothing to be built. *Amended
+2026-10-13:* §10 is new, and §5.1, §5.2, §6 and §7 point to it where it changes them.
 **Decision behind it:** on 2026-10-11 the program chose the charter's modular layout
 for the first development board. GRXCP's in-package arrangement stays as the later
 board.
@@ -283,9 +284,13 @@ the noise. Against full scale it would be smaller, by the ratio of a layer's rms
 output to its full scale, and we have not computed that ratio for any network, the
 demo's least of all. **So we cannot say whether the tile passes 1.0% and 2.0%, and
 neither can the demo as it is written.**
+*Since 2026-10-13 a stand-in for the demo's classifier has been run (§10). On three of
+four readings of the 1.0% the tile as budgeted is over it in every data set's mean, and
+on every reading it is over the 2.0% in every run.*
 
-**Asked:** that the demo name the normaliser. We would propose the reference's own
-rms, which does not move with how much headroom a format leaves.
+**Asked:** that the demo name the normaliser. ~~We would propose the reference's own
+rms, which does not move with how much headroom a format leaves.~~ *It does move with
+which vectors are frozen. §10.3 proposes the declared output format's own step.*
 
 ### 5.2 Gate F: class agreement
 
@@ -303,6 +308,8 @@ has 64. Nothing we hold says the demo's classifier passes 99.5% or fails it. Wha
 the table does say is that 99.5% is not something the PTA meets as a matter of
 course, and that it turns on the workload more than on the tile: the same tile is
 at 96.4% and at 99.3%.
+*Those figures are against the network's host. The demo holds the class to its
+declared reference's, and §10.2 has that, for a stand-in of the demo's own shape.*
 
 **Asked, and offered:** freeze the classifier's weights and its 1,000 inputs, or
 give us FC1 and FC2 and let FC3 be trained as B17 has it. grx930's harness will
@@ -356,7 +363,8 @@ On a stand-in, Gates L and E are not evaluable for the PTA at all (§3.5).
 2. **The register map** (§3.3). Whether the PTA's existing map is its discovery
    contract on the first board.
 3. **Gate F's raw check** (§5.1). The normaliser for the RMS error; and, for a
-   stand-in, equality with the seeded reference in place of a tolerance.
+   stand-in, equality with the seeded reference in place of a tolerance. *§10.3 adds
+   what we would propose for the 1.0% and for the 2.0%.*
 4. **FC3's weights** (§5.2). Who trains them, and whether they are trained for the
    tile.
 5. **The PTA module's link** (§3.4). Which bus it is from the GRX930 host. That is
@@ -373,7 +381,7 @@ Ours to do, and listed here so that it is on record and not assumed.
 | The decision recorded in GRXCP's board plan, as B18: the first board is the charter's, and B1, B3, B4, B6, B7 and B9 are the later board's | GRXCP | Recorded alongside this proposal |
 | A first-board section in the interface control document | GRXCP | Waits on §6, question 5 |
 | A transport for the driver's three hooks from the GRX930 host, and the PTA's parent device on a host-attached module | GRXCP, grx930 | Waits on §6, question 5 |
-| The demo's classifier run through the error model at version 2 | grx930's harness, GRXCP | Waits on §6, question 4 |
+| The demo's classifier run through the error model at version 2 | grx930's harness, GRXCP | Waits on §6, question 4. *A stand-in for it was run on 2026-10-13: §10* |
 | A stand-in at 128 × 64, in RTL | Unowned | Waits on §6, question 1 |
 
 ---
@@ -406,3 +414,160 @@ board lead's.
 describe the later board and stand for it.
 **A change to grxgpu.** It asks for rulings and for edits to drafts, and patches
 nothing.
+
+---
+
+## 10. Addendum, 2026-10-13: a stand-in for the demo's classifier
+
+§5 said we could not tell whether the tile passes Gate F, and offered to run the demo's
+classifier through the error model once it exists. It does not exist yet. So grx930's
+harness was given a way to run a network that is only partly on the tile
+(kubeworkz/grx930#67), and **a stand-in for the classifier was run: ours, not yours.**
+It is here so that the thresholds can be set with a model's figure in hand. Every figure
+below is **measured in a model**, and every one moves with the classifier, as the three
+columns show.
+
+**What was run.** A 64-64-64-16 classifier, trained by grx930's harness on the three
+data sets GRXCP uses: MNIST, Fashion-MNIST and MNIST with its pixels inverted, each
+image pooled from 28 × 28 to 8 × 8, which is 64 inputs. It has sixteen outputs, of which
+ten are ever a label. FC1 and FC2 are computed exactly, as a digital engine has them.
+FC3 runs on one 128 × 64 tile at version 2 (§4), one shot a vector. Its declared-format
+reference is the exact product of FC2's output at the tile's 6 bits and FC3's weights.
+Five networks trained for the tile as B17 has it, and five draws of the tile's noise,
+which is 25 runs a data set; on the first 1,000 test images, the size of your acceptance
+set, and on all 10,000.
+
+**Where it is not your classifier.** Its weights are 6 bits where the demo's are int8.
+Its data are ours. The NPU and the G100 are taken as exact, and the conversions between
+layers are the harness's own rescale. And no light source is modelled: GRXCP's source
+rows (B16) would add to every figure here.
+
+### 10.1 Gate F's raw error
+
+| As budgeted, the first 1,000 images | MNIST | Fashion-MNIST | MNIST, inverted | Gate F asks |
+|---|---|---|---|---|
+| rms error, % of the reference's rms | 4.52 | 4.67 | 4.24 | 1.0%, of what it does not say |
+| % of the largest the reference is | 1.72 | 1.42 | 1.54 |  |
+| % of the converter's full scale, 127 steps | 1.40 | 1.12 | 1.22 |  |
+| in steps of the 8-bit converter | 1.78 | 1.42 | 1.55 |  |
+| Largest error, % of the largest the reference is | 7.69 | 7.53 | 7.16 | 2.0% |
+| % of the converter's full scale | 6.24 | 5.96 | 5.67 |  |
+| in the run's own rms errors | 4.5 | 5.3 | 4.6 |  |
+
+**The tile is about a step and a half of its output converter off its declared format.**
+1.42 to 1.78 steps rms, of an 8-bit converter. With no noise at all it is off by 0.29 of
+a step, which is the converter's rounding. That figure does not move with the test
+vectors, and the next three do.
+
+**So the 1.0% is passed or failed by what it is divided by.** Four readings, and the
+runs of the 150 on the first 1,000 images, both kinds of network, that are within 1.0%
+on each:
+
+| The rms error, as a share of | As budgeted | Runs of 150 within 1.0% |
+|---|---|---|
+| The reference's own rms | 4.2 to 4.9% | 0 |
+| The largest value the reference takes in the test set | 1.4 to 1.8% | 0 |
+| The output converter's full scale, 127 steps | 1.1 to 1.4% | 25 |
+| Its whole span, 254 steps | 0.56 to 0.70% | 150 |
+
+The demo says to "define full scale from the frozen golden manifest". If that is the
+largest value the reference takes, it is the second row, and it moves with which vectors
+were frozen. If it is the output format's own range, it is the third or the fourth.
+
+**The 2.0% on the largest error is met by no run, on any reading.** As budgeted the
+largest error of a run's 16,000 outputs is 7.2 to 8.4% of the largest value the
+reference takes, 5.2 to 6.2% of the converter's full scale and 2.6 to 3.1% of its span.
+The least any of the 300 runs has is 6.1% of the largest the reference takes.
+
+**It could not be, for an analog engine, while it is twice the rms bound.** A largest
+error is a tail. Here it is 4.5 to 5.3 of the run's own rms errors, and the largest of
+16,000 figures with Gaussian noise on them sits about 4.4 rms out. A digital engine,
+whose error is bounded by its rounding, meets a largest-error bound at twice its rms
+bound: the format alone has 0.42 to 0.71% where nothing is clipped. A noisy one does
+not, and the more outputs are looked at the further out its largest is.
+
+**And one clipped output looks like a very large error.** The harness sets the output
+converter's range on 1,000 training images, to pass all but one sum in ten thousand. 5
+of the 30 networks then have a reference that reaches past the converter's full scale
+somewhere in the 10,000 test images, and 2 in the first 1,000. With no noise at all,
+their largest error is 2.2 to 24.1% of the largest the reference takes. That is a fault
+in how the range was set, and not noise. A range that clips nothing costs a larger step.
+We did not run one.
+
+### 10.2 Gate F's class agreement
+
+The demo holds the final class to "the declared reference". We take that as the class
+the declared-format reference gives, and report the class the high-precision host gives
+beside it, as the demo asks.
+
+| The first 1,000 images | MNIST | Fashion-MNIST | MNIST, inverted | Gate F asks |
+|---|---|---|---|---|
+| The tile as budgeted gives its declared reference's class on | 99.49% | 96.85% | 99.10% | 99.5% |
+| Runs of 25 at 99.5% or more | 13 | 0 | 1 |  |
+| The least of any run | 99.1% | 95.3% | 98.6% |  |
+| The format alone, with no noise, gives that class on | 99.76% | 98.58% | 99.64% |  |
+| Networks not trained for the tile, as budgeted | 99.25% | 96.01% | 98.80% |  |
+| The tile as budgeted gives the high-precision host's class on | 99.34% | 96.46% | 98.79% |  |
+| How often the declared reference is right | 96.52% | 84.76% | 94.38% |  |
+| How often the high-precision host is right, of 10,000 | 97.09% | 83.82% | 95.39% |  |
+
+**On one data set of three the stand-in is at the gate, and a draw decides which side.**
+On pooled MNIST the mean is 99.49% and 13 runs of 25 pass. On the other two it is under,
+by 2.6 points on Fashion-MNIST and 0.4 on the inverted set.
+
+**A tile with no noise fails 99.5% on one of them.** The format alone differs from its
+declared reference by the converter's rounding and by what it clips. That moves the
+class on 0.24, 1.42 and 0.36% of the first 1,000 images.
+
+**It turns on the classifier's margins.** The same tile is at 99.5% and at 96.9%. And
+training for the tile's noise, as B17 does, is worth 0.18, 0.86 and 0.38 of a point on
+10,000 images, on the same raw error: 4.2 to 4.7% of the reference's rms against 4.3 to
+4.8%.
+
+### 10.3 What we would now propose for Gate F
+
+These replace what §5.1 proposed, which was to normalise by the reference's own rms. The
+thresholds are yours. What follows is what we would set them against.
+
+1. **State the rms bound in steps of the PTA's declared output format**, or as a share
+   of that format's full scale, with the full scale written as a number in the golden
+   manifest. It then does not move with which vectors were frozen. The model's figure
+   for a tile at version 2 is 1.42 to 1.78 steps rms, which is 1.12 to 1.40% of a
+   127-step full scale.
+
+2. **Make it a band.** A module that measures far under the model's figure is as likely
+   to be a wrong measurement as one that measures over it (GRXCP `AGENTS.md` §4).
+
+3. **Restate the largest-error bound for an engine with noise.** Either as a multiple of
+   the rms bound that fits the number of outputs checked: here the largest of a run's
+   16,000 outputs is 4.12 to 6.35 of that run's rms errors, with 3 runs of 150 past six
+   and none past seven. Or as a count of outputs allowed past a stated error.
+
+4. **Check clipping by itself, and require none.** The golden manifest's full scale
+   should be at least the largest value the reference takes, and a clipped output should
+   fail as a range fault, not be averaged into an error figure.
+
+5. **Set the 99.5% after the frozen classifier has been through the model**, and require
+   FC3's weights to be trained for the tile. This is §6's fourth question, and it now
+   has a size.
+
+**For a stand-in none of this changes §5.1's first point.** An emulated tile is
+deterministic in its seed, and is checked for equality with its seeded reference, with
+no tolerance.
+
+### 10.4 What this is not
+
+**Your classifier, or a pass or a fail of it.** It is a network of the same shape on
+data sets we had. **A device.** Every figure is a model's. **The chain.** FC1 and FC2
+are exact here. **A lit tile.** No source noise is in these figures. **A remedy.**
+Nothing here makes the largest error smaller: it says where it comes from. **A
+prediction we got right.** Twelve were written down before the runs, for these networks,
+and four held as written. The ones that failed put the largest error too low and
+Fashion-MNIST's class agreement too high.
+
+**Where it is held.** grx930 `c930/doc/pta_error_model_design_note.md` §5, "The first
+board's last layer", and `sim/pta_mnist.sh ... chain`. GRXCP
+`docs/designs/pta_board_chain.py`, which holds every run's figures, reproduces the
+harness's tables cell for cell, and asserts each figure quoted here. The harness trains
+its own networks. Running yours needs its weights in the harness's format, which is a
+small converter that nobody has written.
