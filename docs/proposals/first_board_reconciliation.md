@@ -5,6 +5,7 @@ documents (§8) and for five rulings (§6), and for nothing to be built. *Amende
 2026-10-13:* §10 is new, and §5.1, §5.2, §6 and §7 point to it where it changes them.
 *And again the same day:* §10.5 is new, and withdraws §10.3's first item as it stood.
 *And a third time:* §10.6 is new, and takes two words out of §10.5's second item.
+*And its third item was settled the same day:* the PTA's converter stays at 8 bits.
 **Decision behind it:** on 2026-10-11 the program chose the charter's modular layout
 for the first development board. GRXCP's in-package arrangement stays as the later
 board.
@@ -741,12 +742,17 @@ reference, seen from the other side.
    stays withdrawn, and the rms bound is stated against the reference, its rms or its
    largest value.
 
-3. **Gate F should not assume the ninth bit.** Whether the PTA's interface chip carries
-   one is not decided on our side. By GRXCP's own models it costs up to twice the
-   converter's power, and it needs a receiver whose linear range we have not priced. The
-   model's figures on the first 1,000 vectors, for the networks trained for the tile,
-   are 4.24 to 4.67% of the reference's rms with the bit spent on range and 4.24 to
-   4.85% with eight bits and a fitted range.
+3. **Gate F should not assume the ninth bit.** ~~Whether the PTA's interface chip
+   carries one is not decided on our side.~~ By GRXCP's own models it costs up to twice
+   the converter's power, and it needs a receiver whose linear range we have not priced.
+   The model's figures on the first 1,000 vectors, for the networks trained for the
+   tile, are 4.24 to 4.67% of the reference's rms with the bit spent on range and 4.24
+   to 4.85% with eight bits and a fitted range.
+
+   *Settled the same day: it carries none. GRXCP keeps the PTA's output converter at 8
+   bits (its decision B14). The figures to set Gate F against are then the 8-bit ones
+   with a fitted range: 4.24 to 4.85% of the reference's rms here, and the rest in
+   §10.5's third item. What §10.6 found stands, and is not acted on.*
 
 **What this is not.** A classifier of yours, or a chip: everything §10.4 says. A range
 that holds by rule. A model of the receiver, which is where the range has to come from.
