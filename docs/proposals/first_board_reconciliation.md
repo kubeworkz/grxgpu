@@ -6,6 +6,7 @@ documents (§8) and for five rulings (§6), and for nothing to be built. *Amende
 *And again the same day:* §10.5 is new, and withdraws §10.3's first item as it stood.
 *And a third time:* §10.6 is new, and takes two words out of §10.5's second item.
 *And its third item was settled the same day:* the PTA's converter stays at 8 bits.
+*And a fourth time:* §10.7 is new, and has the same layer with a light source over it.
 **Decision behind it:** on 2026-10-11 the program chose the charter's modular layout
 for the first development board. GRXCP's in-package arrangement stays as the later
 board.
@@ -443,7 +444,8 @@ set, and on all 10,000.
 **Where it is not your classifier.** Its weights are 6 bits where the demo's are int8.
 Its data are ours. The NPU and the G100 are taken as exact, and the conversions between
 layers are the harness's own rescale. And no light source is modelled: GRXCP's source
-rows (B16) would add to every figure here.
+rows (B16) would add to every figure here. *They are modelled since the same day:
+§10.7.*
 
 ### 10.1 Gate F's raw error
 
@@ -567,7 +569,8 @@ no tolerance.
 
 **Your classifier, or a pass or a fail of it.** It is a network of the same shape on
 data sets we had. **A device.** Every figure is a model's. **The chain.** FC1 and FC2
-are exact here. **A lit tile.** No source noise is in these figures. **A remedy.**
+are exact here. **A lit tile.** No source noise is in these figures. *§10.7 has them
+lit.* **A remedy.**
 Nothing here makes the largest error smaller: it says where it comes from. **A
 prediction we got right.** Twelve were written down before the runs, for these networks,
 and four held as written. The ones that failed put the largest error too low and
@@ -754,6 +757,8 @@ reference, seen from the other side.
    with a fitted range: 4.24 to 4.85% of the reference's rms here, and the rest in
    §10.5's third item. What §10.6 found stands, and is not acted on.*
 
+   *Those are with no source. §10.7's first item has them lit, and replaces them.*
+
 **What this is not.** A classifier of yours, or a chip: everything §10.4 says. A range
 that holds by rule. A model of the receiver, which is where the range has to come from.
 A remedy for the largest error. And of ten predictions written before these runs, seven
@@ -762,3 +767,71 @@ one set's is by a thousandth of a percent, put one set's largest error a hundred
 high, and put what finer steps do for Fashion-MNIST's class agreement at a quarter of
 what it is. It is held in grx930's design note §5, "The first board's last layer, with a
 converter of one more bit", and in GRXCP's `docs/designs/pta_board_bits.py`.
+
+### 10.7 The same layer with a light source (added 2026-10-13)
+
+Every figure in §10 so far is for a tile with its own noise and no light source
+modelled, and §10.1 and §10.4 say so. grx930's harness could not light a tile that held
+only one of a network's layers. It now can (kubeworkz/grx930#70), and this is the same
+stand-in with GRXCP's source over it as we hold a source (our B16): its noise within 1%
+rms a shot for the lines together and 5% for a line on its own, and its lines level to
+20%, read at a calibration and corrected on the weights. The PTA's output converter is
+the 8-bit one (our B14).
+
+| The reference networks, as budgeted: MNIST, Fashion-MNIST, inverted | No source | The source | The source, range fitted to the manifest |
+|---|---|---|---|
+| rms error, % of the reference's rms | 4.46, 4.67, 4.18 | 5.18, 5.34, 5.27 | 5.33, 5.66, 5.27 |
+| Largest error, a mean over the runs, % of the largest reference value | 8.02, 11.53, 7.44 | 11.91, 14.91, 12.76 | 11.40, 10.16, 12.76 |
+| Class agreement with the declared reference, % | 99.59, 96.78, 99.23 | 99.44, 96.45, 98.89 | 99.41, 95.90, 98.89 |
+| On the first 1,000 vectors: rms error, % of the reference's rms | 4.52, 4.67, 4.24 | 5.22, 5.35, 5.31 | 5.22, 5.48, 5.31 |
+| class agreement, % | 99.49, 96.85, 99.10 | 99.33, 96.41, 98.66 | 99.33, 96.17, 98.66 |
+| runs of 25 at 99.5% or more | 13, 0, 1 | 8, 0, 0 | 8, 0, 0 |
+
+**The source adds a seventh to the rms error.** A network has 0.98 to 1.40 times the rms
+error it had with no source, 1.14 in the mean of thirty. The largest error grows by
+more: 9.4 to 14.9% of the largest reference value in a set's mean, where it was 7.2 to
+11.5%. No run is within 2.0%, or within 1.0% on the rms.
+
+**Class agreement falls by a sixth to a third of a point**: by 0.15, 0.33 and 0.34. On
+the first 1,000 vectors 8, 0 and 0 runs of 25 are at 99.5%, where 13, 0 and 1 were.
+
+**Part of what it adds is not noise.** Where a line of the source is dim, the weights it
+lights are raised to correct it, and a weight already at full scale cannot be raised. In
+these networks that is 1 to 11% of FC3's weights. What they are short by is the same in
+every shot until the lines are read again. The source's noise is new each shot. Of what
+the source adds, squares for squares, the shared 1% is 1.00, 1.00 and 1.00% of the
+reference's rms, a line's own 5% is 1.74, 1.60 and 1.98, and the lines' level, read and
+corrected, is 1.60, 1.93 and 2.40. Left uncorrected the lines' level alone would be
+6.51, 6.84 and 7.73.
+
+**One limit of the model matters here.** It adds the source's share after the converter,
+and it corrects the weights before it. So its converter sees sums that a chip's would
+not, and clips a few of them. The figures above are means over all runs. The largest
+errors in runs with a clipped output are the model's order as much as a source's, and
+grx930's note gives them apart.
+
+**What this changes in §10.**
+
+1. **The figures to set Gate F against are the lit ones.** §10.5's third item and the
+   note under §10.6's third gave them with no source. With the source and a range fitted
+   to the manifest, on the first 1,000 vectors of the networks trained for the tile:
+   5.22 to 5.48% of the reference's rms, 1.67 to 1.99% of its largest value, and class
+   agreement of 99.33, 96.17 and 98.66%.
+
+2. **Repeating a measurement will not average all of the error away.** Part of the PTA's
+   error is fixed between calibrations. A gate that averages shots should expect a
+   floor, and a gate that compares two runs of one calibration will see less scatter
+   than the error.
+
+3. **The rest of §10.3, §10.5 and §10.6 stands**: a band and not a ceiling, a
+   largest-error bound written for an engine with noise, the bound stated against the
+   reference, a range that holds the largest reference value, and the 99.5% set after
+   the frozen classifier has been through the model.
+
+**What this is not.** A classifier of yours, or a chip: everything §10.4 says. A source
+through a single photodiode, a drifted tile, or a cycle of calibrations: this is the
+source over the tile as budgeted. A remedy: three ways to keep a weight clear of full
+scale are known to us and none has been run. And of eleven predictions written before
+these runs, two held; most of the rest put the source's cost too high. It is held in
+grx930's design note §5, "The first board's last layer, with a light source switched
+on", and in GRXCP's `docs/designs/pta_board_lit.py`.
