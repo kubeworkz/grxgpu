@@ -202,19 +202,21 @@ Keep historical records immutable; future runs should append source revision/dig
 
 ## D. G100 and PTA parallel tracks — discovery only until separately funded
 
+**G100 focus for this portfolio worktree:** use E-301 and E-302 below to build a decision-quality product/evidence brief and link to canonical Vortex build results. Keep RTL edits, test runs, and raw output in the GRXGPU/Vortex source/evidence workflow; this portfolio backlog records the claim, immutable input identity, reviewer, and gate disposition. This focus does not assign an owner, approve spend, or authorize tapeout.
+
 ### [ ] E-301 — Bound the first G100 SKU and workload — **TRACK / G0–G2**
 
 - **Owner:** G100 product/architecture lead
 - **Depends on:** Portfolio resource decision; no dependency on GRX930 tapeout
-- **Work:** Decide compute-only versus graphics, choose one implementable configuration and supported workload, host/memory boundary, software/API scope, power/area targets and a realistic FPGA/ASIC milestone. Audit aspirational architecture and historical tapeout assumptions against code, tools, IP and current supplier evidence.
-- **Done when:** A G100-specific product brief and evidence ledger clearly distinguish implemented RTL, simulator-only behavior, FPGA results, paper targets, and unresolved dependencies; product sponsor decides fund/defer.
+- **Work:** Decide compute-only versus graphics, choose one implementable configuration represented by source/config, one supported workload, host/memory boundary, software/API scope, and candidate power/area limits. Audit aspirational architecture and historical tapeout assumptions against code, tools, IP and current supplier evidence. Record each threshold as proposed or ratified and separate technical investigation from funded ASIC planning.
+- **Done when:** A G100-specific brief and evidence ledger name source/config/workload identities; distinguish reproduced RTL/simulator evidence, FPGA measurements, proxy synthesis, paper targets and supplier-confirmed facts; identify owners and open blockers; and record a sponsor fund/defer decision. No purchase or tapeout is implied.
 
 ### [ ] E-302 — Establish G100 functional, parity and FPGA evidence — **TRACK / G1–G3**
 
 - **Owner:** G100 RTL/verification/FPGA leads
 - **Depends on:** E-301
-- **Work:** Select the canonical workload suite; run relevant regression and SimX/RTL model-parity checks; separately validate FPGA resource/timing closure and full accelerator interface. Use `xrt` for AFU/full RTL integration where that is the target, not only `rtlsim`.
-- **Done when:** Exact configurations and logs are reproducible, correctness/parity criteria pass, FPGA timing/resource limits meet the G100-specific brief, and discrepancies are triaged rather than hidden by wider tolerances.
+- **Work:** Select and pin the canonical workload and golden outputs; link to canonical Vortex runs for regression and SimX/RTL parity. Separately validate FPGA resource/timing closure and the complete accelerator interface. Use `xrt` for AFU/full RTL integration where that is the target, not only `rtlsim`. Record target board/part, tool versions, config, source revision and immutable raw evidence location.
+- **Done when:** Exact configurations and outcomes are independently reproducible; correctness/parity criteria pass; FPGA timing/resource limits meet the ratified G100 brief; and discrepancies are triaged rather than hidden by widened tolerances. Each reported pass/fail is linked to the primary log/report and reviewer.
 
 ### [ ] E-303 — Specify and measure a physical PTA prototype — **TRACK / G0–G3**
 
