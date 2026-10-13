@@ -223,7 +223,9 @@ def t_resume_to_completion(sock):
     # DMCONTROL layout: dmactive=bit0, resumereq=bit30, haltreq=bit31
     dmi_write(sock, DM_DMCONTROL, (1 << 30) | 1)
     # Poll DMSTATUS.allhalted until the emulator naturally completes.
-    deadline = time.monotonic() + 10.0
+    # 120s budget: debug-mode simx runs the full TOML-default config, so even
+    # a tiny kernel needs ~20s of wall time to finish after resume.
+    deadline = time.monotonic() + 120.0
     while time.monotonic() < deadline:
         status = dmi_read(sock, DM_DMSTATUS)
         if (status >> 9) & 1:

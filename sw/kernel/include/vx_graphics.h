@@ -39,18 +39,38 @@
 namespace vortex {
 namespace graphics {
 
-// Texture sample on the shared graphics window (single mode). u,v are read from
-// the window at slot base `in_slot` (u@in_slot, v@in_slot+1) — stage them with
-// vx_gfx_set first; `lod` is explicit. The texel lands in the window at `out_slot`
-// (read it back with vx_gfx_get_after(out_slot, handle)) and is also returned in
-// rd as the scoreboard sync handle. `stage` and `out_slot` are compile-time
-// constants (they ride funct7). CUSTOM1 funct3=5, R-type.
-inline unsigned vx_tex4_single(unsigned stage, unsigned lod, unsigned in_slot, unsigned out_slot) {
-  unsigned handle;
+// Texture sample — windowed ABI wrapper (matches RTL VX_tex_unit.sv and the
+// gen-4 single-mode receiver; the old R4 register-direct form was a simx-only
+// encoding the RTL never decoded). u, v (S.23 fixed-point) stage into window
+// slots 0/1 with SETW, rs1 carries the explicit mip `lod`, rs2 = the in-slot
+// base (0). The texel is returned in rd. `stage` is a compile-time constant;
+// out_slot 26 is fixed because every vx_tex consumer reads the texel from rd.
+// CUSTOM1 funct3=5, R-type.
+inline unsigned vx_tex(unsigned stage, unsigned u, unsigned v, unsigned lod) {
+  vx_gfx_set(0, u);
+  vx_gfx_set(1, v);
+  unsigned texel;
   __asm__ volatile (".insn r %1, 5, %2, %0, %3, %4"
-      : "=r"(handle)
-      : "i"(RISCV_CUSTOM1), "i"((((out_slot) << 2) | ((stage) << 1))), "r"(lod), "r"(in_slot));
-  return handle;
+      : "=r"(texel)
+      : "i"(RISCV_CUSTOM1), "i"((((26u) & 0x1f) << 2) | (((stage) & 1) << 1)), "r"(lod), "r"(0));
+  return texel;
+}
+// Texture sample (single mode) — windowed ABI (matches RTL VX_tex_unit.sv and
+// the PoCL read_imagef lowering). Each thread stages its own u, v (S.23
+// fixed-point) into window slots 0 and 1 with SETW, then issues vx_tex4 with
+// rs1 = lod and rs2 = 0 (the in-slot base). The texel is returned in rd
+// (scoreboard sync handle) and mirrored into the window at `out_slot` for
+// consumers that read it back with vx_gfx_get_after. `stage` and `out_slot`
+// are compile-time constants (they ride funct7 =
+// {out_slot[4:0], stage, mode=0}). CUSTOM1 funct3=5, R-type.
+inline unsigned vx_tex4_single(unsigned stage, unsigned u, unsigned v, unsigned lod, unsigned out_slot) {
+  vx_gfx_set(0, u);
+  vx_gfx_set(1, v);
+  unsigned texel;
+  __asm__ volatile (".insn r %1, 5, %2, %0, %3, %4"
+      : "=r"(texel)
+      : "i"(RISCV_CUSTOM1), "i"((((out_slot) & 0x1f) << 2) | (((stage) & 1) << 1)), "r"(lod), "r"(0));
+  return texel;
 }
 
 // Texture sample on the shared graphics window, quad mode (hardware LOD). One
@@ -83,38 +103,62 @@ inline void vx_om4(unsigned desc, unsigned base) {
       :: "i"(RISCV_CUSTOM1), "r"(desc), "r"(base));
 }
 
+// ── fragment export: the aperture store ─────────────────────────────────────
+//
+// The shader exports a fragment by STORING to the OM aperture. There is no OM bus
+// and no window staging: the cluster's OM steer peels the write off the L1->L2
+// trunk and the OM ingress turns it back into a {pos, colour, depth, face}
+// request for the unchanged VX_om_core.
+//
+// The aperture address is SHIFT-ONLY (the pitch is padded to a power of two), so
+// the ingress decodes it by bit-slicing instead of dividing:
+//     offset = ((((rt << 1) | face) << YBITS | y) << XBITS | x) << RECORD_SHIFT
+// XBITS/YBITS/RECORD_SHIFT come from the OM DCRs; the runtime programs them and
+// passes them to the kernel, so the shader just shifts and adds.
+#define VX_OM_APERTURE_ADDR_RT(xbits, ybits, record_shift, x, y, face, rt)     \
+  ((VX_MEM_OM_BASE_ADDR) +                                                     \
+   (((((uint32_t)(rt) << 1 | (uint32_t)(face)) << ((xbits) + (ybits)))         \
+     | ((uint32_t)(y) << (xbits))                                              \
+     | (uint32_t)(x)) << (record_shift)))
+
+// A shader with one colour attachment names none.
+#define VX_OM_APERTURE_ADDR(xbits, ybits, record_shift, x, y, face) \
+  VX_OM_APERTURE_ADDR_RT(xbits, ybits, record_shift, x, y, face, 0)
+
+// vx_om_export — one fragment. CUSTOM1 funct3=3, R4-type, rd=x0 (posted).
+// funct7[1:0] = {has_depth, has_colour}: a shader may emit colour only (the
+// common case — early-Z owns the depth test AND the depth write), depth only
+// (z-prepass / shadow map), or both (gl_FragDepth).
+#define vx_om_export(addr, color, depth, mask)                     \
+  __asm__ volatile (".insn r4 %0, 3, %1, x0, %2, %3, %4"           \
+      :: "i"(RISCV_CUSTOM1), "i"(mask), "r"(addr), "r"(color), "r"(depth))
+
+// The three record shapes.
+#define vx_om_export_color(addr, color)        vx_om_export(addr, color, 0, 1)
+#define vx_om_export_depth(addr, depth)        vx_om_export(addr, 0, depth, 2)
+#define vx_om_export_both(addr, color, depth)  vx_om_export(addr, color, depth, 3)
+
 // RASTER dispatch v2 is PUSH: the raster engine's work distributor launches the
 // fragment shader once per covered-quad wave (no pull op). The per-lane payload
-// is already staged in this warp's gfx register window (slots
-// VX_GFX_FRAG_SLOT_BASE..) at warp launch (zero LMEM/LSU traffic); the FS
-// runs straight-line and reads it via the helpers below.
-
-// VX_GFX_FRAG_SLOT_BASE + the full window slot map live in <vx_gfx_window.h>.
-// frag_payload_t layout (VX_GFX_FRAG_WORDS = 2): word 0 = pos_mask, 1 = pid.
-// There is no bcoord payload — the FS recomputes per-corner edges from the
-// primitive edges.
-
-// This warp's raster record slot: the raster unit seeded the record at window
-// warp-slot = block_idx (CTA_BLOCK_ID_X), so the FS reads it back via GETWS
-// (which indexes the window's warp dimension by the slot, not the executing wid).
-#define vx_frag_slot() ((uint32_t)csr_read(VX_CSR_CTA_BLOCK_ID_X))
-
-// Read one staged frag_payload_t `word` for this lane, given the record slot
-// `fs` (block_idx). `word` must be a compile-time constant (the window slot rides
-// the funct7 immediate).
-#define vx_frag_payload_at(fs, word) \
-  vx_gfx_get_slot((fs), VX_GFX_FRAG_SLOT_BASE + (word))
-
-// Back-compat single-arg form (re-reads the slot CSR per call).
-#define vx_frag_payload(word) vx_frag_payload_at(vx_frag_slot(), (word))
-
-// Load this lane's staged record {pos_mask, pid} from the gfx window into `p`.
+// is landed in this warp's launch registers at warp launch (zero LMEM/LSU
+// traffic); the FS reads it back as the FRAG_* CSRs via the helpers below.
 // There is no bcoord payload — the FS recomputes per-corner edge values from
-// the primitive edges + the quad origin (decoded from pos_mask).
+// the primitive edges + its own pixel (quad group = 4 adjacent lanes, corner
+// = lane & 3; see frag_payload_t in <vx_gfx_abi.h>).
+
+// This lane's fragment payload (read back from the warp's launch registers).
+#define vx_frag_pos()     ((uint32_t)csr_read(VX_CSR_FRAG_POS))
+#define vx_frag_pid()     ((uint32_t)csr_read(VX_CSR_FRAG_PID))
+
+// This lane's pixel, and whether the primitive actually covers it.
+#define vx_frag_x(p)       VX_FRAG_POS_X((p).pos)
+#define vx_frag_y(p)       VX_FRAG_POS_Y((p).pos)
+#define vx_frag_covered(p) VX_FRAG_POS_COVERED((p).pos)
+
+// Load this lane's fragment stamp {pos, pid} into `p`.
 #define vx_frag_load(p) do { \
-  uint32_t __fs = vx_frag_slot(); \
-  (p).pos_mask     = vx_frag_payload_at(__fs, 0); \
-  (p).pid          = vx_frag_payload_at(__fs, 1); \
+  (p).pos = vx_frag_pos();   \
+  (p).pid = vx_frag_pid();   \
 } while (0)
 
 } // namespace graphics

@@ -49,6 +49,9 @@ void TextureSampler::configure(const TexDCRS& dcrs) {
 }
 
 TexelRequest TextureSampler::compute_request(uint32_t stage, int32_t u, int32_t v, uint32_t lod) const {
+  // gen5 lod clamp: a mip index past the chain can only come from ABI noise.
+  // Clamp instead of indexing DCR space out of bounds.
+  if (lod > (uint32_t)VX_TEX_LOD_MAX) lod = (uint32_t)VX_TEX_LOD_MAX;
   auto mip_off  = dcrs_.read(stage, VX_DCR_TEX_MIPOFF(lod));
   auto mip_base = uint64_t(dcrs_.read(stage, VX_DCR_TEX_ADDR)) << 6;
   auto logdim   = dcrs_.read(stage, VX_DCR_TEX_LOGDIM);

@@ -19,6 +19,7 @@ tests:
   - simx
   dir: tests/regression/diverge
   target: run-{driver}
+  configs+: -DVX_CFG_NUM_CLUSTERS=2 -DVX_CFG_NUM_CORES=2
 - id: isa-3
   via: make-run
   drivers:
@@ -50,7 +51,7 @@ tests:
   - simx
   dir: tests/regression/diverge
   target: run-{driver}
-  configs+: -DVX_CFG_VM_ADDR_MODE=BARE
+  configs+: -DVX_CFG_VM_ADDR_MODE=BARE -DVX_CFG_NUM_CLUSTERS=2 -DVX_CFG_NUM_CORES=2
 - id: isa-8
   via: make-run
   drivers:

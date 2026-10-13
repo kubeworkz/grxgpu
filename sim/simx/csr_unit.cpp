@@ -119,6 +119,13 @@ Word CsrUnit::get_csr(uint32_t addr, uint32_t wid, uint32_t tid) {
   case VX_CSR_CTA_LMEM_ADDR:   return warp.cta_csrs.lmem_addr;
   case VX_CSR_CTA_CLUSTER_SIZE: return warp.cta_csrs.cluster_size;
 
+#ifdef VX_CFG_EXT_RASTER_ENABLE
+  // Fragment launch registers (true-GPU pixel dispatch): the raster engine
+  // landed this lane's stamp at warp launch; see Scheduler::warp_t::frag.
+  case VX_CSR_FRAG_POS: return warp.frag.at(tid).pos;
+  case VX_CSR_FRAG_PID: return warp.frag.at(tid).pid;
+#endif
+
   CSR_READ_64(VX_CSR_MCYCLE, core_perf.cycles);
   CSR_READ_64(VX_CSR_MINSTRET, core_perf.instrs);
   default:

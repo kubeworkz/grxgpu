@@ -20,6 +20,11 @@ VX_SRCS := $(SRC_DIR)/kernel.cpp
 # is bit-identical across rv32imaf and rv64imafd (fused a*b+c would round ±1 ULP
 # differently between the two targets, flipping texel-boundary pixels). Matches
 # the other gfx_pipeline_* / gfx_setup kernels.
+# kernel.cpp pulls gfx_sw.h (SW TEX/OM emitters) and gfx_frag_rast.h; their
+# build contract requires the divergence-bbs flag + GFX_SW_DIVERGENCE_OK
+# (same as gfx_om / gfx_tex4 / gfx_raster).
+include $(VORTEX_HOME)/sw/gfx/libgfx_sw.mk
+VX_CFLAGS += $(LIBGFX_SW_VX_CFLAGS)
 VX_CFLAGS += -I$(VORTEX_HOME)/sw/common -I$(THIRD_PARTY_DIR) -ffp-contract=off
 
 CXXFLAGS += -I$(VORTEX_HOME)/sw/common -I$(THIRD_PARTY_DIR) -DASSETS_PATHS='"$(SRC_DIR)"' -ffp-contract=off

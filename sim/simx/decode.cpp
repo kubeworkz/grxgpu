@@ -1041,6 +1041,31 @@ Instr::Ptr Decoder::decode(uint32_t code, uint64_t uuid) {
       IntrOmArgs omArgs{};
       instr->set_args(omArgs);
     } break;
+    case 3: { // vx_om_export: R4-type, rd=x0. rs1=aperture address, rs2=colour,
+              // rs3=depth; funct7[1:0] = {has_depth, has_colour}.
+              //
+              // In hardware this expands into one or two ordinary stores that the
+              // cluster's OM steer peels off the L1->L2 trunk. SimX is
+              // transaction-level and does not model memory beats, so it submits
+              // the fragment directly -- functionally identical, and it keeps the
+              // model from carrying a beat protocol that exists only to fit a
+              // 4-byte bus.
+      instr->set_fu_type(FUType::SFU);
+      instr->set_op_type(OmType::EXPORT);
+      instr->set_src_reg(0, rs1, RegType::Integer);  // aperture address
+      instr->set_src_reg(1, rs2, RegType::Integer);  // colour
+      instr->set_src_reg(2, rs3, RegType::Integer);  // depth
+      IntrOmArgs omArgs{};
+      omArgs.export_mask = funct7 & 0x3;
+      instr->set_args(omArgs);
+      // A colour+depth record needs two 4-byte beats, and hardware retires one
+      // store uop per beat. Expand so the retired count tracks it; the OM still
+      // sees a single fragment, submitted on the last beat.
+      if ((omArgs.export_mask & 0x3) == 0x3) {
+        instr->set_macro_op();
+        instr->set_wstall(true);
+      }
+    } break;
 #endif
 #ifdef VX_GFX_WINDOW_ENABLE
     case 4: { // GETWS — GP windowed read; the window's warp dimension is indexed

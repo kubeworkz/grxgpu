@@ -109,8 +109,11 @@ public:
 
 #ifdef VX_CFG_EXT_RASTER_ENABLE
 	// Seed an injected fragment warp's per-lane payload into the gfx register
-	// window (FWD-5 launch-time window write). Called by the scheduler's
-	// fragment work distributor at warp launch; the FS reads it back with GETW.
+	// window (FWD-5 launch-time window write), in the LEGACY quad-record
+	// format (pos_mask quad-origin records) consumed by the in-tree native
+	// gfx kernels. Called by the scheduler's fragment work distributor at
+	// warp launch; the FS reads it back with GETW. The upstream ABI reads the
+	// same payload as the FRAG_* CSRs (see Scheduler::warp_t::frag).
 	void stage_fwd_window(uint32_t wid, const Scheduler::FwdWave& wave);
 #endif
 
@@ -133,8 +136,13 @@ private:
 	// quads across raster responses into full NUM_THREADS warps before launch, so
 	// the cycle model matches the RTL's one-launch-per-full-warp rate. Image-neutral
 	// (same fragments, regrouped); same-quad co-packing is avoided to preserve OM
-	// submission order. graphics::frag_payload_t comes from scheduler.h (RASTER-only).
-	std::array<graphics::frag_payload_t, VX_CFG_NUM_THREADS> fwd_pack_buf_{};
+	// submission order. RasterStamp comes from raster_unit.h (RASTER-only).
+	// The pack buffer holds QUADS: each flushed pack expands into a full warp
+	// of per-pixel frag_payload_t stamps (4 lanes per quad, corner = lane&3).
+	static_assert((VX_CFG_NUM_THREADS % VX_FRAG_QUAD_LANES) == 0,
+	              "a pixel quad occupies four adjacent lanes, so a warp must hold whole quads");
+	static constexpr uint32_t FWD_PACK_QUADS = VX_CFG_NUM_THREADS / VX_FRAG_QUAD_LANES;
+	std::array<RasterStamp, FWD_PACK_QUADS> fwd_pack_buf_{};
 	uint32_t fwd_pack_count_ = 0;
 #endif
 #ifdef VX_CFG_EXT_DXA_ENABLE

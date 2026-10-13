@@ -42,7 +42,7 @@ runs:
       uses: actions/cache@v4
       with:
         path: tools
-        key: ${{ runner.os }}-toolchain-${{ steps.vers.outputs.toolchain }}-${{ inputs.profile }}
+        key: ${{ runner.os }}-toolchain-${{ steps.vers.outputs.toolchain }}-${{ hashFiles('ci/toolchain_install.sh.in') }}-${{ inputs.profile }}
 
     - name: Cache third party
       id: cache-thirdparty

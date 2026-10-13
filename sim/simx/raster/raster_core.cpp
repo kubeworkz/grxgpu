@@ -522,6 +522,20 @@ private:
 
   // ── Run the rasterizer synchronously over loaded buffers. ──────────
   void start_rasterize() {
+    // Env-gated prim-record dump (VX_DUMP_PRIM=1): decode the fetched
+    // rast_prim_t per pid so primbuf content can be compared against the
+    // fragment shader's baked plane offsets (u@+96, v@+108, w@+120).
+    if (getenv("VX_DUMP_PRIM")) {
+      for (auto& [pid, pr] : prim_data_) {
+        printf("VXPRIM pid=%u edges=(%g,%g,%g) u=(%g,%g,%g) v=(%g,%g,%g) rhw=(%g,%g,%g)\n",
+               pid,
+               float(pr.edges[0].x), float(pr.edges[1].x), float(pr.edges[2].x),
+               float(pr.attribs.u.x), float(pr.attribs.u.y), float(pr.attribs.u.z),
+               float(pr.attribs.v.x), float(pr.attribs.v.y), float(pr.attribs.v.z),
+               float(pr.attribs.rhw.x), float(pr.attribs.rhw.y), float(pr.attribs.rhw.z));
+      }
+      fflush(stdout);
+    }
     state_ = State::RASTERIZE;
   }
 

@@ -87,13 +87,25 @@ bool SfuUnit::rtu_trace2_reserve_slot(uint32_t wid) {
 #ifdef VX_CFG_EXT_RASTER_ENABLE
 void SfuUnit::stage_fwd_window(uint32_t wid, const Scheduler::FwdWave& wave) {
 #ifdef VX_GFX_WINDOW_ENABLE
-	// P2: the record is just {pos_mask, pid}; the FS recomputes per-corner edge
-	// values from the primitive edges + the quad origin (no bcoords seeded).
+	// Convert the upstream per-pixel payload {pos, pid} into the LEGACY
+	// quad-record window format consumed by the in-tree native gfx kernels:
+	// lane q holds quad-origin pos_mask = cov[3:0] | (qx<<4) | (qy<<18). The
+	// four adjacent lanes of one quad group all carry the same quad record
+	// (the native kernel's lane q = quad q). Upstream-ABI kernels ignore the
+	// window and read the same payload via the FRAG_* CSRs instead.
 	constexpr uint32_t B = GfxWindow::FRAG_SLOT_BASE;
+	constexpr uint32_t kPosBits = VX_RASTER_DIM_BITS - 1;
 	for (uint32_t t = 0; t < VX_CFG_NUM_THREADS; ++t) {
 		if (!wave.tmask.test(t)) continue;
 		const auto& p = wave.payload[t];
-		gfx_window_.set(wid, t, B + 0, p.pos_mask);
+		const uint32_t px  = p.pos & 0xffff;
+		const uint32_t py  = (p.pos >> 16) & 0x7fff;
+		const uint32_t sub = t & (VX_FRAG_QUAD_LANES - 1);
+		const uint32_t qx  = (px - (sub & 1)) >> 1;
+		const uint32_t qy  = (py - (sub >> 1)) >> 1;
+		const uint32_t cov = (p.pos >> 31) & 0x1;
+		const uint32_t pos_mask = (cov << (sub)) | (qx << 4) | (qy << (4 + kPosBits));
+		gfx_window_.set(wid, t, B + 0, pos_mask);
 		gfx_window_.set(wid, t, B + 1, p.pid);
 	}
 #else
@@ -267,9 +279,26 @@ void SfuUnit::on_tick() {
 		auto fwd_flush_pack = [&]() {
 			if (fwd_pack_count_ == 0) return;
 			Scheduler::FwdWave wave;
-			for (uint32_t j = 0; j < fwd_pack_count_; ++j) {
-				wave.tmask.set(j);
-				wave.payload[j] = fwd_pack_buf_[j];
+			// Upstream "true-GPU pixel dispatch" packing: one PIXEL per lane,
+			// quad group = four adjacent lanes (corner = lane & 3). Lane l of
+			// quad q holds pixel (2*qx + (l&1), 2*qy + (l>>1)); `covered` says
+			// whether the lane may export (helper lanes still run the shader).
+			constexpr uint32_t kQuadLanes = VX_FRAG_QUAD_LANES;
+			constexpr uint32_t kPosBits   = VX_RASTER_DIM_BITS - 1;
+			constexpr uint32_t kPosMask   = (1u << kPosBits) - 1u;
+			for (uint32_t q = 0; q < fwd_pack_count_; ++q) {
+				const auto& s = fwd_pack_buf_[q];
+				const uint32_t qx = (s.pos_mask >> 4) & kPosMask;
+				const uint32_t qy = (s.pos_mask >> (4 + kPosBits)) & kPosMask;
+				for (uint32_t sub = 0; sub < kQuadLanes; ++sub) {
+					const uint32_t l = q * kQuadLanes + sub;
+					const uint32_t x = 2 * qx + (sub & 1);
+					const uint32_t y = 2 * qy + (sub >> 1);
+					const uint32_t covered = (s.pos_mask >> sub) & 1;
+					wave.tmask.set(l);
+					wave.payload[l].pos = x | (y << 16) | (covered << 31);
+					wave.payload[l].pid = s.pid;
+				}
 			}
 			sched.fwd_push_wave(wave);
 			fwd_pack_count_ = 0;
@@ -294,11 +323,11 @@ void SfuUnit::on_tick() {
 					bool collide = false;
 					for (uint32_t j = 0; j < fwd_pack_count_; ++j)
 						if ((fwd_pack_buf_[j].pos_mask >> 4) == (s.pos_mask >> 4)) collide = true;
-					if (collide || fwd_pack_count_ == VX_CFG_NUM_THREADS)
+					if (collide || fwd_pack_count_ == FWD_PACK_QUADS)
 						fwd_flush_pack();
 					fwd_pack_buf_[fwd_pack_count_].pos_mask = s.pos_mask;
 					fwd_pack_buf_[fwd_pack_count_].pid      = s.pid;
-					if (++fwd_pack_count_ == VX_CFG_NUM_THREADS)
+					if (++fwd_pack_count_ == FWD_PACK_QUADS)
 						fwd_flush_pack();
 				}
 			}
@@ -332,6 +361,7 @@ void SfuUnit::on_tick() {
 			// v=src1, lod=src2). src_data is always NUM_SRC_REGS-wide.
 			auto targs = std::get<IntrTexArgs>(trace->instr_ptr->get_args());
 			if (targs.is_tex4 && targs.mode) {
+				if (!tex_unit_->ready()) continue; // backpressure BEFORE window remap
 				// quad mode: one fragment in flight. Cache rs1(dims)/rs2(in_slot) at
 				// fragment 0 (src_data is overwritten per fragment below), compute the
 				// integer LOD from the quad derivatives, and issue fragment F. The
@@ -365,14 +395,44 @@ void SfuUnit::on_tick() {
 				continue;     // do NOT pop — the frag-3 response pops the input
 			}
 			if (targs.is_tex4) {
-				// single mode: u at in_slot, v at in_slot+1, lod from rs1.
+				if (!tex_unit_->ready()) continue; // backpressure BEFORE window remap
+				// single mode — dual-ABI receive. Two senders share CUSTOM1 funct3=5
+				// R-type (rs3 is dropped by the decoder, so the forms are
+				// indistinguishable in-flight):
+				//  - windowed ABI (vx_tex4_single in <vx_graphics.h> and the PoCL
+				//    read_imagef lowering): rs1 = lod, rs2 = window in-slot base;
+				//    u/v were staged by SETW at slots in_slot/in_slot+1.
+				//  - register-direct ABI (Mesa vortexpipe emit_tex_hw, ".insn r4
+				//    43,5,0"): rs1 = u, rs2 = v as raw S.23 fixed point; lod rides
+				//    window slot 27 (the JIT never stages it -> lod 0).
+				// Discriminate on the operand values: a windowed sender's rs1 is a
+				// lod (<= VX_TEX_LOD_MAX after the senders' clamps) and its rs2 a
+				// slot index (<= 0x1f), while real S.23 u/v exceed both everywhere
+				// except inside the first texel — where the windowed misread still
+				// lands on texel (0,0), so the choice is result-neutral there.
+				uint32_t rs1 = 0, rs2 = 0;
 				for (uint32_t t = 0; t < VX_CFG_NUM_THREADS; ++t) {
 					if (!trace->tmask.test(t)) continue;
-					uint32_t in_slot = trace->src_data[1].at(t).u & 0x1f;
-					uint32_t lod     = trace->src_data[0].at(t).u;
-					trace->src_data[0].at(t).u = gfx_window_.get(trace->wid, t, in_slot);
-					trace->src_data[1].at(t).u = gfx_window_.get(trace->wid, t, (in_slot + 1) & 0x1f);
-					trace->src_data[2].at(t).u = lod;
+					rs1 = trace->src_data[0].at(t).u; // windowed: lod  | direct: u
+					rs2 = trace->src_data[1].at(t).u; // windowed: slot | direct: v
+					break;
+				}
+				if ((rs2 <= 0x1f) && (rs1 <= (uint32_t)VX_TEX_LOD_MAX)) {
+					// windowed ABI: pull u/v from the window, lod from rs1.
+					uint32_t in_slot = rs2 & 0x1f;
+					for (uint32_t t = 0; t < VX_CFG_NUM_THREADS; ++t) {
+						if (!trace->tmask.test(t)) continue;
+						trace->src_data[0].at(t).u = gfx_window_.get(trace->wid, t, in_slot);
+						trace->src_data[1].at(t).u = gfx_window_.get(trace->wid, t, (in_slot + 1) & 0x1f);
+						trace->src_data[2].at(t).u = rs1;
+					}
+				} else {
+					// register-direct ABI: u=rs1, v=rs2 already in place; lod from
+					// window slot 27 (kernel-stageable, zero for the Mesa JIT).
+					for (uint32_t t = 0; t < VX_CFG_NUM_THREADS; ++t) {
+						if (!trace->tmask.test(t)) continue;
+						trace->src_data[2].at(t).u = gfx_window_.get(trace->wid, t, 27);
+					}
 				}
 			}
 #endif
@@ -384,6 +444,34 @@ void SfuUnit::on_tick() {
 #endif
 
 #ifdef VX_CFG_EXT_OM_ENABLE
+		// vx_om_export (upstream true-GPU pixel dispatch): one packet for the
+		// whole warp. Each lane holds its aperture address, colour and depth in
+		// registers -- no window read, no sub-pixel loop. The address stays
+		// UNDECODED: recovering (x, y, face, rt) needs the aperture DCRs, which
+		// are cluster state, so OmCore does it (the SimX counterpart of
+		// VX_om_ingress).
+		if (auto om_p = std::get_if<OmType>(&trace->op_type); om_p && *om_p == OmType::EXPORT) {
+			// Every stall check must come BEFORE the export: process_export SENDS
+			// the fragment, and a uop that cannot retire stays at the head of the
+			// input queue and is re-run next cycle. Testing `output` afterwards
+			// exported the same fragment twice -- invisible for a plain colour or
+			// depth write, which is idempotent, but a blend reads the destination
+			// first, so the second fragment blended the pixel against itself.
+			if (output.full())
+				continue;
+			auto omArgs = std::get<IntrOmArgs>(trace->instr_ptr->get_args());
+			// A multi-beat record retires one uop per beat but completes once: the
+			// staging beat carries no mask and only occupies the issue slot.
+			if (omArgs.export_mask != 0) {
+				if (!om_unit_->process_export(trace, omArgs.export_mask)) {
+					continue;   // OM back-pressure — nothing was sent; retry
+				}
+			}
+			output.send(trace, this->latency_of(trace));
+			input.pop();
+			continue;
+		}
+
 		// vx_om4: one thread owns a 2x2 quad. Emit one OmReq per covered
 		// sub-pixel F (0..3), skipping sub-pixels no lane covers, reading
 		// colour[F]/depth[F] from the shared window; retire (send+pop, no rd)

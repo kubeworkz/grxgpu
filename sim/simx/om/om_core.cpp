@@ -59,6 +59,8 @@ public:
   // Per-thread lane state.
   struct LaneState {
     bool      active             = false;
+    bool      has_color          = false;
+    bool      has_depth          = false;
     uint32_t  pos_x              = 0;
     uint32_t  pos_y              = 0;
     bool      face               = false;
@@ -223,6 +225,46 @@ private:
   }
 
   // ── Stage: ACCEPT (drain per-core inputs into free slots) ───────────
+  // ── Aperture decode (vx_om_export, upstream true-GPU dispatch) ──────
+  //
+  // The encoding is shift-only (the pitch is padded to a power of two), so
+  // this is bit-slicing, not division:
+  //     offset = ((((rt << 1) | face) << ybits | y) << xbits | x) << record_shift
+  void decode_aperture(OmReq& req) const {
+    uint32_t xbits = dcrs_.read(VX_DCR_OM_APERTURE_XBITS);
+    uint32_t ybits = dcrs_.read(VX_DCR_OM_APERTURE_YBITS);
+    uint32_t shift = dcrs_.read(VX_DCR_OM_APERTURE_RECORD_SHIFT);
+    bool rt_seen = false;
+    for (uint32_t t = 0; t < VX_CFG_NUM_THREADS; ++t) {
+      if (!(req.tmask_bits & (1u << t))) continue;
+      uint64_t off = req.addr[t] - uint64_t(VX_MEM_OM_BASE_ADDR);
+      uint64_t rec = off >> shift;
+      req.pos_x[t] = uint32_t(rec & ((1ull << xbits) - 1));
+      req.pos_y[t] = uint32_t((rec >> xbits) & ((1ull << ybits) - 1));
+      req.face[t]  = uint8_t((rec >> (xbits + ybits)) & 0x1);
+      // The index is above face, so a single-attachment export decodes to zero
+      // without its producer knowing the field exists. It names the attachment
+      // of the whole record, so every lane of one export must agree.
+      uint32_t rt = uint32_t((rec >> (xbits + ybits + 1)) & (VX_OM_MAX_RT - 1));
+      assert((!rt_seen || rt == req.rt) && "OM: one export spans two colour attachments");
+      req.rt  = rt;
+      rt_seen = true;
+    }
+    __unused(rt_seen);
+    // A one-word record holds colour or depth, never both. Which one is
+    // stated twice and by two different producers: the host writes it as a
+    // DCR, the shader encodes it in the export. This is the only place that
+    // holds both, and a disagreement writes the wrong buffer with no other
+    // symptom.
+    if (shift != 3) {
+      uint32_t depth_only = dcrs_.read(VX_DCR_OM_APERTURE_DEPTH_ONLY);
+      assert((req.export_mask & 0x3) == (depth_only ? 0x2u : 0x1u)
+             && "OM: aperture record shape disagrees with the export mask");
+      __unused(depth_only);
+    }
+    req.from_aperture = false;   // decoded; downstream sees an ordinary request
+  }
+
   void drain_req_in() {
     auto& chs = simobject_->om_req_in;
     if (chs.empty()) return;
@@ -231,9 +273,15 @@ private:
       auto& ch = chs.at(cid);
       if (ch.empty()) continue;
 
+      OmReq req = ch.peek();
+      if (req.from_aperture) {
+        decode_aperture(req);
+      }
+
       // Hold a same-pixel fragment until the in-flight owner retires (ROP
       // ordering); other pixels on other channels still make progress.
-      if (collides_with_inflight(ch.peek())) continue;
+      // NOTE: this must run on the DECODED request -- it compares positions.
+      if (collides_with_inflight(req)) continue;
 
       uint32_t free_slot = UINT32_MAX;
       for (uint32_t s = 0; s < slots_.size(); ++s) {
@@ -244,7 +292,7 @@ private:
       auto& slot = slots_[free_slot];
       slot.in_use      = true;
       slot.state       = State::ADDR;
-      slot.req         = ch.peek();
+      slot.req         = req;
       slot.issue_cycle = cycle_;
       for (auto& l : slot.lanes) l = LaneState{};
       ch.pop();
@@ -259,6 +307,12 @@ private:
   void advance_addr(Slot& s) {
     bool depth_enabled    = depth_stencil_.depth_enabled();
     bool blend_enabled    = blender_.enabled();
+    // funct7[1:0] = {has_depth, has_colour}. A shader may export colour only
+    // (the common case once early-Z owns both the depth test and the depth
+    // write), depth only (z-prepass), or both. A record the fragment does not
+    // carry cannot be tested or written: there is no source value for it.
+    bool has_color = (s.req.export_mask & 0x1) != 0;
+    bool has_depth = (s.req.export_mask & 0x2) != 0;
 
     for (uint32_t t = 0; t < VX_CFG_NUM_THREADS; ++t) {
       if (!(s.req.tmask_bits & (1u << t))) {
@@ -267,6 +321,8 @@ private:
       }
       LaneState& l = s.lanes[t];
       l.active    = true;
+      l.has_color = has_color;
+      l.has_depth = has_depth;
       l.pos_x     = s.req.pos_x[t];
       l.pos_y     = s.req.pos_y[t];
       l.face      = s.req.face[t] != 0;
@@ -277,8 +333,8 @@ private:
       l.cbuf_addr_byte = cbuf_baseaddr_ + uint64_t(l.pos_y) * cbuf_pitch_ + l.pos_x * 4;
 
       bool stencil_enabled = depth_stencil_.stencil_enabled(l.face);
-      l.need_z_read = depth_enabled || stencil_enabled;
-      l.need_c_read = color_write_ && (color_read_ || blend_enabled);
+      l.need_z_read = has_depth && (depth_enabled || stencil_enabled);
+      l.need_c_read = has_color && color_write_ && (color_read_ || blend_enabled);
     }
     s.state = State::READ_ISSUE;
   }
@@ -424,8 +480,9 @@ private:
       LaneState& l = s.lanes[t];
       if (!l.active) continue;
 
-      bool stencil_enabled = depth_stencil_.stencil_enabled(l.face);
-      bool ds_active = depth_enabled || stencil_enabled;
+      bool stencil_enabled = l.has_depth && depth_stencil_.stencil_enabled(l.face);
+      bool ds_active = l.has_depth && depth_enabled;
+      ds_active = ds_active || stencil_enabled;
 
       uint32_t merged = 0;
       l.ds_pass = !ds_active
@@ -439,7 +496,7 @@ private:
       // Decide writes.
       uint32_t stencil_writemask = l.face ? stencil_back_writemask_ : stencil_front_writemask_;
       uint32_t ds_writemask =
-          ((depth_enabled && l.ds_pass && depth_writemask_) ? OM_DEPTH_MASK : 0u)
+          ((l.has_depth && depth_enabled && l.ds_pass && depth_writemask_) ? OM_DEPTH_MASK : 0u)
         | (stencil_enabled ? (uint32_t(stencil_writemask) << VX_OM_DEPTH_BITS) : 0u);
 
       l.need_z_write = (ds_writemask != 0);
@@ -448,7 +505,7 @@ private:
                         | (l.merged_depthstencil & ds_writemask);
       }
 
-      l.need_c_write = color_write_ && l.ds_pass;
+      l.need_c_write = l.has_color && color_write_ && l.ds_pass;
       if (l.need_c_write) {
         // If color_read_ is false (writemask == 0xf), dst_color is unread —
         // we'll still write the full word; the merge is a no-op.

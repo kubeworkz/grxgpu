@@ -8,6 +8,10 @@
 # build tree. Tests are data; blackbox.sh stays the untouched executor.
 
 name: CI
+# Run-name marker: CI Retry's targeted timeout re-runs dispatch this workflow
+# with a `cells` input; the marker lets CI Retry recognize its own runs and
+# never re-retry them (one measurement retry, never more).
+run-name: "CI${{ inputs.cells && format(' [retry: {0}]', inputs.cells) || '' }}"
 
 on:
   push:
@@ -22,6 +26,16 @@ on:
       tier:
         description: "comma list: smoke,full,nightly (blank = all)"
         default: ""
+      cells:
+        description: "comma list of categories (blank = all); used by CI Retry timeout follow-ups"
+        default: ""
+
+# One pipeline per branch: a new push cancels any in-flight run of the same
+# branch instead of queueing behind it. Prevents a large stale backlog from
+# starving fresh runs on capacity-constrained (self-hosted) runners.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 # One pipeline per branch: a new push cancels any in-flight run of the same
 # branch instead of queueing behind it. Prevents a large stale backlog from
@@ -46,6 +60,12 @@ jobs:
       profile: ${{ steps.q.outputs.profile }}
       sims: ${{ steps.q.outputs.sims }}
     steps:
+      # Self-hosted runners share one workspace across jobs and workflows; a
+      # previous recursive checkout can leave submodule gitlinks whose gitdirs
+      # are gone after a workspace wipe, breaking checkout. Wipe first so
+      # actions/checkout always does a fresh clone.
+      - name: Clean workspace
+        run: rm -rf $GITHUB_WORKSPACE/* $GITHUB_WORKSPACE/.[!.]* 2>/dev/null || true
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -75,6 +95,7 @@ jobs:
           EVENT: ${{ github.event_name }}
           IN_DRIVERS: ${{ github.event.inputs.drivers }}
           IN_TIER: ${{ github.event.inputs.tier }}
+          IN_CELLS: ${{ github.event.inputs.cells }}
           TOOLCHAIN_CACHE_HIT: ${{ steps.tc.outputs.cache-hit }}
           PUSH_BEFORE: ${{ github.event.before }}
           PR_BASE: ${{ github.event.pull_request.base.sha }}
@@ -119,6 +140,12 @@ jobs:
           [ -n "$DRIVERS" ] && F="$F --drivers=$DRIVERS"
           [ -n "$TIER" ] && F="$F --tier=$TIER"
           cells=$(python3 ci/testcase.py matrix $F)
+          # Targeted-cell dispatch (CI Retry timeout follow-ups): when `cells`
+          # is provided, keep only those categories in the matrix.
+          if [ -n "$IN_CELLS" ]; then
+            cells=$(printf '%s' "$cells" | python3 -c 'import json,sys; cats=set(x.strip() for x in sys.argv[1].split(",") if x.strip()); print(json.dumps([c for c in json.load(sys.stdin) if c["category"] in cats]))' "$IN_CELLS")
+            echo "targeted dispatch: cells=$IN_CELLS -> $cells"
+          fi
           echo "cells=$cells" >> "$GITHUB_OUTPUT"
           [ "$cells" = "[]" ] && echo "run=false" >> "$GITHUB_OUTPUT" || echo "run=true" >> "$GITHUB_OUTPUT"
           # Driver set implied by the selected cells (provenance/debug aid).
@@ -149,6 +176,12 @@ jobs:
     if: needs.plan.outputs.run == 'true'
     runs-on: ubuntu-22.04
     steps:
+      # Self-hosted runners share one workspace across jobs and workflows; a
+      # previous recursive checkout can leave submodule gitlinks whose gitdirs
+      # are gone after a workspace wipe, breaking checkout. Wipe first so
+      # actions/checkout always does a fresh clone.
+      - name: Clean workspace
+        run: rm -rf $GITHUB_WORKSPACE/* $GITHUB_WORKSPACE/.[!.]* 2>/dev/null || true
       - uses: actions/checkout@v4
         with:
           submodules: recursive
@@ -170,6 +203,12 @@ jobs:
         xlen: [32, 64]
     runs-on: ubuntu-22.04
     steps:
+      # Self-hosted runners share one workspace across jobs and workflows; a
+      # previous recursive checkout can leave submodule gitlinks whose gitdirs
+      # are gone after a workspace wipe, breaking checkout. Wipe first so
+      # actions/checkout always does a fresh clone.
+      - name: Clean workspace
+        run: rm -rf $GITHUB_WORKSPACE/* $GITHUB_WORKSPACE/.[!.]* 2>/dev/null || true
       - uses: actions/checkout@v4
         with:
           submodules: recursive
@@ -207,8 +246,26 @@ jobs:
       matrix:
         include: ${{ fromJSON(needs.plan.outputs.cells) }}
     runs-on: ubuntu-22.04
-    timeout-minutes: 120
+    # Cell timeout, tiered by category. These cells share a two-slot self-hosted
+    # pool, so a cell's wall time roughly doubles versus a quiet runner; the flat
+    # 120m cap killed every heavy simx cell at ~120m on the 2026-09-25 runs
+    # (opencl, regression, config1/2, dxa, cache, rvc, vm all timeout-cancelled
+    # before their suites finished — "job has exceeded the maximum execution
+    # time of 2h0m0s"). Tiers, by worst observed 64-bit simx time under
+    # contention:
+    #   360m — multi-hour categories (vm/regression/config1/config2/dxa, and
+    #          cache since gen-10); 2h was never enough even at xlen=32.
+    #   240m — middle band (opencl/rvc/vulkan): gen-9 shards measured 31-143m
+    #          at xlen=64, plus headroom for pool contention.
+    #   180m — everything else; modest raise over the old flat cap.
+    timeout-minutes: ${{ contains(fromJSON('["vm","regression","config1","config2","dxa","cache"]'), matrix.category) && 360 || contains(fromJSON('["opencl","rvc","vulkan"]'), matrix.category) && 240 || 180 }}
     steps:
+      # Self-hosted runners share one workspace across jobs and workflows; a
+      # previous recursive checkout can leave submodule gitlinks whose gitdirs
+      # are gone after a workspace wipe, breaking checkout. Wipe first so
+      # actions/checkout always does a fresh clone.
+      - name: Clean workspace
+        run: rm -rf $GITHUB_WORKSPACE/* $GITHUB_WORKSPACE/.[!.]* 2>/dev/null || true
       - uses: actions/checkout@v4
       - name: Setup Vortex
         uses: ./.github/actions/setup-vortex
@@ -239,6 +296,11 @@ jobs:
             model_parity|perf_gate) ;;
             *) EXPR="$EXPR and not model_parity and not perf_gate" ;;
           esac
+          # Sharded categories select their slice via the shardXofY marker
+          # emitted by ci/testcase.py (see `shards:` in ci/testcases/*.yaml).
+          if [ -n "${{ matrix.shard }}" ]; then
+            EXPR="$EXPR and shard${{ matrix.shard }}of${{ matrix.shards }}"
+          fi
           VX_XLEN=${{ matrix.xlen }} python3 -m pytest ci -m "$EXPR" --strict-markers \
             -v \
             --junitxml="$GITHUB_WORKSPACE/junit-${{ matrix.category }}-${{ matrix.driver }}-${{ matrix.xlen }}.xml"
