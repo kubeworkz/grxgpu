@@ -1,0 +1,64 @@
+# grxcp → grxgpu: the PTA against the demo's Gate F, and three things we need
+
+2026-10-13. A one-page cover for §10 of
+[first_board_reconciliation.md](first_board_reconciliation.md), written against your
+first-board demo draft and your workload and data intake worksheet, version 0.2. It is a
+proposal and a request. It changes nothing of yours.
+
+## Where the PTA stands
+
+We ran a stand-in for the demo's canary in a model: a 64-64-64-16 classifier with its
+last layer on a 128 × 64 PTA tile and its first two layers exact. **The classifier and
+its data are ours, not yours, and no device ran anything.** With our light source over
+the tile and the output range fitted to the manifest, on the first 1,000 vectors of
+MNIST, Fashion-MNIST and inverted MNIST:
+
+| Gate F, as the demo draft proposes it | Proposed bound | The model |
+|---|---|---|
+| Normalized rms error of FC3's raw outputs | 1.0% | 5.22 to 5.48% of the reference's rms, which is 1.67 to 1.99% of its largest value |
+| Largest error of FC3's raw outputs | 2.0% of the reference's full scale | 11.40, 10.16 and 12.76%, a mean over runs of 10,000 vectors |
+| Class agreement with the declared reference | 99.5% of 1,000 vectors | 99.33, 96.17 and 98.66%; 8, 0 and 0 runs of 25 reach 99.5% |
+
+So the proposed thresholds are not met in the model, on any of the three data sets. Most
+of the error is the tile's own, before any source is lit. A wider output range, a ninth
+converter bit and the light source each move a data set's rms error by a quarter at the
+most (§10.5 to §10.7).
+
+## Where it is pinned
+
+Your worksheet says it had no GRXCP commit to cite and found no `pta_mnist` artifact.
+These are the revisions, both on `main`:
+
+- `kubeworkz/grx930` at `e8aa995d48a2`: the harness, `c930/sim/pta_mnist.c` and
+  `pta_mnist.sh`, and its design note, `c930/doc/pta_error_model_design_note.md` §5. The
+  four runs are `SHAPE=chain sim/pta_mnist.sh MNIST_DIR WORK_DIR` with `chain`,
+  `chainfit`, `chainbit` and `chainlit`.
+
+- `kubeworkz/grxcp` at `74881a39855e`: `docs/designs/pta_board_chain.py`,
+  `pta_board_range.py`, `pta_board_bits.py` and `pta_board_lit.py`. Each holds every
+  run's figures and checks them against the tables the harness printed. `python3
+  docs/designs/pta_board_lit.py` runs its checks on the standard library alone.
+
+- The trained networks and the per-run output lines are in neither repository. The
+  harness trains the networks from fixed seeds and writes the lines, and nobody outside
+  GRXCP has reproduced them.
+
+## What would help
+
+1. **The frozen canary, when it exists**: its weights, biases and scales, the 1,000
+   inputs and FC3's expected outputs, with their digests. We will run it through the
+   same model in place of the stand-in and replace every figure in §10. Until then every
+   figure we give you is a stand-in's.
+
+2. **Two readings of Gate F that are yours to fix.** What "normalized" divides by: the
+   reference's rms or its full scale. Our figure is over 5% one way and under 2% the
+   other. And whether a vector is one shot or an average: part of the PTA's error is
+   fixed between calibrations and does not average away (§10.7).
+
+3. **A ruling on §10.3, §10.5 and §10.7 before any acceptance run**, as your worksheet's
+   §5 asks of every threshold. We propose a band and not a ceiling for the rms, a
+   largest-error bound written for an engine with noise, bounds stated against the
+   reference, and the 99.5% set after the frozen classifier has been through the model.
+
+If it is useful, we can fill the PTA column of your worksheet's §4.2 and §5 from these
+pinned sources, as a proposal.
