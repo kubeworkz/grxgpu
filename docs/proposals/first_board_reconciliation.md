@@ -4,6 +4,7 @@
 documents (§8) and for five rulings (§6), and for nothing to be built. *Amended
 2026-10-13:* §10 is new, and §5.1, §5.2, §6 and §7 point to it where it changes them.
 *And again the same day:* §10.5 is new, and withdraws §10.3's first item as it stood.
+*And a third time:* §10.6 is new, and takes two words out of §10.5's second item.
 **Decision behind it:** on 2026-10-11 the program chose the charter's modular layout
 for the first development board. GRXCP's in-package arrangement stays as the later
 board.
@@ -595,7 +596,8 @@ of the output converter: the receiver's at a quarter of an LSB, the light at thi
 photons an LSB. A converter's range is hardware, and an output is brought inside it by
 turning the light or the gain down. So a wider range is a larger LSB and more noise in
 the output's own units. A converter with one more bit at the same LSB is the other way
-to buy range. That is a hardware choice, and is not modelled here.
+to buy range. That is a hardware choice, and ~~is not modelled here~~ *was run the same
+day: §10.6.*
 
 | The reference networks, as budgeted: MNIST, Fashion-MNIST, inverted | Range from training images | Fitted to the manifest | One bit of headroom |
 |---|---|---|---|
@@ -648,6 +650,9 @@ that is worse.
    the largest value the reference takes fits the format, and no wider. Then nothing
    clips, and the range is not a free parameter. This sharpens the fourth item.
 
+   *"And no wider" is taken back, 2026-10-13. A wider range at the same step costs no
+   error. §10.6 has the runs and what is left of this item.*
+
 3. **State the rms bound against the reference**, its rms or its largest value. With the
    range fixed by the rule above a bound in steps says the same thing, and may be given
    beside it. The model's figures for a tile at version 2 with a fitted range, on the
@@ -666,3 +671,88 @@ times and is 1.2 where the fit needs it and 1.3 for a spare one, and what a spar
 does to the class was put too low. It is held in grx930's design note §5, "The first
 board's last layer, with a range that clips nothing", and in GRXCP's
 `docs/designs/pta_board_range.py`.
+
+### 10.6 A converter with one more bit (added 2026-10-13)
+
+§10.5 said that a converter with one more bit at the same LSB was the other way to buy a
+range that clips nothing, and that we had not modelled it. grx930 has now run it
+(kubeworkz/grx930#69): the same stand-in classifier, tile, noise and draws, with the
+PTA's output converter given nine bits in place of eight. A ninth bit can be spent two
+ways, and both were run.
+
+- **On range, at the same LSB.** The step stays what the engine's own rule gave it from
+  training images, and the converter has 255 codes where it had 127. Each output gets
+  the light it had and the noise it had. The receiver in front of the converter has to
+  stay linear over twice the signal.
+
+- **On finer steps, over the fitted range.** The range is §10.5's, fitted to the
+  manifest, in steps half the size. The receiver is asked for nothing new. Where the fit
+  had to widen the range, each output still gets half the light, as it does with eight
+  bits.
+
+| The reference networks, as budgeted: MNIST, Fashion-MNIST, inverted | 8 bits, range from training images | 8 bits, fitted to the manifest | 9 bits, the same LSB | 9 bits, the fitted range |
+|---|---|---|---|---|
+| Most outputs clipped in a run, of 160,000 | 27, 161, 0 | 0, 0, 0 | 0, 0, 0 | 0, 0, 0 |
+| Largest error, the most in any run, % of the largest reference value | 8.97, 24.05, 8.59 | 8.97, 8.95, 8.59 | 8.97, 8.65, 8.59 | 8.61, 8.95, 8.87 |
+| rms error, % of the reference's rms | 4.46, 4.67, 4.18 | 4.64, 5.05, 4.18 | 4.46, 4.67, 4.18 | 4.57, 4.91, 4.12 |
+| rms error, % of the converter's full scale | 1.44, 1.13, 1.26 | 1.32, 0.91, 1.26 | 0.72, 0.56, 0.63 | 1.29, 0.88, 1.23 |
+| Class agreement with the declared reference, % | 99.59, 96.78, 99.23 | 99.55, 96.20, 99.23 | 99.59, 96.78, 99.23 | 99.57, 96.63, 99.26 |
+| The same on the first 1,000 vectors, % | 99.49, 96.85, 99.10 | 99.49, 96.60, 99.10 | 99.49, 96.85, 99.10 | 99.50, 97.01, 99.14 |
+| Runs of 25 at 99.5% or more, on those | 13, 0, 1 | 13, 0, 1 | 13, 0, 1 | 15, 0, 3 |
+
+**Spent on range, nothing clips and the error does not change.** No output is clipped in
+any of 600 runs, where 70 of the same 600 clipped with eight bits. 530 of those runs are
+the 8-bit run exactly: every one in which the 8-bit converter had clipped nothing. The
+five networks of thirty that had clipped have 0.995 to 1.000 times the rms error they
+had, where the fit of §10.5 left them with 1.20 to 1.24 times. Nothing is fitted and no
+manifest is read to set it. The largest reference value is 0.66 of the converter's full
+scale at the most. That is room in these thirty networks, and not a guarantee.
+
+**Spent on finer steps, the rounding halves and the fit's cost stays.** The declared
+format alone is then 0.38 to 0.64% of the reference's rms off, where fitted with eight
+bits it was 0.76 to 1.27%. With noise, every network has 0.97 to 0.99 times the rms
+error it has fitted with eight. The five networks whose range the fit widened still have
+1.17 to 1.20 times the error they have with the bit spent on range. Class agreement
+gains 0.02 ± 0.01, 0.43 ± 0.10 and 0.03 ± 0.02 of a point over the 8-bit fit.
+
+**Neither moves the largest error.** With the bit spent on range it is 7.2 to 8.4% of
+the largest reference value in a set's mean and 9.7% at the most, and no run of 300 is
+within 2.0%. It is the noise's, as §10.1 and §10.5 found, and a converter's width does
+nothing for it.
+
+**And as a share of the converter's full scale, the wider converter passes with the same
+error.** With nine bits at the same LSB the rms error is 1.43 to 1.83 steps, as it was
+with eight, and that is 0.56 to 0.72% of a full scale twice as large. All 150 runs are
+within 1.0% of the converter's full scale, where 20 were, and none is within 1.0% of the
+reference's rms, as none was. This is §10.5's reason for stating the bound against the
+reference, seen from the other side.
+
+**What this changes in §10.5.**
+
+1. **Two words of its second item are taken back: "no wider".** For a converter of a
+   given width a wider range is a larger step, and a larger step costs error. A range
+   that is wider at the same step costs none. A manifest sees the declared format and
+   cannot tell which of the two an engine did. With the bound stated against the
+   reference there is also nothing to gain by declaring a wider range. So the manifest
+   needs only what §10.3's fourth item asked: the declared range holds the largest value
+   the reference takes, and a clipped output is a range fault.
+
+2. **Its first and third items stand.** A bound in steps or as a share of full scale
+   stays withdrawn, and the rms bound is stated against the reference, its rms or its
+   largest value.
+
+3. **Gate F should not assume the ninth bit.** Whether the PTA's interface chip carries
+   one is not decided on our side. By GRXCP's own models it costs up to twice the
+   converter's power, and it needs a receiver whose linear range we have not priced. The
+   model's figures on the first 1,000 vectors, for the networks trained for the tile,
+   are 4.24 to 4.67% of the reference's rms with the bit spent on range and 4.24 to
+   4.85% with eight bits and a fitted range.
+
+**What this is not.** A classifier of yours, or a chip: everything §10.4 says. A range
+that holds by rule. A model of the receiver, which is where the range has to come from.
+A remedy for the largest error. And of ten predictions written before these runs, seven
+held: the three that did not said the rms error would never be over what it was, where
+one set's is by a thousandth of a percent, put one set's largest error a hundredth too
+high, and put what finer steps do for Fashion-MNIST's class agreement at a quarter of
+what it is. It is held in grx930's design note §5, "The first board's last layer, with a
+converter of one more bit", and in GRXCP's `docs/designs/pta_board_bits.py`.
