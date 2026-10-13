@@ -1,15 +1,15 @@
 # G100 Source / Configuration / Workload Evidence Manifest
 
-**Status:** Source/config/workload reproduction specification for discovery; configuration values were resolved with the pinned resolver. No sponsor-ratified product configuration, test build, or workload run is claimed.
-**Version:** 0.5 — 2026-10-13
-**Reproducibility state:** Source identity is pinned and proposed build inputs/workload commands are explicit; dependency closure, generated input/golden hashes, actual build/run, and FPGA implementation evidence remain open. The resolved settings are experiment parameters, not ratified product requirements.
-**Execution disposition:** No build or workload run has been performed for this manifest; all results remain OPEN. Any historical reports are separately classified and are not evidence of execution of the proposed commands.
+**Status:** Source/config/workload reproduction specification for discovery. The proposed RV32 1×4 experiment was built and run locally on the pinned source; eight host-reference invocations passed—four original variant-specific checks plus four additional same-kernel comparison checks—pending independent review. This is not a sponsor-ratified product configuration or acceptance result.
+**Version:** 0.7 — 2026-10-13
+**Reproducibility state:** Source identity, submodule identities, resolved configuration, original single-buffered rtlsim and double-buffered SimX logs, plus same-kernel double-buffered SimX/rtlsim comparison logs are recorded. Independent review, generated input/output hashes, exact dependency/tool bundle closure, a supported parity tolerance, and FPGA implementation evidence remain open. The resolved settings are experiment parameters, not ratified product requirements.
+**Execution disposition:** All eight local correctness invocations (K=64/K=512 across SimX and rtlsim, for single-buffered rtlsim and same-kernel double-buffered builds) exited 0 and printed `PASSED!`; see the [dated run record](evidence/g100-discovery-2026-10-13/run-record.md), raw logs and checksums. For the double-buffered same-kernel comparison, retired instruction counts match but cycles differ; this is not a parity pass. The runs are pending independent review. Historical reports remain separately classified and are not evidence for these invocations.
 **Scope approval:** [G100 Product Brief](grxgpu_g100_product_brief.md) — Kubeworkz approved compute-only discovery scope on 2026-10-13 only. This manifest does not authorize funding, purchases, tapeout, or production claims.
 **Task linkage:** E-301 (scope/evidence inventory) and E-302 (future run and FPGA evidence).
 
 ## 1. Reproducibility boundary
 
-This file pins what can be verified from the current GRXGPU Git tree and records a **proposed experiment** configuration/workload. It does not establish that the configuration elaborates, compiles, executes, matches SimX/RTL, fits or meets timing on an FPGA, or represents a customer workload; nor does it make the experiment settings product requirements or acceptance criteria. A path hash identifies the checked-in bytes; it is not itself a test result.
+This file pins what can be verified from the current GRXGPU Git tree and records a **proposed experiment** configuration/workload. The attached run record establishes that this candidate configuration built and that SimX and rtlsim variants passed the specified host-reference correctness runs in the recorded environment. A same-kernel double-buffered comparison also completed for K=64 and K=512: instructions match, but cycle counts differ. It does not establish cycle parity, FPGA fit or timing, board behavior, or customer-workload suitability; nor does it make the experiment settings product requirements or acceptance criteria. A path hash identifies the checked-in bytes; it is not itself a test result.
 
 **Authoritative content location:** this GRXGPU Git repository. Raw generated binaries, logs, timing reports, waveforms, and board measurements belong in the canonical GRXGPU/Vortex engineering evidence workflow. Add their durable paths/IDs and hashes here only after the runs exist and have been reviewed.
 
@@ -22,7 +22,7 @@ This file pins what can be verified from the current GRXGPU Git tree and records
 | Commit | [`ff5790806973a1586478531c3d6710a0fa614384`](https://github.com/kubeworkz/grxgpu/commit/ff5790806973a1586478531c3d6710a0fa614384) | Pinned Git commit |
 | Root tree | `9ecc11da261a4f7ad952761d6d6768e54086d7bd` | Pinned Git tree |
 | Included source scope | Vortex repository content needed by the named test/build definitions; see path/blob table below | Hashes pinned for selected tracked inputs only, not a complete toolchain/dependency closure |
-| Submodules / external dependencies | **OPEN** — not inventoried here | Resolve before claiming a clean reproducible build |
+| Submodules / external dependencies | All Git submodules and nested submodules were initialized at the commits recorded in the [dated run record](evidence/g100-discovery-2026-10-13/run-record.md); Ramulator's pinned CMake fetched its tagged yaml-cpp/spdlog/argparse dependencies. Exact portable toolchain/dependency bundle closure remains **OPEN**. | Local configured build succeeded with the environment recorded in the run record |
 | Worktree status | Other unrelated modified/untracked files are present | They are not part of commit `ff579080`; do not substitute working-tree versions for pinned blobs |
 | Independent source review | **OPEN** | No independent reviewer is recorded |
 
@@ -35,7 +35,7 @@ SHA-256 values below are over the committed Git blob bytes as exported by `git s
 | Path | Git blob (commit `ff579080`) | SHA-256 of committed bytes | Relevance |
 |---|---|---|---|
 | `VX_config.toml` | `b2be4082f1fff8eb8ecee13b495ae4dab3c24a02` | `b932c482b62d8c40894f0628f5fbb3a50530cd0d74f6d4fb1964d6763d031f9f` | Contains repo defaults and a commented 8×16 G100 flagship preset; defaults are not the four-core candidate. |
-| `tests/regression/sgemm_tcu_wg_dxa/Makefile` | `2bfd6f3c9862332e1f53381f41304693d090dfa1` | `3aa417211fe1d613243238723b980aefa14fbd21fc02dda8385d9b9eeca089f5` | Enables TCU/DXA; its comment documents double-buffered WGMMA as SimX-validated and says Verilated RTL/FPGA uses `WGMMA_SINGLE_BUFFER=1`; double buffering requires at least two DXA cores. |
+| `tests/regression/sgemm_tcu_wg_dxa/Makefile` | `2bfd6f3c9862332e1f53381f41304693d090dfa1` | `3aa417211fe1d613243238723b980aefa14fbd21fc02dda8385d9b9eeca089f5` | Enables TCU/DXA; documents double-buffered WGMMA as SimX-validated and says Verilated RTL/FPGA normally uses `WGMMA_SINGLE_BUFFER=1`; double buffering requires at least two DXA cores. A separate same-kernel double-buffered rtlsim check was run and is recorded below. |
 | `tests/regression/sgemm_tcu_wg_dxa/common.h` | `d86fad1d477fdd9a0fb1d4b6097e20b09be79c76` | `6946f87e76b9126d976ed9ef4ef35e7a779028bdf20084ccf7ed0b23db06c51c` | Default `ITYPE=fp16`, `OTYPE=fp32`, `WGMMA_NRC=8`; defines double-buffer stage stride helper. |
 | `tests/regression/sgemm_tcu_wg_dxa/main.cpp` | `9c76f4924797b73850e0b9d626e8a0c64bc8536b` | `423b63677ab54f4f57dee8731e1ec2643780e52d1e5a7e2345003106b9cfea88` | Host test parameters, capability guards, generated input/reference, completion timeout and correctness comparison. |
 | `tests/regression/sgemm_tcu_wg_dxa/kernel.cpp` | `48cf38ffe8608a2b3d99a992e85aacebf4839b87` | `3a1bbf546ca2b292824f4040666d90e9ee90b3cee0b8b1090160d985d643408b` | WGMMA/DXA kernel source; Makefile defines select its single/double-buffer paths. |
@@ -51,24 +51,22 @@ SHA-256 values below are over the committed Git blob bytes as exported by `git s
 
 **Hash-generation command:** for example, `git show ff5790806973a1586478531c3d6710a0fa614384:VX_config.toml | sha256sum`. Each SHA-256 above was computed directly from the committed blob, not the mutable working-tree copy.
 
-## 3. Proposed experiment configuration — resolved by source, not sponsor-ratified or built
+## 3. Proposed experiment configuration — resolved and locally exercised; not sponsor-ratified
 
 The sponsor approved investigating a compute-only **one cluster × four cores** topology with TCU and DXA enabled, and evaluating `sgemm_tcu_wg_dxa` at K=64 and K=512 as candidate discovery tests. This does not ratify every implementation setting below as a product configuration or acceptance criterion. The repository defaults are 8 clusters × 16 cores, 4 warps, 4 threads, and L2 disabled; the commented flagship preset is not the discovery experiment. The table below records one reproducible proposed experiment, resolved against `VX_config.toml` and the canonical `ci/gen_config.py` at commit `ff579080`; each explicit setting is an experiment choice unless marked as part of the approved scope.
 
 ### Build-time inputs
 
-For an executable reproduction of this proposed experiment (not a sponsor-ratified product configuration), use an isolated clean checkout/worktree at the pinned commit (the current worktree has unrelated edits), configure a fresh RV32 build tree, and run the test commands from that generated build directory. From the clean pinned source root on the supported Linux/WSL build host:
+For an executable reproduction of this proposed experiment (not a sponsor-ratified product configuration), use an isolated clean checkout/worktree at the pinned commit, configure a fresh RV32 build tree, and run the test commands from that generated build directory. The primary working checkout may contain unrelated edits; do not build from it. From the clean pinned source root on a supported Linux/WSL build host:
 
 ```sh
 git worktree add --detach ../grxgpu-g100-ff579080 ff5790806973a1586478531c3d6710a0fa614384
 cd ../grxgpu-g100-ff579080
 mkdir -p build32 && cd build32
 ../configure --xlen=32 --tooldir="$HOME/tools"
-# First-time toolchain bootstrap only, per docs/install_vortex.md:
-./ci/toolchain_install.sh
 ```
 
-Re-run `../configure --xlen=32 --tooldir="$HOME/tools"` when the source/config or build-participating files change. Dependency installation is environment-specific and is not part of the pinned source identity; use the repository setup docs and record actual tool/dependency versions. Use this single base CONFIGS value for the candidate runs and resolver check:
+The pinned commit used for the recorded run does not contain `ci/toolchain_install.sh`; the successful run used the preinstalled toolchain versions recorded in the [run record](evidence/g100-discovery-2026-10-13/run-record.md). On a fresh host, follow the repository setup docs and provision/build the toolchain using a matching supported source procedure before running the app. Re-run `../configure --xlen=32 --tooldir="$HOME/tools"` when the source/config or build-participating files change. Record actual tool/dependency versions because their installation bundle is not pinned by the source commit. Use this single base CONFIGS value for the candidate runs and resolver check:
 
 ```sh
 CONFIGS='-DVX_CFG_NUM_CLUSTERS=1 -DVX_CFG_NUM_CORES=4 -DVX_CFG_NUM_WARPS=4 -DVX_CFG_NUM_THREADS=8 -DVX_CFG_ISSUE_WIDTH=4 -DVX_CFG_L2_ENABLE -DVX_CFG_NUM_DXA_CORES=2 -DVX_CFG_EXT_TCU_ENABLE -DVX_CFG_EXT_DXA_ENABLE -DVX_CFG_TCU_WGMMA_ENABLE -DWGMMA_NRC=16'
@@ -89,20 +87,20 @@ From source root, the pinned resolver check is `ci/gen_config.py --config=VX_con
 | `VX_CFG_TCU_TYPE` / `VX_CFG_TCU_WGMMA_ENABLED` / `VX_CFG_TCU_FP16_ENABLED` | `TFR / 1 / 1` | TOML defaults and explicit WGMMA enable |
 | `VX_CFG_NUM_DXA_CORES` / `VX_CFG_DXA_MEM_PORTS` | `2 / 2` | proposed worker setting; two workers required by fused A+B double-buffered fetch |
 | App-level `ITYPE` / `OTYPE` / `WGMMA_NRC` | `fp16 / fp32 / 16` | `common.h` type defaults plus explicit NRC; not VX hardware macros |
-| Kernel pipeline | SimX: double-buffered WGMMA + `WGMMA_RS`; rtlsim candidate: single-buffered WGMMA | Required split per the pinned test Makefile comment for its documented SimX versus Verilated RTL/FPGA paths; these are distinct kernel builds, not a same-kernel cycle-parity pair |
+| Kernel pipeline | Double-buffered WGMMA + `WGMMA_RS` on both SimX and rtlsim for the comparison group; the documented single-buffered rtlsim configuration was also run separately | Run-passed-pending-review; same-kernel correctness checks passed, instruction counts match, and cycles differ. No cycle-parity result is claimed |
 | L3, graphics | disabled | TOML defaults; outside the approved compute-only scope |
 | Remaining hardware config inputs | no extra candidate overrides | resolved from pinned TOML; full generated output is reproducible using the resolver command above |
 | Board/FPGA part/constraints | **OPEN** | no candidate board selected or demonstrated |
 
-The resolver's output was inspected for the fields in this table. This is a configuration-resolution check only: no configure/build, app compilation, simulator execution, parity result, or FPGA timing/resource evidence is claimed. The dependency/tool/platform closure remains **OPEN**.
+The resolver output was checked, then this proposed configuration was configured and built in a clean Linux-native checkout at the pinned commit. The local correctness outcomes and environment are recorded in the [dated run record](evidence/g100-discovery-2026-10-13/run-record.md). These runs do not establish cycle parity, independent reproduction, FPGA timing/resource closure, or a fully pinned portable tool/dependency bundle; those remain **OPEN**.
 
-## 4. Proposed workload and acceptance boundary — commands specified, not executed
+## 4. Proposed workload and acceptance boundary — discovery runs recorded; acceptance remains open
 
-The pinned [DXA CI definitions](../ci/testcases/dxa.yaml) contain a separate `model_parity-wgmma-dxa` case at M=N=128, K=64, threads=32, warps=8, ISSUE_WIDTH=4, NRC=16. The commands below propose M=N=64 and K=64/512 as one runnable discovery experiment; those dimensions/settings make the commands concrete and are not sponsor-ratified product requirements or acceptance criteria. They are not the same case as CI. The pinned test Makefile documents double-buffered WGMMA as the SimX path and says the Verilated rtlsim/FPGA path currently uses `WGMMA_SINGLE_BUFFER=1`. The proposed SimX and rtlsim commands therefore use **different kernel build defines** and are separate correctness checks against the host reference, not a same-kernel cycle-parity comparison.
+The pinned [DXA CI definitions](../ci/testcases/dxa.yaml) contain a separate `model_parity-wgmma-dxa` case at M=N=128, K=64, threads=32, warps=8, ISSUE_WIDTH=4, NRC=16. The commands below propose M=N=64 and K=64/512 as one runnable discovery experiment; those dimensions/settings make the commands concrete and are not sponsor-ratified product requirements or acceptance criteria. They are not the same case as CI. The pinned test Makefile documents double-buffered WGMMA as the SimX path and says the Verilated rtlsim/FPGA path normally uses `WGMMA_SINGLE_BUFFER=1`. The original single-buffered rtlsim checks follow that guidance. A separate same-kernel comparison was also run with the Makefile's double-buffered defaults on both backends; both passed host-reference correctness with matching instruction counts but different cycles. Neither group is a cycle-parity assertion.
 
 **CI definition caveat:** the pinned `model_parity-wgmma-dxa` entry does not set `WGMMA_SINGLE_BUFFER=1`; the generic parity runner executes both drivers using the case CONFIGS. That appears inconsistent with the Makefile comment prescribing the single-buffer variant for rtlsim. The source definitions alone do not establish whether the CI case intentionally tests the double-buffer RTL path, is stale, or is expected to fail. Do not treat its presence as evidence of a supported/running parity path. Resolve this source/test-definition mismatch and inspect the actual effective app/kernel build flags before making a parity claim or using the CI case as the reproduction procedure.
 
-From `build32/`, following a successful configure/bootstrap as above, the following are exact proposed invocations for future investigation only. They are **not executed, not approved as product acceptance tests, and not a parity assertion**:
+From `build32/`, following a successful configure and dependency setup as above, the four exact invocations below produced the original discovery results. They are recorded for reproducibility, **not approved as product acceptance tests and not a parity assertion**. Outcomes are in the [dated run record](evidence/g100-discovery-2026-10-13/run-record.md). A separately recorded same-kernel comparison uses default double-buffered defines for both backends; see that run record for commands and logs.
 
 ```sh
 CONFIGS='-DVX_CFG_NUM_CLUSTERS=1 -DVX_CFG_NUM_CORES=4 -DVX_CFG_NUM_WARPS=4 -DVX_CFG_NUM_THREADS=8 -DVX_CFG_ISSUE_WIDTH=4 -DVX_CFG_L2_ENABLE -DVX_CFG_NUM_DXA_CORES=2 -DVX_CFG_EXT_TCU_ENABLE -DVX_CFG_EXT_DXA_ENABLE -DVX_CFG_TCU_WGMMA_ENABLE -DWGMMA_NRC=16' make -C tests/regression/sgemm_tcu_wg_dxa run-simx OPTS='-m 64 -n 64 -k 64'
@@ -111,7 +109,7 @@ CONFIGS='-DVX_CFG_NUM_CLUSTERS=1 -DVX_CFG_NUM_CORES=4 -DVX_CFG_NUM_WARPS=4 -DVX_
 CONFIGS='-DVX_CFG_NUM_CLUSTERS=1 -DVX_CFG_NUM_CORES=4 -DVX_CFG_NUM_WARPS=4 -DVX_CFG_NUM_THREADS=8 -DVX_CFG_ISSUE_WIDTH=4 -DVX_CFG_L2_ENABLE -DVX_CFG_NUM_DXA_CORES=2 -DVX_CFG_EXT_TCU_ENABLE -DVX_CFG_EXT_DXA_ENABLE -DVX_CFG_TCU_WGMMA_ENABLE -DWGMMA_NRC=16' make -C tests/regression/sgemm_tcu_wg_dxa WGMMA_SINGLE_BUFFER=1 run-rtlsim OPTS='-m 64 -n 64 -k 512'
 ```
 
-Each app target compiles the host app and kernel and rebuilds the requested runtime with the listed hardware CONFIGS. The SimX app build uses the Makefile's double-buffered WGMMA defaults; the rtlsim app build explicitly sets `WGMMA_SINGLE_BUFFER=1`, selecting the documented single-buffered RTL path. The rtlsim model adds required `-DSIMULATION -DSV_DPI`. The source `main.cpp` derives CTA warps from `VX_CFG_ISSUE_WIDTH`, validates runtime core/thread capabilities and workload tiling, generates inputs with `std::srand(50)`, computes a CPU FP32 reference, and prints `PASSED!`/returns 0 only if comparison errors are zero. Since the kernel defines differ, compare each mode's correctness independently; do not infer cycle parity from these four commands.
+Each app target compiles the host app and kernel and rebuilds the requested runtime with the listed hardware CONFIGS. The two SimX builds use the Makefile's double-buffered WGMMA defaults; the two original rtlsim builds explicitly set `WGMMA_SINGLE_BUFFER=1`, selecting the documented single-buffered RTL path. The separate same-kernel comparison rebuilt the workload with double-buffered defaults for rtlsim as well. The rtlsim model adds `-DSIMULATION -DSV_DPI`. The source `main.cpp` derives CTA warps from `VX_CFG_ISSUE_WIDTH`, validates runtime core/thread capabilities and workload tiling, generates inputs with `std::srand(50)`, computes a CPU FP32 reference, and prints `PASSED!`/returns 0 only if comparison errors are zero. The original variant-specific runs are separate correctness checks; the same-kernel comparison reports cycle differences and does not assert parity.
 
 | Field | Proposed experiment / status |
 |---|---|
@@ -120,11 +118,11 @@ Each app target compiles the host app and kernel and rebuilds the requested runt
 | Input/output types | FP16 / FP32 (`common.h` defaults) |
 | Input generation | Host-generated after `std::srand(50)`; exact bytes still depend on host C library and are not archived here |
 | Reference and comparator | CPU FP32 reference in `main.cpp`; per-output ULP budget `max(12, ceil(5*sqrt(K)))`; zero mismatches required to print `PASSED!` and return 0 |
-| Driver/kernel variants | Proposed SimX double-buffered (`WGMMA_DXA_DOUBLE_BUFFER`, `WGMMA_RS`) and proposed rtlsim single-buffered (`WGMMA_SINGLE_BUFFER=1`); no run; separate correctness checks, not a cycle-parity pair |
+| Driver/kernel variants | Original checks: SimX double-buffered and rtlsim single-buffered; separate same-kernel comparison: double-buffered on both drivers. All K values passed host-reference correctness. Same-kernel retired-instruction counts match, but cycles differ; no parity claim |
 | CI definition (not this experiment) | pinned model-parity case uses M=N=128, K=64; its shape/config differs and it does not pass `WGMMA_SINGLE_BUFFER=1`. This conflicts with the Makefile comment describing the Verilated RTL variant; effective flags/support status remain **OPEN** |
-| Golden/input hashes | **OPEN** — runtime-generated buffers not archived/pinned |
-| Result/log/exit code | **OPEN — no proposed command has been executed under this manifest** |
-| Performance, cycles, timing, resources | **OPEN — no measurement attributed to this manifest** |
+| Golden/input hashes | **OPEN** — runtime-generated buffers were not archived/pinned; the app reported host-reference correctness. |
+| Result/log/exit code | **Recorded:** all eight invocations exited 0 and printed `PASSED!`; see [run record and retained logs](evidence/g100-discovery-2026-10-13/run-record.md). Pending independent review. |
+| Performance, cycles, timing, resources | Simulated instruction/cycle summaries are recorded per run; no cross-driver parity claim or FPGA timing/resource measurement. FPGA evidence remains **OPEN**. |
 | Customer use / quality / SLA | **OPEN — engineering discovery correctness workload only** |
 
 ### Historical results kept separate
@@ -135,7 +133,7 @@ The [G100 tapeout plan](grxgpu_g100_tapeout_plan.md) describes K=64/K=512 rtlsim
 
 Before E-301 can close, record named product/engineering owners, approved discovery requirements versus TBD values, source/config/workload identities, risk/feasibility classification, and a separate fund/defer decision for any work beyond the currently approved discovery boundary.
 
-Before any E-302 pass is recorded, append a run record using the copyable template in §6. Complete every applicable field and include:
+The local run record is linked above and is marked `run-passed-pending-review`, not an E-302 closeout. Before any E-302 pass is recorded, independently review/reproduce the relevant claims and complete remaining evidence using the copyable template in §6, including:
 
 - exact source commit and clean-tree/archive identity, plus any overlay/test-only source hashes;
 - resolved config/macros, driver/backend, `CONFIGS`, `ARGS`, compiler flags, and whether WGMMA double buffering is enabled;
@@ -145,7 +143,7 @@ Before any E-302 pass is recorded, append a run record using the copyable templa
 - for FPGA, exact part/board, constraints, generated bitstream checksum, synthesis/P&R reports, timing coverage, utilization, and physical versus simulated measurement boundary;
 - named independent reviewer and date.
 
-Use supported Vortex regressions and model-parity gates; a successful build alone does not prove the requested behavior. This manifest asserts **no pass** until those artifacts are attached and reviewed.
+Use supported Vortex regressions and model-parity gates; a successful build alone does not prove the requested behavior. The attached local run record documents eight correctness passes and one same-kernel cycle comparison with measured divergence; this manifest asserts **no independently reproduced, accepted, parity, FPGA, or production pass** until the applicable artifacts are reviewed and approved.
 
 ## 6. E-302 run-record template
 

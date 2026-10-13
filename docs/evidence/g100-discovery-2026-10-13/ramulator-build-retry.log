@@ -1,0 +1,99 @@
+make: Entering directory '/home/kubew/g100-build-ff579080/third_party'
+cd ramulator && mkdir -p build && cd build && cmake .. && make -j4
+Configuring Ramulator ...
+-- Build type: Release
+Configuring yaml-cpp...
+CMake Deprecation Warning at ext/yaml-cpp/CMakeLists.txt:2 (cmake_minimum_required):
+  Compatibility with CMake < 3.5 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value or use a ...<max> suffix to tell
+  CMake that the project does not need compatibility with older versions.
+
+
+Done configuring yaml-cpp.
+Configuring spdlog...
+-- Build spdlog: 1.11.0
+-- Build type: Release
+Done configuring spdlog.
+Configuring argparse...
+Done configuring argparse.
+-- Configuring done (5.6s)
+-- Generating done (0.2s)
+-- Build files have been written to: /home/kubew/g100-build-ff579080/third_party/ramulator/build
+make[1]: Entering directory '/home/kubew/g100-build-ff579080/third_party/ramulator/build'
+make[2]: Entering directory '/home/kubew/g100-build-ff579080/third_party/ramulator/build'
+make[3]: Entering directory '/home/kubew/g100-build-ff579080/third_party/ramulator/build'
+make[3]: Entering directory '/home/kubew/g100-build-ff579080/third_party/ramulator/build'
+make[3]: Entering directory '/home/kubew/g100-build-ff579080/third_party/ramulator/build'
+make[3]: Entering directory '/home/kubew/g100-build-ff579080/third_party/ramulator/build'
+make[3]: Leaving directory '/home/kubew/g100-build-ff579080/third_party/ramulator/build'
+make[3]: Leaving directory '/home/kubew/g100-build-ff579080/third_party/ramulator/build'
+[  8%] Built target spdlog
+[ 14%] Built target ramulator-base
+make[3]: Entering directory '/home/kubew/g100-build-ff579080/third_party/ramulator/build'
+make[3]: Entering directory '/home/kubew/g100-build-ff579080/third_party/ramulator/build'
+make[3]: Leaving directory '/home/kubew/g100-build-ff579080/third_party/ramulator/build'
+make[3]: Entering directory '/home/kubew/g100-build-ff579080/third_party/ramulator/build'
+make[3]: Leaving directory '/home/kubew/g100-build-ff579080/third_party/ramulator/build'
+[ 15%] Building CXX object src/dram_controller/CMakeFiles/ramulator-controller.dir/impl/plugin/graphene.cpp.o
+make[3]: Leaving directory '/home/kubew/g100-build-ff579080/third_party/ramulator/build'
+[ 16%] Built target ramulator-test
+make[3]: Entering directory '/home/kubew/g100-build-ff579080/third_party/ramulator/build'
+make[3]: Leaving directory '/home/kubew/g100-build-ff579080/third_party/ramulator/build'
+[ 46%] Built target yaml-cpp
+make[3]: Leaving directory '/home/kubew/g100-build-ff579080/third_party/ramulator/build'
+make[3]: Entering directory '/home/kubew/g100-build-ff579080/third_party/ramulator/build'
+[ 47%] Building CXX object src/dram_controller/CMakeFiles/ramulator-controller.dir/impl/plugin/oracle_rh.cpp.o
+[ 48%] Building CXX object src/frontend/CMakeFiles/ramulator-frontend.dir/impl/processor/bhO3/bhcore.cpp.o
+[ 50%] Built target ramulator-translation
+[ 51%] Building CXX object src/dram_controller/CMakeFiles/ramulator-controller.dir/impl/plugin/twice.cpp.o
+[ 52%] Building CXX object src/frontend/CMakeFiles/ramulator-frontend.dir/impl/processor/bhO3/bhllc.cpp.o
+[ 53%] Building CXX object src/frontend/CMakeFiles/ramulator-frontend.dir/impl/external_wrapper/gem5_frontend.cpp.o
+[ 54%] Building CXX object src/dram_controller/CMakeFiles/ramulator-controller.dir/impl/plugin/hydra.cpp.o
+[ 55%] Building CXX object src/dram_controller/CMakeFiles/ramulator-controller.dir/impl/plugin/rrs.cpp.o
+[ 56%] Building CXX object src/dram_controller/CMakeFiles/ramulator-controller.dir/impl/plugin/aqua.cpp.o
+make[3]: Leaving directory '/home/kubew/g100-build-ff579080/third_party/ramulator/build'
+[ 62%] Built target ramulator-frontend
+make[3]: Entering directory '/home/kubew/g100-build-ff579080/third_party/ramulator/build'
+make[3]: Leaving directory '/home/kubew/g100-build-ff579080/third_party/ramulator/build'
+[ 65%] Built target ramulator-memorysystem
+[ 66%] Building CXX object src/dram_controller/CMakeFiles/ramulator-controller.dir/impl/plugin/rfm_manager.cpp.o
+[ 67%] Building CXX object src/dram_controller/CMakeFiles/ramulator-controller.dir/impl/plugin/blockhammer/blockhammer.cpp.o
+make[3]: Entering directory '/home/kubew/g100-build-ff579080/third_party/ramulator/build'
+make[3]: Leaving directory '/home/kubew/g100-build-ff579080/third_party/ramulator/build'
+[ 69%] Built target ramulator-addrmapper
+make[3]: Entering directory '/home/kubew/g100-build-ff579080/third_party/ramulator/build'
+make[3]: Leaving directory '/home/kubew/g100-build-ff579080/third_party/ramulator/build'
+make[3]: Entering directory '/home/kubew/g100-build-ff579080/third_party/ramulator/build'
+[ 70%] Building CXX object src/dram/CMakeFiles/ramulator-dram.dir/impl/DDR4-RVRR.cpp.o
+[ 71%] Building CXX object src/dram_controller/CMakeFiles/ramulator-controller.dir/impl/plugin/device_config/device_config.cpp.o
+[ 72%] Building CXX object src/dram_controller/CMakeFiles/ramulator-controller.dir/impl/plugin/bliss/bliss.cpp.o
+[ 73%] Building CXX object src/dram/CMakeFiles/ramulator-dram.dir/impl/DDR5.cpp.o
+[ 74%] Building CXX object src/dram_controller/CMakeFiles/ramulator-controller.dir/impl/plugin/prac/prac.cpp.o
+[ 75%] Building CXX object src/dram/CMakeFiles/ramulator-dram.dir/impl/DDR5-VRR.cpp.o
+[ 76%] Building CXX object src/dram/CMakeFiles/ramulator-dram.dir/impl/DDR5-RVRR.cpp.o
+[ 77%] Building CXX object src/dram/CMakeFiles/ramulator-dram.dir/impl/LPDDR5.cpp.o
+make[3]: Leaving directory '/home/kubew/g100-build-ff579080/third_party/ramulator/build'
+[ 91%] Built target ramulator-controller
+[ 92%] Building CXX object src/dram/CMakeFiles/ramulator-dram.dir/impl/HBM.cpp.o
+[ 93%] Building CXX object src/dram/CMakeFiles/ramulator-dram.dir/impl/HBM2.cpp.o
+[ 94%] Building CXX object src/dram/CMakeFiles/ramulator-dram.dir/impl/HBM3.cpp.o
+make[3]: Leaving directory '/home/kubew/g100-build-ff579080/third_party/ramulator/build'
+[ 97%] Built target ramulator-dram
+make[3]: Entering directory '/home/kubew/g100-build-ff579080/third_party/ramulator/build'
+make[3]: Leaving directory '/home/kubew/g100-build-ff579080/third_party/ramulator/build'
+make[3]: Entering directory '/home/kubew/g100-build-ff579080/third_party/ramulator/build'
+[ 98%] Linking CXX shared library /home/kubew/g100-build-ff579080/third_party/ramulator/libramulator.so
+make[3]: Leaving directory '/home/kubew/g100-build-ff579080/third_party/ramulator/build'
+[ 98%] Built target ramulator
+make[3]: Entering directory '/home/kubew/g100-build-ff579080/third_party/ramulator/build'
+make[3]: Leaving directory '/home/kubew/g100-build-ff579080/third_party/ramulator/build'
+make[3]: Entering directory '/home/kubew/g100-build-ff579080/third_party/ramulator/build'
+[ 99%] Building CXX object CMakeFiles/ramulator-exe.dir/src/main.cpp.o
+[100%] Linking CXX executable ramulator2
+make[3]: Leaving directory '/home/kubew/g100-build-ff579080/third_party/ramulator/build'
+[100%] Built target ramulator-exe
+make[2]: Leaving directory '/home/kubew/g100-build-ff579080/third_party/ramulator/build'
+make[1]: Leaving directory '/home/kubew/g100-build-ff579080/third_party/ramulator/build'
+make: Leaving directory '/home/kubew/g100-build-ff579080/third_party'
