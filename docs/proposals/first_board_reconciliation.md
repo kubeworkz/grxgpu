@@ -12,6 +12,8 @@ documents (§8) and for five rulings (§6), and for nothing to be built. *Amende
 owner, and what the owner ruled. Two of §6's five rulings are made by it.
 *And a seventh, 2026-10-14:* §10.11 is new: what one output scale buys at Gate F, and
 what GRXCP recommends for the ruling §10.10 left open.
+*And an eighth, the same day:* §10.12 is new: the canary's data set and its first two
+layers, as the owner ruled them.
 *A one-page cover for §10 is in [first_board_pta_note.md](first_board_pta_note.md).*
 **Decision behind it:** on 2026-10-11 the program chose the charter's modular layout
 for the first development board. GRXCP's in-package arrangement stays as the later
@@ -1006,7 +1008,7 @@ its own yet.
 
 | What GRXCP and grx930 owe for it | Whose | State |
 |---|---|---|
-| FC3 trained for the canary | grx930's harness, GRXCP | Waits on the canary's data set and its first two layers |
+| FC3 trained for the canary | grx930's harness, GRXCP | Its data set and first two layers fixed on 2026-10-14 (§10.12). Waits on two harness changes |
 | The frozen classifier through the model, and a band proposed from it | grx930's harness, GRXCP | Waits on FC3 |
 | A run with the gain fitted against the declared reference and taken out | grx930's harness, GRXCP | Run on 2026-10-14 (§10.11). Item 3 waits on the owner |
 | Repeat-to-repeat variation, reported apart | GRXCP | Owed. The model's draws have it and no table does |
@@ -1083,3 +1085,82 @@ offset. A drifted tile. A classifier of yours: every figure is the stand-in's,
 everything §10.4 says. Of ten predictions written before these runs, seven held. It is
 held in grx930's design note §5, "The first board's last layer, with one scale on its
 outputs", and in GRXCP's `docs/designs/pta_board_scale.py`.
+
+### 10.12 The canary's data set and its first two layers (added 2026-10-14)
+
+§10.10's fourth item left two things to fix before grx930's harness could train FC3: the
+canary's data set and its first two layers. The owner, Gridworkz, ruled both on
+2026-10-14, as GRXCP recommended.
+
+**What was ruled.**
+
+1. **The data set is MNIST, each image pooled to 8 × 8.** It is the set every figure in
+   §10 was modelled on, and the one on which the stand-in gave its declared reference's
+   class most often.
+
+2. **grx930's harness trains all three layers in one run.** FC1 and FC2 at eight bits
+   and with no tile noise, FC3 at six bits and trained for the tile. FC1 and FC2 are not
+   trained elsewhere.
+
+3. **FC2's int8 output becomes FC3's 6-bit activation by the PTA contract's quantiser**,
+   (x + 2) >> 2, held at 31. That is the decision record's "top-six-bit quantizer"
+   pinned to one rule: it rounds half up, as every figure in §10 did.
+
+**What fills the canary manifest's fields for them.** These are proposed values for your
+draft manifest, which this proposal does not edit:
+
+| Manifest field | Value |
+|---|---|
+| `workload.dataset.name` | MNIST, each image pooled to 8 × 8 |
+| `source_uri_or_archive` | `https://ossci-datasets.s3.amazonaws.com/mnist/`, PyTorch's mirror of the four original files. Archive MD5s: `train-images-idx3-ubyte.gz` `f68b3c2dcbeaaa9fbdd348bbdeb94873`, `train-labels-idx1-ubyte.gz` `d53e105ee54ea40749a09fcbcd1e9432`, `t10k-images-idx3-ubyte.gz` `9fb629c4189551a2d022fa330f9573f3`, `t10k-labels-idx1-ubyte.gz` `ec29112dd5afa0611ce80d1b7f02629c`: the ones torchvision lists |
+| `version_or_snapshot` | The original files. Content SHA-256 after gunzip: `train-images-idx3-ubyte` `ba891046e6505d7aadcbbe25680a0738ad16aec93bde7f9b65e87a2fc25776db`, `train-labels-idx1-ubyte` `65a50cbbf4e906d70832878ad85ccda5333a97f0f4c3dd2ef09a8a9eef7101c5`, `t10k-images-idx3-ubyte` `0fa7898d509279e482958e8ce81c8e77db3f2f8254e26661ceb7762c4d494ce7`, `t10k-labels-idx1-ubyte` `ff7bcfd416de33731a308c3f266cc351222c34898ecbeaf847f06e48f7ec33f2` |
+| `license_and_usage_terms` | CC BY-SA 3.0, copyright Yann LeCun and Corinna Cortes, as Keras's documentation states them |
+| `retrieval_date_utc` | 2026-10-14 |
+| `split_name` | Acceptance: the first 1,000 images of the test file, in file order |
+| `sample_id_source` | `mnist-t10k-NNNNN`, the image's index in the test file: `mnist-t10k-00000` to `mnist-t10k-00999` |
+| `preprocessing_revision` | The middle 24 × 24 of each 28 × 28 image in 3 × 3 blocks, each block's mean rounded half up, (2s + 9) div 18; then (127p + 127) div 255, from 0 to 127, stored as signed int8 |
+| `intended_classes` | The digits 0 to 9 on outputs 0 to 9. Outputs 10 to 15 are trained toward no class. The class is the largest of all 16 outputs, the lowest index on a tie |
+| `acceptance_order` | File order, as above |
+| `graph` FC1 and FC2 `format` | Weights round(128w), held to −128 … 127; activations 0 … 127; sums in int32; an int32 bias in the sum's units added before the ReLU; after it, a shift right by the layer's power of two, rounded half up, held at 127. A layer's shift is the smallest at which no more than one positive sum in 10,000, on the first 10,000 training images, is held |
+| FC3 `activation_conversion.exact_integer_mapping_scale_saturation_and_rounding` | (x + 2) >> 2, held at 31: FC2's 0 … 127 to FC3's 0 … 31, rounded half up |
+| `training.training_data_split_and_digest` | The first 54,000 images of the training file |
+| `training.validation_split_and_digest` | The last 6,000 images of the training file, never trained on. The first 1,000 of them fix an output scale, if one is ruled (§10.11) |
+| `training.test_acceptance_split_and_digest` | As `split_name` |
+
+**What was checked the same day.** The four files were fetched from the mirror above.
+Their archive MD5s are torchvision's, and their content is byte for byte the copy every
+model run used. A script written apart from grx930's harness pools all 70,000 images to
+the harness's own pooled files, byte for byte. No acceptance vector is, byte for byte, a
+training or held-out vector, and none repeats within the thousand. None is all zero.
+Every digit is there, 85 to 126 times. In jobs of 16 the thousand is 62 full jobs and
+one of eight. The acceptance tensors come to these digests, and the canary's golden
+generation has to give the same bytes:
+
+| Artifact | Bytes | SHA-256 |
+|---|---|---|
+| `ordered_inputs_int8`, [1000, 64], row-major | 64,000 | `d968e50d76c4c3bfe3b0d0020db73fc0a1bade8f794cba389216f0777f0f23c4` |
+| `ordered_labels`, [1000], one unsigned byte each | 1,000 | `d14ba0a1a3818edefa35518ed001ece84b7ac0eabe9394551c73928493175d3f` |
+| The ordered ids, one `mnist-t10k-NNNNN` and a newline each | 17,000 | `81e4e1694930066d6e678be2ac3b828a0677756e8dc0632048e605541c754711` |
+
+**What follows.** grx930's harness needs two changes before it trains the canary. Today
+it gives every layer one weight width, and it puts the tile's noise on every layer's
+sums as a network trains. The canary needs a width per layer, and the noise on FC3
+alone. And a rule for which trained network is the canary has to be written down before
+any is trained. GRXCP recommends seed 1's, with the other four seeds' reported beside
+it, so that no network is chosen on its results. Then FC3 is trained, the golden tensors
+are generated, and the frozen canary is run through the model.
+
+**What is still open.** FC3's declared reference. Is it the exact sum before the 8-bit
+converter, as every figure in §10 has it? Or is it the converter's codes, as your
+manifest draft words it ("exact integer accumulator/ADC behavior")? On the first, the
+converter's own rounding is part of what Gate F reads: 0.74% of the reference's rms on
+the stand-in's first 1,000 MNIST vectors. On the second it is not. This belongs to the
+golden generation, and GRXCP will bring it with a recommendation. The output scale
+(§10.11), the band, the 2.0% and the 99.5% are where §10.10 left them.
+
+**One correction.** The decision record, the demo, the golden plan and the manifest of
+2026-10-14 spell the owner's name "Gridworz". It is **Gridworkz**.
+
+**What this is not.** A frozen canary: no network is trained, and no golden tensor
+exists. A change to your drafts: the manifest's fields are proposed here, for you to
+copy. Device evidence of any kind.

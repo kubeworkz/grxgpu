@@ -50,6 +50,11 @@ These are the revisions, both on `main`:
    same model in place of the stand-in and replace every figure in §10. Until then every
    figure we give you is a stand-in's.
 
+   *On 2026-10-14 the owner fixed the canary's data set, MNIST pooled to 8 × 8, and its
+   first two layers, trained with FC3 by grx930's harness (§10.12). The acceptance set
+   is the first 1,000 test images, in file order. §10.12 has their digests, and the
+   values for your manifest's fields.*
+
 2. **Two readings of Gate F that are yours to fix.** What "normalized" divides by: the
    reference's rms or its full scale. Our figure is over 5% one way and under 2% the
    other. And whether a vector is one shot or an average: part of the PTA's error is
