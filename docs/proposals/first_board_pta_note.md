@@ -55,6 +55,10 @@ These are the revisions, both on `main`:
    other. And whether a vector is one shot or an average: part of the PTA's error is
    fixed between calibrations and does not average away (§10.7).
 
+   *Since 2026-10-13, §10.8 has figures for the first of these: with nothing but its
+   8-bit converter the PTA is 0.71 to 1.04% of the reference's rms off. And it asks a
+   third: whether the declared reference may carry one output scale for the PTA.*
+
 3. **A ruling on §10.3, §10.5 and §10.7 before any acceptance run**, as your worksheet's
    §5 asks of every threshold. We propose a band and not a ceiling for the rms, a
    largest-error bound written for an engine with noise, bounds stated against the
