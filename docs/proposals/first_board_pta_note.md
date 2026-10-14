@@ -59,6 +59,11 @@ These are the revisions, both on `main`:
    8-bit converter the PTA is 0.71 to 1.04% of the reference's rms off. And it asks a
    third: whether the declared reference may carry one output scale for the PTA.*
 
+   *Answered on 2026-10-13, as a recommendation: over the reference's rms, and one shot
+   a vector (§10.9). The freeze's owner is Gridworkz, and ruled the same day (§10.10):
+   that normaliser and the single shot stand, the 1.0% becomes a band set from the
+   frozen classifier's run, and the freeze is on 2026-11-25.*
+
 3. **A ruling on §10.3, §10.5 and §10.7 before any acceptance run**, as your worksheet's
    §5 asks of every threshold. We propose a band and not a ceiling for the rms, a
    largest-error bound written for an engine with noise, bounds stated against the
