@@ -7,6 +7,7 @@ documents (§8) and for five rulings (§6), and for nothing to be built. *Amende
 *And a third time:* §10.6 is new, and takes two words out of §10.5's second item.
 *And its third item was settled the same day:* the PTA's converter stays at 8 bits.
 *And a fourth time:* §10.7 is new, and has the same layer with a light source over it.
+*And a fifth:* §10.8 is new, and says what the PTA's error at that layer is made of.
 *A one-page cover for §10 is in [first_board_pta_note.md](first_board_pta_note.md).*
 **Decision behind it:** on 2026-10-11 the program chose the charter's modular layout
 for the first development board. GRXCP's in-package arrangement stays as the later
@@ -836,3 +837,68 @@ scale are known to us and none has been run. And of eleven predictions written b
 these runs, two held; most of the rest put the source's cost too high. It is held in
 grx930's design note §5, "The first board's last layer, with a light source switched
 on", and in GRXCP's `docs/designs/pta_board_lit.py`.
+
+### 10.8 What the PTA's error is made of (added 2026-10-13)
+
+§10 gives the PTA's error at FC3 as one figure. This is the same stand-in with the
+tile's four sources of error one at a time, each alone and each left out, with no light
+source and with §10.7's (kubeworkz/grx930#71). Nothing in grx930's harness was changed
+to run it. Ten thousand vectors, in a model.
+
+| The reference networks, no light source: MNIST, Fashion-MNIST, inverted | rms error, % of the reference's rms | rms error, % of the largest reference value | Largest error, a mean over the runs, % of the largest reference value | Class agreement with the declared reference, % |
+|---|---|---|---|---|
+| The 8-bit output converter alone | 0.71, 1.04, 0.76 | 0.25, 0.28, 0.27 | 2.14, 7.22, 0.47 | 99.85, 98.49, 99.73 |
+| with crosstalk between neighbouring rows, 2% | 3.52, 3.42, 3.10 | 1.24, 0.93, 1.10 | 4.87, 9.02, 3.46 | 99.79, 98.29, 99.58 |
+| with shot noise, 30 photons an LSB | 2.66, 3.15, 2.72 | 0.94, 0.86, 0.97 | 5.57, 10.00, 4.94 | 99.64, 97.18, 99.35 |
+| with receiver noise, 0.25 LSB | 0.94, 1.35, 1.00 | 0.33, 0.37, 0.36 | 2.69, 7.75, 1.18 | 99.82, 98.01, 99.66 |
+| with weight programming error, 1 LSB of an 8-bit weight | 0.94, 1.15, 1.01 | 0.33, 0.31, 0.36 | 3.00, 7.67, 1.57 | 99.81, 98.35, 99.67 |
+| All four: the tile of §10.1 | 4.46, 4.67, 4.18 | 1.57, 1.27, 1.48 | 8.02, 11.53, 7.44 | 99.59, 96.78, 99.23 |
+| All but the crosstalk | 2.80, 3.30, 2.88 | 0.98, 0.90, 1.02 | 5.80, 10.14, 5.27 | 99.60, 96.81, 99.28 |
+| All but the shot noise | 3.63, 3.57, 3.24 | 1.28, 0.97, 1.15 | 5.44, 9.41, 4.15 | 99.74, 97.80, 99.52 |
+| All but those two | 1.12, 1.44, 1.20 | 0.39, 0.39, 0.43 | 3.25, 7.90, 1.84 | 99.78, 97.92, 99.60 |
+
+The crosstalk and the shot noise are 89 to 93% of the squared error, and with no light
+source the four add as independent errors do, to within 0.6%. Three things in it bear on
+Gate F.
+
+1. **A 1.0% bound over the reference's rms is at an 8-bit converter's own rounding.**
+   With nothing but its converter the PTA is 0.71, 1.04 and 0.76% of the reference's rms
+   off, and 120 of 150 runs are within 1.0%. With the crosstalk and the shot noise both
+   removed, the two small sources take it to 1.12, 1.44 and 1.20%, and no run is within.
+   So if "normalized" divides by the reference's rms, the converter alone uses 71 to
+   104% of the bound, and what it leaves for all four sources is less than the two small
+   ones need. If it divides by the largest reference value, the tile as it stands is
+   1.57, 1.27 and 1.48%, and without the crosstalk 0.98, 0.90 and 1.02%, with 80 of 150
+   runs within 1.0%. This is the second request of
+   [first_board_pta_note.md](first_board_pta_note.md), with figures.
+
+2. **Most of the crosstalk is a gain, and a class does not see it.** The crosstalk is
+   the largest source of rms error, and removing it raises class agreement by 0.01, 0.03
+   and 0.05 of a point. Removing the shot noise raises it by 0.15, 1.02 and 0.29. In the
+   model the crosstalk makes every output of FC3 2.2 to 2.8% too large. A light source
+   corrected on the weights (§10.7) makes them 0.5 to 2.3% too small, by more where more
+   weights are held at full scale. Gate F's two bounds on raw outputs see both of those.
+   Its class bound sees neither. **A question for you:** may the declared reference
+   carry one output scale for the PTA, fixed at calibration, as it carries a declared
+   format? Or are raw outputs compared with none? We have not measured what one scale
+   would buy at the gate, and ask before we do.
+
+3. **Two of the PTA's errors partly cancel, and a gate should not pass on that.** One
+   swells the outputs and the other shrinks them. With the light source on, the PTA is
+   nearer its reference with the crosstalk than without it on two of the three data
+   sets: 5.34% of the reference's rms against 5.97, and 5.27 against 6.02. On MNIST it
+   is further, 5.18 against 4.98. A board measured whole can then look better than its
+   parts, and worse when one of the two is fixed. With a common scale taken out of the
+   outputs, the PTA is worse with the crosstalk on all three.
+
+**What stands.** §10.3 and §10.5 to §10.7 as they are, and §10.7's first item still has
+the figures to set Gate F against.
+
+**What this is not.** A classifier of yours, or a chip: everything §10.4 says. A
+device's crosstalk: the model's is the same fraction of each neighbouring row
+everywhere, and a chip's need not come out as a gain. A gain measured against your
+declared reference: the harness fits it against the network as a digital host runs it.
+An output with its scale taken out and then put through Gate F: none was run. Of ten
+predictions written before these runs, five held. It is held in grx930's design note §5,
+"The first board's last layer, its budget a row at a time", and in GRXCP's
+`docs/designs/pta_board_budget.py`.
