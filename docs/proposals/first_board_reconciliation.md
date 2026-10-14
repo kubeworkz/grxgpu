@@ -8,6 +8,7 @@ documents (§8) and for five rulings (§6), and for nothing to be built. *Amende
 *And its third item was settled the same day:* the PTA's converter stays at 8 bits.
 *And a fourth time:* §10.7 is new, and has the same layer with a light source over it.
 *And a fifth:* §10.8 is new, and says what the PTA's error at that layer is made of.
+*And a sixth:* §10.9 is new: the reply to the note, and the freeze's named owner.
 *A one-page cover for §10 is in [first_board_pta_note.md](first_board_pta_note.md).*
 **Decision behind it:** on 2026-10-11 the program chose the charter's modular layout
 for the first development board. GRXCP's in-package arrangement stays as the later
@@ -370,9 +371,10 @@ On a stand-in, Gates L and E are not evaluable for the PTA at all (§3.5).
    contract on the first board.
 3. **Gate F's raw check** (§5.1). The normaliser for the RMS error; and, for a
    stand-in, equality with the seeded reference in place of a tolerance. *§10.3 adds
-   what we would propose for the 1.0% and for the 2.0%.*
+   what we would propose for the 1.0% and for the 2.0%. §10.9 has the normaliser a reply
+   of 2026-10-13 recommends, and what it does to the 1.0%.*
 4. **FC3's weights** (§5.2). Who trains them, and whether they are trained for the
-   tile.
+   tile. *The reply of §10.9 says for the tile, and not by whom.*
 5. **The PTA module's link** (§3.4). Which bus it is from the GRX930 host. That is
    yours and the board lead's to choose, and we need it to write the transport.
 
@@ -902,3 +904,64 @@ An output with its scale taken out and then put through Gate F: none was run. Of
 predictions written before these runs, five held. It is held in grx930's design note §5,
 "The first board's last layer, its budget a row at a time", and in GRXCP's
 `docs/designs/pta_board_budget.py`.
+
+### 10.9 The reply to the note, and who owns the freeze (added 2026-10-13)
+
+[first_board_pta_note.md](first_board_pta_note.md) asked three things of you. A reply
+came on 2026-10-13. It says of itself that it is a recommendation and not an approved
+change, and that the demo draft and the worksheet it read are still unratified. It is
+recorded here so that it is not only in a message, with what it settles and what it
+leaves.
+
+**What the reply recommends.**
+
+1. **Gate F's normaliser.** The rms of the PTA's output less the reference's, over the
+   rms of the reference's output, on the frozen and ordered 1,000 vectors. One PTA shot
+   a vector, and no averaging over repeats. Repeat-to-repeat variation is reported
+   apart, since some of the error is fixed between calibrations. The largest-error check
+   is kept apart.
+
+2. **FC3 in the frozen canary.** 6-bit activations and 6-bit weights trained for the
+   tile, the PTA's 8-bit ADC, and one 128 × 64 tile. Int8 weights cut to six bits are
+   not to stand in for them: nobody has modelled that.
+
+3. **The freeze had no owner and no date.** E-005 names roles and no person.
+
+**The owner.** Decided on 2026-10-13: **Gridworkz is the named owner of the freeze**, of
+the canary's workload and of Gate F's thresholds. No date is set. One edit is asked for
+it, below.
+
+**What GRXCP says to it.**
+
+1. **The normaliser and the single shot are what we would choose.** §10.5's third item
+   asks for the bound stated against the reference, its rms or its largest value, and
+   this is the first of the two. It does not move with the output range, and every
+   figure in §10 is of one shot.
+
+2. **Under that normaliser the 1.0% has to be looked at again.** On the first 1,000
+   vectors, FC3 with nothing but its 8-bit converter is 0.74, 1.02 and 0.79% of the
+   reference's rms off. The tile as budgeted is 4.52, 4.67 and 4.24%, and lit with its
+   range fitted 5.22, 5.48 and 5.31% (§10.7). With the crosstalk and the shot noise both
+   removed it is 1.12, 1.44 and 1.20% on 10,000 vectors (§10.8). So the converter alone
+   uses 74 to 102% of the bound as drafted, and the tile as modelled is over four times
+   it. What the bound should be is the freeze's owner's to rule. We still propose a
+   band, set after the frozen classifier has been through the model (§10.3).
+
+3. **The canary's format is the stand-in's own.** §10's figures are of the right shape.
+   They are a stand-in's until the frozen weights and vectors exist.
+
+4. **Repeat-to-repeat variation is ours to report**, from the model's draws, and is not
+   in §10 yet.
+
+**What is still open, and is the owner's.** The rms bound under that normaliser. Whether
+the declared reference may carry one output scale for the PTA, which §10.8 asks and the
+reply does not answer. Who trains FC3 (§6, question 4). And the freeze's date.
+
+| Document | Where | Edit |
+|---|---|---|
+| Task list | E-005 | Name Gridworkz as the owner of the freeze. The reply would have PTA technical and verification sign-off beside it. The date is still to be set |
+| Demo | §4, Gate F | The normaliser and the single shot as the reply has them, once they are ruled |
+
+**What this is not.** A ruling on Gate F: the reply recommends, and only the owner is
+decided. A change to grxgpu: E-005 and the demo draft are yours, and are not patched
+here.
