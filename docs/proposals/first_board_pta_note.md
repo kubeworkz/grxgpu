@@ -64,6 +64,12 @@ These are the revisions, both on `main`:
    that normaliser and the single shot stand, the 1.0% becomes a band set from the
    frozen classifier's run, and the freeze is on 2026-11-25.*
 
+   *And on 2026-10-14 one output scale was run (§10.11). On the first 1,000 vectors,
+   with no light source, it takes the PTA from 4.52, 4.67 and 4.24% of the reference's
+   rms to 3.18, 3.46 and 3.21%, and with the source from 5.22, 5.48 and 5.31 to 4.87,
+   5.30 and 5.19%. It moves no class. Whether the reference carries it is still the
+   owner's to rule, and §10.11 has what we would rule.*
+
 3. **A ruling on §10.3, §10.5 and §10.7 before any acceptance run**, as your worksheet's
    §5 asks of every threshold. We propose a band and not a ceiling for the rms, a
    largest-error bound written for an engine with noise, bounds stated against the
