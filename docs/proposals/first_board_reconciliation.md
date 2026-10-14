@@ -8,7 +8,8 @@ documents (§8) and for five rulings (§6), and for nothing to be built. *Amende
 *And its third item was settled the same day:* the PTA's converter stays at 8 bits.
 *And a fourth time:* §10.7 is new, and has the same layer with a light source over it.
 *And a fifth:* §10.8 is new, and says what the PTA's error at that layer is made of.
-*And a sixth:* §10.9 is new: the reply to the note, and the freeze's named owner.
+*And a sixth:* §10.9 and §10.10 are new: the reply to the note, the freeze's named
+owner, and what the owner ruled. Two of §6's five rulings are made by it.
 *A one-page cover for §10 is in [first_board_pta_note.md](first_board_pta_note.md).*
 **Decision behind it:** on 2026-10-11 the program chose the charter's modular layout
 for the first development board. GRXCP's in-package arrangement stays as the later
@@ -371,10 +372,10 @@ On a stand-in, Gates L and E are not evaluable for the PTA at all (§3.5).
    contract on the first board.
 3. **Gate F's raw check** (§5.1). The normaliser for the RMS error; and, for a
    stand-in, equality with the seeded reference in place of a tolerance. *§10.3 adds
-   what we would propose for the 1.0% and for the 2.0%. §10.9 has the normaliser a reply
-   of 2026-10-13 recommends, and what it does to the 1.0%.*
+   what we would propose for the 1.0% and for the 2.0%. Ruled on 2026-10-13 for the
+   normaliser and for the 1.0%, which becomes a band: §10.10.*
 4. **FC3's weights** (§5.2). Who trains them, and whether they are trained for the
-   tile. *The reply of §10.9 says for the tile, and not by whom.*
+   tile. *Ruled on 2026-10-13: grx930's harness, for the tile (§10.10).*
 5. **The PTA module's link** (§3.4). Which bus it is from the GRX930 host. That is
    yours and the board lead's to choose, and we need it to write the transport.
 
@@ -389,7 +390,7 @@ Ours to do, and listed here so that it is on record and not assumed.
 | The decision recorded in GRXCP's board plan, as B18: the first board is the charter's, and B1, B3, B4, B6, B7 and B9 are the later board's | GRXCP | Recorded alongside this proposal |
 | A first-board section in the interface control document | GRXCP | Waits on §6, question 5 |
 | A transport for the driver's three hooks from the GRX930 host, and the PTA's parent device on a host-attached module | GRXCP, grx930 | Waits on §6, question 5 |
-| The demo's classifier run through the error model at version 2 | grx930's harness, GRXCP | Waits on §6, question 4. *A stand-in for it was run on 2026-10-13: §10* |
+| The demo's classifier run through the error model at version 2 | grx930's harness, GRXCP | Waits on §6, question 4. *A stand-in for it was run on 2026-10-13: §10. Question 4 was ruled the same day (§10.10), and it now waits on the canary's data set and its first two layers* |
 | A stand-in at 128 × 64, in RTL | Unowned | Waits on §6, question 1 |
 
 ---
@@ -928,8 +929,7 @@ leaves.
 3. **The freeze had no owner and no date.** E-005 names roles and no person.
 
 **The owner.** Decided on 2026-10-13: **Gridworkz is the named owner of the freeze**, of
-the canary's workload and of Gate F's thresholds. No date is set. One edit is asked for
-it, below.
+the canary's workload and of Gate F's thresholds.
 
 **What GRXCP says to it.**
 
@@ -944,8 +944,8 @@ it, below.
    range fitted 5.22, 5.48 and 5.31% (§10.7). With the crosstalk and the shot noise both
    removed it is 1.12, 1.44 and 1.20% on 10,000 vectors (§10.8). So the converter alone
    uses 74 to 102% of the bound as drafted, and the tile as modelled is over four times
-   it. What the bound should be is the freeze's owner's to rule. We still propose a
-   band, set after the frozen classifier has been through the model (§10.3).
+   it. We propose a band in its place, set after the frozen classifier has been through
+   the model (§10.3).
 
 3. **The canary's format is the stand-in's own.** §10's figures are of the right shape.
    They are a stand-in's until the frozen weights and vectors exist.
@@ -953,15 +953,63 @@ it, below.
 4. **Repeat-to-repeat variation is ours to report**, from the model's draws, and is not
    in §10 yet.
 
-**What is still open, and is the owner's.** The rms bound under that normaliser. Whether
-the declared reference may carry one output scale for the PTA, which §10.8 asks and the
-reply does not answer. Who trains FC3 (§6, question 4). And the freeze's date.
+**What it left with the owner.** The rms bound under that normaliser. Whether the
+declared reference may carry one output scale for the PTA, which §10.8 asks and the
+reply does not answer. Who trains FC3 (§6, question 4). And the freeze's date. §10.10
+has what the owner ruled on each.
+
+**What this is not.** A ruling: the reply recommends, and this section records it. A
+change to grxgpu.
+
+### 10.10 What the freeze's owner ruled (added 2026-10-13)
+
+§10.9 left the reply's reading and four more things with the freeze's owner. Gridworkz
+ruled on them the same day: the first four as GRXCP had recommended, and the date as its
+own to set. Four are rulings, and one is put off until a run exists.
+
+1. **Gate F's normalised rms error** is the rms of the PTA's output less the
+   reference's, over the rms of the reference's output, on the frozen and ordered 1,000
+   vectors. One PTA shot a vector, with no averaging over repeats. Repeat-to-repeat
+   variation is reported apart, and the largest-error check is kept apart. That is the
+   reply's recommendation as §10.9 has it.
+
+2. **The 1.0% is replaced by a band**, set after the frozen classifier has been through
+   the model. GRXCP proposes the band from that run and the owner rules it. No figure
+   for it exists until then, and §10.9 has why 1.0% could not be it.
+
+3. **Whether the declared reference carries one output scale for the PTA is not ruled.**
+   It waits on a run that fits the gain against the declared reference and takes it out,
+   which grx930 and GRXCP owe (§10.8). Until it is ruled the draft's comparison of raw
+   outputs stands.
+
+4. **FC3 is trained by grx930's harness**, the one that trained the stand-in: for the
+   tile, and in the format of §10.9. Two things have to be fixed first, the canary's
+   data set and its first two layers. The harness trains a network whole today. It has
+   no way to train FC3 alone over two layers it is given, and which of the two the
+   canary wants is part of fixing those layers.
+
+5. **The freeze is on 2026-11-25.** The canary's workload and Gate F's thresholds are
+   frozen by then, and Gridworkz owns it.
+
+**What follows, in order.** The canary's data set and its first two layers are fixed.
+FC3 is trained. The frozen classifier is run through the model, and the band is proposed
+from that run and ruled. All of it is before 2026-11-25, and none of it has a date of
+its own yet.
 
 | Document | Where | Edit |
 |---|---|---|
-| Task list | E-005 | Name Gridworkz as the owner of the freeze. The reply would have PTA technical and verification sign-off beside it. The date is still to be set |
-| Demo | §4, Gate F | The normaliser and the single shot as the reply has them, once they are ruled |
+| Demo | §4, Gate F | The normaliser and the single shot of item 1. A band in place of the 1.0%, its figures to follow the frozen classifier's run |
+| Demo | §2, FC3's row | Trained by grx930's harness, for the tile |
+| Task list | E-005 | Gridworkz as the freeze's owner, and 2026-11-25 as its date. The reply would have PTA technical and verification sign-off beside the owner |
 
-**What this is not.** A ruling on Gate F: the reply recommends, and only the owner is
-decided. A change to grxgpu: E-005 and the demo draft are yours, and are not patched
-here.
+| What GRXCP and grx930 owe for it | Whose | State |
+|---|---|---|
+| FC3 trained for the canary | grx930's harness, GRXCP | Waits on the canary's data set and its first two layers |
+| The frozen classifier through the model, and a band proposed from it | grx930's harness, GRXCP | Waits on FC3 |
+| A run with the gain fitted against the declared reference and taken out | grx930's harness, GRXCP | Next. Item 3 waits on it |
+| Repeat-to-repeat variation, reported apart | GRXCP | Owed. The model's draws have it and no table does |
+
+**What this is not.** A threshold: no figure for the band exists. A ruling on the output
+scale. A ruling on the 2.0% for the largest error or on the 99.5% for the class: §10.3's
+proposals for those two stand as proposals. A change to grxgpu: the demo draft and E-005
+are yours, and are not patched here.
