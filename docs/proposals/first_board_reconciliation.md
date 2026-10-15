@@ -22,6 +22,8 @@ the owner ruled them from the canary's model run.
 *And a twelfth:* §10.16 is new: the canary's freeze package, and the review the owner
 has asked of you.
 *And a thirteenth:* §10.17 is new: the canary frozen, after your review.
+*And a fourteenth:* §10.18 is new: the PTA module's link, CXL, as the owner ruled §6's
+fifth question.
 *A one-page cover for §10 is in [first_board_pta_note.md](first_board_pta_note.md).*
 **Decision behind it:** on 2026-10-11 the program chose the charter's modular layout
 for the first development board. GRXCP's in-package arrangement stays as the later
@@ -389,7 +391,8 @@ On a stand-in, Gates L and E are not evaluable for the PTA at all (§3.5).
 4. **FC3's weights** (§5.2). Who trains them, and whether they are trained for the
    tile. *Ruled on 2026-10-13: grx930's harness, for the tile (§10.10).*
 5. **The PTA module's link** (§3.4). Which bus it is from the GRX930 host. That is
-   yours and the board lead's to choose, and we need it to write the transport.
+   yours and the board lead's to choose, and we need it to write the transport. *Ruled
+   on 2026-10-15: CXL 2.0, the PTA module a Type-1 device (§10.18).*
 
 ---
 
@@ -400,8 +403,8 @@ Ours to do, and listed here so that it is on record and not assumed.
 | What | Whose | State |
 |---|---|---|
 | The decision recorded in GRXCP's board plan, as B18: the first board is the charter's, and B1, B3, B4, B6, B7 and B9 are the later board's | GRXCP | Recorded alongside this proposal |
-| A first-board section in the interface control document | GRXCP | Waits on §6, question 5 |
-| A transport for the driver's three hooks from the GRX930 host, and the PTA's parent device on a host-attached module | GRXCP, grx930 | Waits on §6, question 5 |
+| A first-board section in the interface control document | GRXCP | Unblocked: §6, question 5 ruled on 2026-10-15 (§10.18) |
+| A transport for the driver's three hooks from the GRX930 host, and the PTA's parent device on a host-attached module | GRXCP, grx930 | Unblocked: CXL.io and CXL.cache (§10.18) |
 | The demo's classifier run through the error model at version 2 | grx930's harness, GRXCP | Waits on §6, question 4. *A stand-in for it was run on 2026-10-13: §10. Question 4 was ruled the same day (§10.10), and it now waits on the canary's data set and its first two layers* |
 | A stand-in at 128 × 64, in RTL | Unowned | Waits on §6, question 1 |
 
@@ -1502,3 +1505,45 @@ the change record and the owner's approval, as your plan's §7 asks.
 stand. Your manifest draft can point to GRXCP's frozen manifest by its canonical digest.
 
 **What this is not.** Qualification, or device evidence of any kind.
+
+### 10.18 The PTA module's link: CXL (added 2026-10-15)
+
+§6's fifth question asked which bus reaches the PTA module from the GRX930 host on the
+first board, and said we needed the answer to write the transport. Gridworkz ruled on
+2026-10-15:
+
+| | Ruled |
+|---|---|
+| The PTA module's link on the first board | CXL, between the GRX930 host and the PTA module. Rev A is unchanged: there the PTA is reached through the G100 over UCIe (GRXCP's B3, B4, B7, B9) |
+| What the PTA presents | A CXL Type-1 device: CXL.io for its configuration space, its enumeration and its register block (the map of GRXCP's B7, reached from the host), and CXL.cache to read its operands from host memory and write its results, coherently. No CXL.mem: the PTA has no memory to expose (GRXCP's B9) |
+| The generation | CXL 2.0 on the PCIe 5.0 PHY, as GRXCP's B3 has it for rev A |
+
+GRXCP had recommended CXL.io alone for the first board, as the least host logic for
+bring-up; the owner chose Type 1, so that the PTA reads its operands from host memory
+coherently.
+
+**What it unblocks.** The two items of §7 that waited on this question. The interface
+document gains a first-board section, and the driver's three hooks get their transport
+from the GRX930 host: the registers over CXL.io, and the operands in host memory, which
+the PTA reaches over CXL.cache. Enumeration is CXL's own. A stand-in, if §6's first
+question is ruled yes, is an FPGA module with CXL device IP, which is the side most FPGA
+CXL IP serves.
+
+**What it costs.** The GRX930 has to be a CXL 2.0 host on the first board. That means a
+root port, the home agent, and an L2 that answers the PTA's snoops, which GRXCP's B3 had
+listed for rev A. It needs a part with PCIe 5.0-class transceivers, and its root port
+may be new RTL. A x16 link carries 64 GB/s a direction before protocol overhead. The
+canary's FC3 at the tile's working rate, one vector a shot at 1 GS/s, takes 64 GB/s of
+one-byte activation codes in and 16 GB/s out. So the link holds the first board's PTA to
+about its working rate, and no faster.
+
+**What it asks of your drafts.**
+
+| Document | Where | Edit |
+|---|---|---|
+| Charter | §3, "PTA connection" | CXL 2.0 from the GRX930 host; the PTA module a Type-1 device, CXL.io and CXL.cache |
+| Charter | §4, "Device discovery" | The PTA is enumerated as a CXL device; whether its register map is the rest of its discovery contract is §6's second question, still open |
+
+**What this is not.** A ruling on the stand-in (§6, question 1) or on the register map
+(§6, question 2), both still open. The G100's link on the first board, which the charter
+chooses by measurement. A change to rev A. It is recorded in GRXCP's board plan as B24.
