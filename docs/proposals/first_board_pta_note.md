@@ -77,6 +77,9 @@ These are the revisions, both on `main`:
    *And on 2026-10-15 the canary was frozen (§10.17), after your review, as manifest
    revision 1.0.*
 
+   *And on 2026-10-15 the PTA module's link was ruled (§10.18): CXL 2.0 from the GRX930
+   host, the PTA a Type-1 device.*
+
 2. **Two readings of Gate F that are yours to fix.** What "normalized" divides by: the
    reference's rms or its full scale. Our figure is over 5% one way and under 2% the
    other. And whether a vector is one shot or an average: part of the PTA's error is
