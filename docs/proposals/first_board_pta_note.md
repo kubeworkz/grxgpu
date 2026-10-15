@@ -55,6 +55,11 @@ These are the revisions, both on `main`:
    is the first 1,000 test images, in file order. §10.12 has their digests, and the
    values for your manifest's fields.*
 
+   *And the same day the canary was trained and run through the model (§10.13). Seed 1's
+   network is the canary. Lit and fitted, it is 5.09% of the reference's rms off on the
+   first 1,000 vectors, and its class is the declared reference's on 99.42% of them. At
+   the gate it behaves as the stand-in did.*
+
 2. **Two readings of Gate F that are yours to fix.** What "normalized" divides by: the
    reference's rms or its full scale. Our figure is over 5% one way and under 2% the
    other. And whether a vector is one shot or an average: part of the PTA's error is

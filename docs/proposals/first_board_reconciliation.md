@@ -14,6 +14,7 @@ owner, and what the owner ruled. Two of §6's five rulings are made by it.
 what GRXCP recommends for the ruling §10.10 left open.
 *And an eighth, the same day:* §10.12 is new: the canary's data set and its first two
 layers, as the owner ruled them.
+*And a ninth:* §10.13 is new: the canary trained, and run through the model.
 *A one-page cover for §10 is in [first_board_pta_note.md](first_board_pta_note.md).*
 **Decision behind it:** on 2026-10-11 the program chose the charter's modular layout
 for the first development board. GRXCP's in-package arrangement stays as the later
@@ -1008,7 +1009,7 @@ its own yet.
 
 | What GRXCP and grx930 owe for it | Whose | State |
 |---|---|---|
-| FC3 trained for the canary | grx930's harness, GRXCP | Its data set and first two layers fixed on 2026-10-14 (§10.12). Waits on two harness changes |
+| FC3 trained for the canary | grx930's harness, GRXCP | Trained on 2026-10-14, with FC1 and FC2 (§10.13). The golden tensors are next |
 | The frozen classifier through the model, and a band proposed from it | grx930's harness, GRXCP | Waits on FC3 |
 | A run with the gain fitted against the declared reference and taken out | grx930's harness, GRXCP | Run on 2026-10-14 (§10.11). Item 3 waits on the owner |
 | Repeat-to-repeat variation, reported apart | GRXCP | Owed. The model's draws have it and no table does |
@@ -1164,3 +1165,54 @@ golden generation, and GRXCP will bring it with a recommendation. The output sca
 **What this is not.** A frozen canary: no network is trained, and no golden tensor
 exists. A change to your drafts: the manifest's fields are proposed here, for you to
 copy. Device evidence of any kind.
+
+### 10.13 The canary, trained and run through the model (added 2026-10-14)
+
+§10.12 fixed the canary's data set and its first two layers. grx930's harness has now
+trained it (kubeworkz/grx930#73). FC1 and FC2 are the host's, at eight bits, with no
+tile noise as they train. FC3 is at six bits, trained with noise of a tenth of its sums'
+rms. All three train in one run from the same seed's 8-bit network. Five networks were
+trained, seeds 1 to 5, and seed 1's is the canary: the owner ruled that before any was
+trained, so it was not chosen on its results. Each was run through the model as §10.11
+ran the stand-in: 250 runs, in a model.
+
+| MNIST, the first 1,000 vectors | The canary, seed 1 | Its five networks | The stand-in's five (§10) |
+|---|---|---|---|
+| rms error, % of the reference's rms: the tile of §10.1, no light source | 4.61 | 4.53 | 4.52 |
+| with §10.7's light source and the range fitted | 5.09 | 5.34 | 5.22 |
+| the same, its outputs times one scale (§10.11) | 4.64 | 5.05 | 4.87 |
+| rms error, % of the largest reference value, lit and fitted | 1.95 | 2.03 | 1.99 |
+| Largest error, % of the largest reference value, lit and fitted | 9.33 | 10.48 | 10.43 |
+| Class agreement with the declared reference, %: no light source | 99.74 | 99.56 | 99.49 |
+| lit and fitted | 99.42 | 99.39 | 99.33 |
+
+1. **At the gate the canary is the stand-in.** Network for network, the canary recipe's
+   five networks less the stand-in's of the same seeds differ by +0.007 ± 0.016 of the
+   reference's rms on the first 1,000 vectors with no light source, and +0.117 ± 0.048
+   lit and fitted. No difference of rms or of the largest error is clear in any row. So
+   §10's figures on MNIST stand for the canary's.
+
+2. **The canary itself is 5.09% of the reference's rms off, lit and fitted, on the first
+   1,000 vectors.** That is with §10.7's light source, the board's own case. Its class
+   is the declared reference's on 99.42% of them, and on 99.74% with no light source.
+
+3. **What the recipe gives up is a tenth of a point.** On the host the five are 96.76 to
+   97.16% right on MNIST's test images, where the stand-in's were 96.87 to 97.40. On the
+   first 1,000 vectors no difference of accuracy or class agreement is clear.
+
+4. **It does not bring the PTA within 1.0%.** No run with the tile's errors in it is
+   within 1.0% of the reference's rms, and none is within 2.0% on the largest error. The
+   band that replaces the 1.0% is set from the frozen canary's run.
+
+**What follows.** The canary's golden tensors: its weights and inputs as int8 and
+six-bit bytes, the references of each stage, and their digests, as your
+golden-generation plan lays out. Before that, one thing to settle: whether FC3's
+declared reference is the exact sum before the 8-bit converter, as every figure here has
+it, or the converter's codes (§10.12). And the output scale of §10.11 is still the
+owner's to rule.
+
+**What this is not.** A frozen canary: no golden tensor exists. The NPU's and the G100's
+output: FC1 and FC2 run on the host here, exactly, at eight bits, which is §10.12's
+contract for them. Device evidence of any kind. It is held in grx930's design note §5,
+"The first board's canary", and in GRXCP's `docs/designs/pta_board_canary.py`, which
+reproduces the harness's tables and checks every figure here.
