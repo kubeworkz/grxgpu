@@ -17,6 +17,8 @@ layers, as the owner ruled them.
 *And a ninth:* §10.13 is new: the canary trained, and run through the model.
 *And a tenth:* §10.14 is new: the canary's golden tensors, and the owner's rulings on
 FC3's declared reference and the output scale.
+*And an eleventh, 2026-10-15:* §10.15 is new: Gate F's band, its class and its tail, as
+the owner ruled them from the canary's model run.
 *A one-page cover for §10 is in [first_board_pta_note.md](first_board_pta_note.md).*
 **Decision behind it:** on 2026-10-11 the program chose the charter's modular layout
 for the first development board. GRXCP's in-package arrangement stays as the later
@@ -1012,9 +1014,9 @@ its own yet.
 | What GRXCP and grx930 owe for it | Whose | State |
 |---|---|---|
 | FC3 trained for the canary | grx930's harness, GRXCP | Trained on 2026-10-14, with FC1 and FC2 (§10.13). Its golden tensors were written the same day (§10.14) |
-| The frozen classifier through the model, and a band proposed from it | grx930's harness, GRXCP | Next: the canary against its golden tensors (§10.14) |
+| The frozen classifier through the model, and a band proposed from it | grx930's harness, GRXCP | Run on 2026-10-15, and the band ruled (§10.15) |
 | A run with the gain fitted against the declared reference and taken out | grx930's harness, GRXCP | Run on 2026-10-14 (§10.11). Item 3 was ruled the same day: one scale (§10.14) |
-| Repeat-to-repeat variation, reported apart | GRXCP | Owed. The model's draws have it and no table does |
+| Repeat-to-repeat variation, reported apart | GRXCP | Reported on 2026-10-15 (§10.15): 0.043 points on one source |
 
 **What this is not.** A threshold: no figure for the band exists. A ruling on the output
 scale. A ruling on the 2.0% for the largest error or on the 99.5% for the class: §10.3's
@@ -1300,3 +1302,71 @@ against these codes, from which GRXCP proposes the band.
 **What this is not.** A frozen canary. A band, or any PTA run against these codes.
 Device evidence of any kind. It is held in grx930's design note §5, "The first board's
 canary, its golden tensors", and in GRXCP's board plan (B21).
+
+### 10.15 Gate F's band, its class and its tail (added 2026-10-15)
+
+§10.10 left the band for after the frozen classifier had been through the model, and
+left the 99.5% and the 2.0% as proposals. The canary has now been through it, against
+the converter's codes of its golden tensors (§10.14). The owner ruled all three on
+2026-10-15, as GRXCP recommended:
+
+1. **Gate F's band is 2.5% to 7.3%** on the per-run rms error over the reference's rms,
+   with the output scale; both edges are inside it. It replaces the 1.0%.
+
+2. **The class: at least 98.5%** of the 1,000 vectors give the reference's class, from
+   the scaled outputs with their biases. It replaces the 99.5%, which a board at its
+   budget would fail on most runs.
+
+3. **The tail: at most 16 of a run's 16,000 outputs 17 or more codes off**, with the
+   scale. It replaces the 2.0% on the largest error, which a noisy engine cannot meet.
+
+4. **A band set per board is an open question.** It is taken up once a board exists and
+   its source has been measured, under the manifest's change control.
+
+**Where they come from.** grx930's harness ran the canary (kubeworkz/grx930#76) 1,000
+times a row: its budget with no source and lit, lit at 0.4 to 1.4 times every row of the
+budget, and lit on ten sources a hundred times each. GRXCP wrote the rule down before
+the run. The upper edge is the worst draw lit at the budget, rounded up to a tenth of a
+point, and the lower edge the best draw at 0.6 of the budget, rounded down. The class is
+the worst lit draw at the budget, and the tail the fewest codes at which that row's
+worst draw has at most 16 outputs off. In a model:
+
+| The canary, 1,000 draws a row, with the scale | rms error, % of the reference's rms: mean | sd | least | most | Passes all three, % |
+|---|---|---|---|---|---|
+| as budgeted | 3.32 | 0.02 | 3.26 | 3.38 | 100.0 |
+| as budgeted, lit | 5.18 | 0.53 | 4.04 | 7.21 | 100.0 |
+| lit, 0.4 of the budget | 2.22 | 0.16 | 1.91 | 2.88 | 5.2 |
+| lit, 0.6 of the budget | 3.12 | 0.27 | 2.57 | 4.26 | 100.0 |
+| lit, 0.8 of the budget | 4.10 | 0.40 | 3.26 | 5.69 | 100.0 |
+| lit, 1.2 of the budget | 6.28 | 0.68 | 4.79 | 8.79 | 91.6 |
+| lit, 1.4 of the budget | 7.42 | 0.83 | 5.53 | 10.41 | 44.3 |
+
+**What a board should expect.** A board whose PTA meets its budget passed on every draw
+the model made. A reading under 2.5% is more likely a wrong measurement than so good a
+tile: at 0.4 of the budget only 5.2% of draws pass. But a tile 20% over its budget still
+passes on 91.6% of draws. Most of the spread is which state of B16's source a board has,
+and the band has to cover them all. So the gate catches gross faults and wrong
+measurements, not a fine shortfall. That is why a band set per board is left open.
+
+**Repeat to repeat, reported apart**, as §10.10 ruled. On one source the figure moves
+0.043 points from repeat to repeat; ten sources' means are 0.497 points apart.
+
+**What it asks of your drafts:**
+
+| Document | Where | Edit |
+|---|---|---|
+| Demo | §4, Gate F | The 1.0% replaced by a band of 2.5% to 7.3% on the per-run rms error over the reference's rms, with the output scale fixed at calibration |
+| Demo | §4, Gate F | The 99.5% replaced by 98.5%: the class of the scaled outputs, with their biases, against the reference's class |
+| Demo | §4, Gate F | The 2.0% on the largest error replaced by the tail: at most 16 of a run's 16,000 outputs 17 or more codes off, with the scale |
+| Demo | §4, Gate F | A source the calibration refuses, a line all but dark, is a calibration fault and not a Gate F result |
+| Manifest | `gate_f` | Filled: GRXCP's `docs/designs/canary/manifest.json`, revision 0.2-candidate, carries the three and names the runs |
+
+The manifest's canonical SHA-256 at revision 0.2-candidate is
+`238177b0d4cf1e101b973e4cf8d503d792e520018a2b81f0eef17857a94680cf`. No artifact changed
+from 0.1-candidate; the change record says so.
+
+**What this is not.** A board's measurement, or device evidence of any kind. A band for
+another network, or for a source other than B16's. The freeze's approval, which is still
+2026-11-25. It is held in grx930's design note §5, "The first board's canary, its band",
+and in GRXCP's board plan (B22, and §8, question 11), where
+`docs/designs/pta_board_band.py` works every figure out again from the runs.
