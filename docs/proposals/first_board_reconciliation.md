@@ -15,6 +15,8 @@ what GRXCP recommends for the ruling §10.10 left open.
 *And an eighth, the same day:* §10.12 is new: the canary's data set and its first two
 layers, as the owner ruled them.
 *And a ninth:* §10.13 is new: the canary trained, and run through the model.
+*And a tenth:* §10.14 is new: the canary's golden tensors, and the owner's rulings on
+FC3's declared reference and the output scale.
 *A one-page cover for §10 is in [first_board_pta_note.md](first_board_pta_note.md).*
 **Decision behind it:** on 2026-10-11 the program chose the charter's modular layout
 for the first development board. GRXCP's in-package arrangement stays as the later
@@ -1009,9 +1011,9 @@ its own yet.
 
 | What GRXCP and grx930 owe for it | Whose | State |
 |---|---|---|
-| FC3 trained for the canary | grx930's harness, GRXCP | Trained on 2026-10-14, with FC1 and FC2 (§10.13). The golden tensors are next |
-| The frozen classifier through the model, and a band proposed from it | grx930's harness, GRXCP | Waits on FC3 |
-| A run with the gain fitted against the declared reference and taken out | grx930's harness, GRXCP | Run on 2026-10-14 (§10.11). Item 3 waits on the owner |
+| FC3 trained for the canary | grx930's harness, GRXCP | Trained on 2026-10-14, with FC1 and FC2 (§10.13). Its golden tensors were written the same day (§10.14) |
+| The frozen classifier through the model, and a band proposed from it | grx930's harness, GRXCP | Next: the canary against its golden tensors (§10.14) |
+| A run with the gain fitted against the declared reference and taken out | grx930's harness, GRXCP | Run on 2026-10-14 (§10.11). Item 3 was ruled the same day: one scale (§10.14) |
 | Repeat-to-repeat variation, reported apart | GRXCP | Owed. The model's draws have it and no table does |
 
 **What this is not.** A threshold: no figure for the band exists. A ruling on the output
@@ -1216,3 +1218,85 @@ output: FC1 and FC2 run on the host here, exactly, at eight bits, which is §10.
 contract for them. Device evidence of any kind. It is held in grx930's design note §5,
 "The first board's canary", and in GRXCP's `docs/designs/pta_board_canary.py`, which
 reproduces the harness's tables and checks every figure here.
+
+### 10.14 The canary's golden tensors (added 2026-10-14)
+
+§10.12 left FC3's declared reference open, and §10.11 the output scale. The owner ruled
+both on 2026-10-14, as GRXCP recommended, before any golden tensor was written:
+
+1. **FC3's declared reference is the 8-bit converter's codes**: FC3's exact sum, rounded
+   half up at the layer's step and held to −128 … 127. That is your manifest draft's
+   "exact integer accumulator/ADC behavior". A PTA with the format alone is then its
+   reference exactly. §10's figures read the sum before the converter, so they are not
+   figures against this reference.
+
+2. **One output scale for FC3 may be applied**: a single number for all sixteen outputs,
+   fixed once at calibration on the first 1,000 of the 6,000 held-out training images
+   and never on the 1,000 acceptance vectors. Gate F is reported with it and without it,
+   and the band is set on the figure with it. That settles §10.10's third item.
+
+3. **The golden bundle is kept in GRXCP's repository**, `docs/designs/canary/`.
+
+grx930's harness has written the canary's golden tensors (kubeworkz/grx930#74), stage by
+stage as your golden-generation plan's §4 lays them out:
+
+| The plan's name | File | Shape and type | What it is | SHA-256 |
+|---|---|---|---|---|
+| `ordered_inputs_int8` | `inputs_int8.bin` | [1000, 64] int8, 0 to 127 | The acceptance vectors, as FC1 takes them | `d968e50d76c4c3bf…` |
+| `fc1_relu_int8` | `fc1_relu_int8.bin` | [1000, 64] int8, 0 to 127 | FC1's output: bias, ReLU, rescale | `783a3c1fda87b90d…` |
+| `fc2_relu_declared_format` | `fc2_relu_int8.bin` | [1000, 64] int8, 0 to 127 | FC2's output, the same way | `b6011ac171d74f06…` |
+| `pta_activation_inputs_6bit` | `fc3_act_codes_u8.bin` | [1000, 64] uint8, 0 to 31 | FC3's activation codes, min((x + 2) >> 2, 31) | `97ac9af24a121a58…` |
+| `fc3_exact_sums` | `fc3_sums_int32.bin` | [1000, 16] int32 | FC3's exact sums, in its codes' units | `96ea597da2f06fb8…` |
+| `fc3_declared_format_reference` | `fc3_codes_int8.bin` | [1000, 16] int8 | The 8-bit converter's codes: Gate F's reference | `b86134167b678210…` |
+| `declared_reference_class_ids` | `class_ids_u8.bin` | [1000] uint8 | The largest of code × 512 + bias, the first on a tie | `657f175602ed7a0c…` |
+| `high_precision_logits` | `highprec_logits_f64.bin` | [1000, 16] float64 | The trained network in double precision | `1e4370308cd0e9c2…` |
+| `calibration_fc3_reference` | `cal_fc3_codes_int8.bin` | [1000, 16] int8 | The same codes on the calibration set, for the scale | `e2c6c346d4978d79…` |
+
+Beside them are the three layers' integer weights and biases; the pixels, labels and
+ordered ids of both sets; and the canary's network file with the 8-bit network it was
+trained from. That makes 23 artifacts of 730,780 bytes. Each has its length and SHA-256
+in a candidate manifest written to your template's fields, and in a `SHA256SUMS`. The
+manifest's canonical SHA-256 is
+`b5dd1bebaee44eea1f766f83b76f23352187e580153c7d564bec52a41b5c9e63`. That digest is of
+the keys sorted with no whitespace; with only integers and ASCII in the manifest, that
+is RFC 8785's form.
+
+**How it was checked**, against your plan's §5:
+
+- Corpus: the acceptance inputs, labels and ids are §10.12's digests. The calibration
+  set's inputs and labels were worked out apart from the harness, from MNIST's own
+  files.
+
+- Arithmetic: GRXCP's checker, `docs/designs/pta_board_canary_golden.py`, is written
+  apart from the harness. It holds its own arithmetic to cases worked by hand at every
+  rounding, saturation and tie boundary. Then it works out every integer tensor again
+  for all 2,000 vectors, byte for byte, and the double-precision logits from the
+  network's file, to the last bit.
+
+- Replay: the tile with its format alone gives every code; 0 of 32,000 differ. No code
+  is held at the converter's range.
+
+- Determinism: written twice, the same byte for byte; and written again after a change
+  to the harness's self-test, the same.
+
+- Planted errors: 21 in the harness's new code, 23 in the checker, and a byte changed in
+  each of the bundle's 25 files, the manifest and `SHA256SUMS` among them. All are
+  caught.
+
+**What it says of the canary.** FC3's codes on the acceptance vectors run from −96 to
+67, none near the converter's range. With the declared format the canary is right on
+96.60% of them, the trained network in double precision on 96.80%, and the two give the
+same class on 99.20%. No vector of either thousand has a tie for the largest output, so
+the tie rule is held by cases built for it.
+
+**What your plan asks that this does not have yet.** The freeze's approval: the manifest
+is revision 0.1-candidate, `freeze_approval` is pending, and the band, the tail rule and
+the class threshold are null. A pinned environment: the manifest records the compiler,
+the C library and the harness's source digests, but no lockfile. Validation reports
+inside the bundle: they are GRXCP's checker and its output. FC1 and FC2 run by the NPU
+and the G100 against their stage references. And the model run of the frozen canary
+against these codes, from which GRXCP proposes the band.
+
+**What this is not.** A frozen canary. A band, or any PTA run against these codes.
+Device evidence of any kind. It is held in grx930's design note §5, "The first board's
+canary, its golden tensors", and in GRXCP's board plan (B21).

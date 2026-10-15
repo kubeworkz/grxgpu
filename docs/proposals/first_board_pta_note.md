@@ -60,6 +60,11 @@ These are the revisions, both on `main`:
    first 1,000 vectors, and its class is the declared reference's on 99.42% of them. At
    the gate it behaves as the stand-in did.*
 
+   *And the same day its golden tensors were written (§10.14). The owner ruled that
+   FC3's declared reference is the converter's codes, and allowed one output scale fixed
+   at calibration. The tensors and a candidate manifest are in GRXCP's
+   `docs/designs/canary/`.*
+
 2. **Two readings of Gate F that are yours to fix.** What "normalized" divides by: the
    reference's rms or its full scale. Our figure is over 5% one way and under 2% the
    other. And whether a vector is one shot or an average: part of the PTA's error is
