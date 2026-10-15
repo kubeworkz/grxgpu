@@ -74,6 +74,9 @@ These are the revisions, both on `main`:
    you the independent reviewer, and the review and the approval are all the freeze
    still needs.*
 
+   *And on 2026-10-15 the canary was frozen (§10.17), after your review, as manifest
+   revision 1.0.*
+
 2. **Two readings of Gate F that are yours to fix.** What "normalized" divides by: the
    reference's rms or its full scale. Our figure is over 5% one way and under 2% the
    other. And whether a vector is one shot or an average: part of the PTA's error is

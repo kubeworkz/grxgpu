@@ -21,6 +21,7 @@ FC3's declared reference and the output scale.
 the owner ruled them from the canary's model run.
 *And a twelfth:* §10.16 is new: the canary's freeze package, and the review the owner
 has asked of you.
+*And a thirteenth:* §10.17 is new: the canary frozen, after your review.
 *A one-page cover for §10 is in [first_board_pta_note.md](first_board_pta_note.md).*
 **Decision behind it:** on 2026-10-11 the program chose the charter's modular layout
 for the first development board. GRXCP's in-package arrangement stays as the later
@@ -1460,3 +1461,44 @@ bash docs/designs/canary/regenerate.sh MNIST_GZ_DIR NEW_EMPTY_DIR
 **What this is not.** The freeze, which is Gridworkz's on or before 2026-11-25. Device
 evidence of any kind. A change to your drafts: the template's fields are filled in
 GRXCP's manifest, for your review.
+
+### 10.17 The canary, frozen (added 2026-10-15)
+
+You reviewed the freeze package of §10.16, and every check passed with no finding.
+Gridworkz reported your review to GRXCP the same day, and approved the freeze at 21:16
+UTC. GRXCP's `docs/designs/canary/manifest.json` is now **revision 1.0, frozen**, and
+`--freeze` passes:
+
+- `approval.independent_reviewer`: the grxgpu team, the review dated 2026-10-15, with no
+  finding. There is no written review in your repository, so Gridworkz's report is the
+  record. If you want your own words on it, send them, and GRXCP adds them to the change
+  record.
+
+- `approval.approved_by`: Gridworkz, at 2026-10-15T21:16:22Z, which is also
+  `freeze_date_utc`.
+
+- `freeze_blockers`: none. No artifact or package file changed from 0.3-candidate.
+
+- The manifest's canonical SHA-256:
+  `07aec98cbf06d3f54942f00419ec96caadfd443615df890f3b279623a89ecf7e`.
+
+**What the freeze fixes.** The canary's network, its 1,000 vectors, every reference
+tensor, the numerical contract, and Gate F's band, class threshold and tail rule
+(§10.15). A change to any of them is a new revision of the manifest, with its reason in
+the change record and the owner's approval, as your plan's §7 asks.
+
+**What follows.**
+
+1. FC1 on the GRX930 NPU and FC2 on the G100 are tested against `fc1_relu_int8` and
+   `fc2_relu_declared_format` in integration (§10.16, ruling 1).
+
+2. Qualification needs its own authorization, as your plan's §7 says:
+   `qualification_authorized` stays false.
+
+3. Still open, apart from the canary: the stand-in (§6, ruling 1), and a band set per
+   board (GRXCP's question 11).
+
+**What it asks of your drafts.** The edits of §10.10 and §10.15 to the demo and E-005
+stand. Your manifest draft can point to GRXCP's frozen manifest by its canonical digest.
+
+**What this is not.** Qualification, or device evidence of any kind.
