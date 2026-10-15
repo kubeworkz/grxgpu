@@ -80,6 +80,9 @@ These are the revisions, both on `main`:
    *And on 2026-10-15 the PTA module's link was ruled (§10.18): CXL 2.0 from the GRX930
    host, the PTA a Type-1 device.*
 
+   *And on 2026-10-15 the first board's interfaces and the PTA's transport were written
+   (§10.19), keeping your host path's descriptor field for field.*
+
 2. **Two readings of Gate F that are yours to fix.** What "normalized" divides by: the
    reference's rms or its full scale. Our figure is over 5% one way and under 2% the
    other. And whether a vector is one shot or an average: part of the PTA's error is
