@@ -10,6 +10,8 @@ documents (§8) and for five rulings (§6), and for nothing to be built. *Amende
 *And a fifth:* §10.8 is new, and says what the PTA's error at that layer is made of.
 *And a sixth:* §10.9 and §10.10 are new: the reply to the note, the freeze's named
 owner, and what the owner ruled. Two of §6's five rulings are made by it.
+*And a seventh, 2026-10-14:* §10.11 is new: what one output scale buys at Gate F, and
+what GRXCP recommends for the ruling §10.10 left open.
 *A one-page cover for §10 is in [first_board_pta_note.md](first_board_pta_note.md).*
 **Decision behind it:** on 2026-10-11 the program chose the charter's modular layout
 for the first development board. GRXCP's in-package arrangement stays as the later
@@ -1006,10 +1008,78 @@ its own yet.
 |---|---|---|
 | FC3 trained for the canary | grx930's harness, GRXCP | Waits on the canary's data set and its first two layers |
 | The frozen classifier through the model, and a band proposed from it | grx930's harness, GRXCP | Waits on FC3 |
-| A run with the gain fitted against the declared reference and taken out | grx930's harness, GRXCP | Next. Item 3 waits on it |
+| A run with the gain fitted against the declared reference and taken out | grx930's harness, GRXCP | Run on 2026-10-14 (§10.11). Item 3 waits on the owner |
 | Repeat-to-repeat variation, reported apart | GRXCP | Owed. The model's draws have it and no table does |
 
 **What this is not.** A threshold: no figure for the band exists. A ruling on the output
 scale. A ruling on the 2.0% for the largest error or on the 99.5% for the class: §10.3's
 proposals for those two stand as proposals. A change to grxgpu: the demo draft and E-005
 are yours, and are not patched here.
+
+### 10.11 What one output scale buys at Gate F (added 2026-10-14)
+
+§10.10's third item waits on a run that fits the gain against the declared reference and
+takes it out. This is that run (kubeworkz/grx930#72), on the same stand-in, in a model.
+grx930's harness now gives FC3's outputs one scale, fixed at calibration: the
+least-squares slope of the declared reference on the PTA's outputs, with no offset, over
+1,000 vectors the network was not trained on and Gate F is not judged on, run through
+the same tile after the gate's. The gate's figures are then taken again with the outputs
+times that scale. It is applied on the host's side, exactly.
+
+| The reference networks, the first 1,000 vectors: MNIST, Fashion-MNIST, inverted | rms error, % of the reference's rms | rms error, % of the largest reference value | Largest error, a mean over the runs, % of the largest reference value | Class agreement with the declared reference, % |
+|---|---|---|---|---|
+| The tile of §10.1, no light source: raw outputs | 4.52, 4.67, 4.24 | 1.72, 1.42, 1.54 | 7.69, 7.53, 7.16 | 99.49, 96.85, 99.10 |
+| its outputs times one scale | 3.18, 3.46, 3.21 | 1.21, 1.05, 1.17 | 5.69, 6.15, 5.33 | 99.49, 96.85, 99.10 |
+| With §10.7's light source and the range fitted: raw outputs | 5.22, 5.48, 5.31 | 1.99, 1.67, 1.93 | 10.43, 9.49, 11.31 | 99.33, 96.17, 98.66 |
+| its outputs times one scale | 4.87, 5.30, 5.19 | 1.86, 1.61, 1.89 | 10.89, 8.96, 11.04 | 99.33, 96.17, 98.66 |
+
+1. **With no light source it takes off about half the squared error, and with one an
+   eighth at the most.** The scale is 0.969, 0.970 and 0.973 with no light source: the
+   crosstalk's gain, which the scale is the inverse of to within a hundredth. It takes
+   the tile from 4.46, 4.67 and 4.18 to 3.13, 3.46 and 3.14% of the reference's rms on
+   10,000 vectors, 0.43 to 0.51 of the squared error. With §10.7's source it is 0.984,
+   1.000 and 1.003, because the source had already taken gain off (§10.8), and it takes
+   the tile from 5.18, 5.34 and 5.27 to 4.84, 5.16 and 5.15%, 0.05 to 0.13 of the
+   squared error.
+
+2. **It is the tile's, not the vectors'.** Fixed on 1,000 other vectors, the scale is
+   within 0.0016 of the one the test vectors would fit themselves in every run with no
+   light source, and 0.0041 with one. It cannot be tuned to the gate's vectors, and
+   there is nothing to be had from trying.
+
+3. **It moves no class.** One scale on every output changes which is the largest only
+   through the biases. The class agreement is the same with it and without, to 0.004 of
+   a point, and with no light source in every run.
+
+4. **It does not bring the PTA within 1.0%.** No run of the 150 is within 1.0% of the
+   reference's rms with it, with the source or without. Its largest error is 10.9, 9.0
+   and 11.0% of the largest reference value with the source, where §10.3 proposes a
+   bound written for an engine with noise. The band §10.10 puts in place of the 1.0% is
+   set on figures of this size whatever is ruled here.
+
+**What GRXCP recommends for §10.10's third item.** The ruling is the owner's. We would
+rule:
+
+- **The declared reference may carry one output scale for FC3**, a single number for all
+  its outputs, fixed once at calibration and applied to the PTA's outputs on the host's
+  side before Gate F compares them.
+
+- **It is fixed on a calibration set of its own**, declared and frozen with the workload
+  on 2026-11-25, and never on the gate's 1,000 vectors.
+
+- **Gate F reports its rms and largest error both with the scale and without it**, and
+  the band that replaces the 1.0% is set on the figure with it.
+
+Why. A gain common to every output is what a calibration is for, and it does not move a
+class. Fixed on other vectors it is a property of the tile and not of the vectors, so it
+cannot flatter the gate. With the source on it buys 0.34, 0.18 and 0.13 of a point, so
+it does not decide whether the board passes; it keeps a gain a calibration removes from
+being counted against the PTA. Reporting both keeps the raw figure in view.
+
+**What this is not.** A ruling: the third item of §10.10 is still the owner's. A scale
+written into a chip: the model applies it exactly, and writing it into the weights or
+the converter's codes rounds, which is not modelled. A scale an output, or with an
+offset. A drifted tile. A classifier of yours: every figure is the stand-in's,
+everything §10.4 says. Of ten predictions written before these runs, seven held. It is
+held in grx930's design note §5, "The first board's last layer, with one scale on its
+outputs", and in GRXCP's `docs/designs/pta_board_scale.py`.
