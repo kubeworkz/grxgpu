@@ -16,32 +16,33 @@ MNIST, Fashion-MNIST and inverted MNIST:
 | Gate F, as the demo draft proposes it | Proposed bound | The model |
 |---|---|---|
 | Normalized rms error of FC3's raw outputs | 1.0% | 5.22 to 5.48% of the reference's rms, which is 1.67 to 1.99% of its largest value |
-| Largest error of FC3's raw outputs | 2.0% of the reference's full scale | 11.40, 10.16 and 12.76%, a mean over runs of 10,000 vectors |
+| Largest error of FC3's raw outputs | 2.0% of the reference's full scale | 11.40, 10.16 and 12.76%, the mean of 25 per-run maxima on 10,000 vectors |
 | Class agreement with the declared reference | 99.5% of 1,000 vectors | 99.33, 96.17 and 98.66%; 8, 0 and 0 runs of 25 reach 99.5% |
 
-So the proposed thresholds are not met in the model, on any of the three data sets. Most
-of the error is the tile's own, before any source is lit. A wider output range, a ninth
-converter bit and the light source each move a data set's rms error by a quarter at the
-most (§10.5 to §10.7).
+These stand-in summaries are well outside the draft's candidate values, but are not an
+acceptance result for the frozen canary or a device. Gridworz's 2026-10-14 decision says
+the draft's 1.0% RMS ceiling and 2.0% pointwise maximum are not approved physical
+acceptance limits; 99.5% remains a candidate pending modeling of the actual canary.
+Most of the error is the tile's own, before any source is lit. A wider output range, a
+ninth converter bit and the light source each move a data set's rms error by a quarter
+at the most (§10.5 to §10.7).
+
+The largest-error figures above are means of per-run maxima across five reference
+networks and five noise draws per data set. They are not the single worst output across
+all runs; §10.7 reports the observed extremes and clipping separately. The RMS and
+class-agreement entries are for the first 1,000 vectors.
 
 ## Where it is pinned
 
-Your worksheet says it had no GRXCP commit to cite and found no `pta_mnist` artifact.
-These are the revisions, both on `main`:
+The evidence is pinned to immutable revisions:
 
-- `kubeworkz/grx930` at `e8aa995d48a2`: the harness, `c930/sim/pta_mnist.c` and
-  `pta_mnist.sh`, and its design note, `c930/doc/pta_error_model_design_note.md` §5. The
-  four runs are `SHAPE=chain sim/pta_mnist.sh MNIST_DIR WORK_DIR` with `chain`,
-  `chainfit`, `chainbit` and `chainlit`.
+- [`kubeworkz/grx930` merge commit `e8aa995d48a2065f911b50bfc839c41d8d366edb`](https://github.com/kubeworkz/grx930/commit/e8aa995d48a2065f911b50bfc839c41d8d366edb), which merges [PR #70](https://github.com/kubeworkz/grx930/pull/70), adds the harness changes in `c930/sim/pta_mnist.c` and `pta_mnist.sh`, and records the experiment in `c930/doc/pta_error_model_design_note.md` §5. The documented command from `c930/` is `SHAPE=chain sim/pta_mnist.sh DIR WORK chainlit`; `chain`, `chainfit` and `chainbit` are the comparison modes. The PR changes only those three source/documentation files: it does not commit trained networks or raw per-run logs. The harness writes generated data, networks and results under the supplied work directory.
 
-- `kubeworkz/grxcp` at `74881a39855e`: `docs/designs/pta_board_chain.py`,
-  `pta_board_range.py`, `pta_board_bits.py` and `pta_board_lit.py`. Each holds every
-  run's figures and checks them against the tables the harness printed. `python3
-  docs/designs/pta_board_lit.py` runs its checks on the standard library alone.
+- [`kubeworkz/grxcp` merge commit `74881a39855e334f16ad5f62c09c09f4c9e41b88`](https://github.com/kubeworkz/grxcp/commit/74881a39855e334f16ad5f62c09c09f4c9e41b88) includes [`pta_board_chain.py`](https://github.com/kubeworkz/grxcp/blob/74881a39855e334f16ad5f62c09c09f4c9e41b88/docs/designs/pta_board_chain.py), [`pta_board_range.py`](https://github.com/kubeworkz/grxcp/blob/74881a39855e334f16ad5f62c09c09f4c9e41b88/docs/designs/pta_board_range.py), `pta_board_bits.py` and [`pta_board_lit.py`](https://github.com/kubeworkz/grxcp/blob/74881a39855e334f16ad5f62c09c09f4c9e41b88/docs/designs/pta_board_lit.py). These scripts preserve the reported figures and check the generated summary tables against those embedded records. I ran `python3 docs/designs/pta_board_lit.py` from a temporary checkout of that exact revision; it ended with “All checks pass.” This verifies consistency of the preserved figures and summaries, not the original harness run.
 
-- The trained networks and the per-run output lines are in neither repository. The
-  harness trains the networks from fixed seeds and writes the lines, and nobody outside
-  GRXCP has reproduced them.
+The GRX930 raw run outputs and trained networks are not present in the pinned public source revision, and the GRXCP checker is not an independent rerun. The classifier and datasets remain GRXCP's stand-in, not the frozen GRXGPU canary; no physical device was tested.
+
+Gridworz's subsequent [first-board PTA decision](first_board_gridworz_decision_2026-10-14.md) approved the shot-level RMS method and reporting requirements, but left the physical RMS band, tail limit and class-agreement target pending the actual frozen-canary model assessment.
 
 ## What would help
 

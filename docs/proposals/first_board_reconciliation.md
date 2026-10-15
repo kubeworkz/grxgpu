@@ -460,6 +460,8 @@ rows (B16) would add to every figure here. *They are modelled since the same day
 | % of the converter's full scale | 6.24 | 5.96 | 5.67 |  |
 | in the run's own rms errors | 4.5 | 5.3 | 4.6 |  |
 
+**Figure trail.** The stand-in run is documented in [GRX930 PR #67](https://github.com/kubeworkz/grx930/pull/67). Its contemporaneous source is pinned to merge `12c95e8becef455da906623f750988b5fcce83dc`: the [§5 design note](https://github.com/kubeworkz/grx930/blob/12c95e8becef455da906623f750988b5fcce83dc/c930/doc/pta_error_model_design_note.md), [harness](https://github.com/kubeworkz/grx930/blob/12c95e8becef455da906623f750988b5fcce83dc/c930/sim/pta_mnist.c) and [sweep script](https://github.com/kubeworkz/grx930/blob/12c95e8becef455da906623f750988b5fcce83dc/c930/sim/pta_mnist.sh). The values in this table are asserted by the [GRXCP chain summary at revision 74881a3, lines 1801–1809](https://github.com/kubeworkz/grxcp/blob/74881a39855e334f16ad5f62c09c09f4c9e41b88/docs/designs/pta_board_chain.py#L1801-L1809); the 150-run tail ratio below is checked at [lines 1820–1824](https://github.com/kubeworkz/grxcp/blob/74881a39855e334f16ad5f62c09c09f4c9e41b88/docs/designs/pta_board_chain.py#L1820-L1824).
+
 **The tile is about a step and a half of its output converter off its declared format.**
 1.42 to 1.78 steps rms, of an 8-bit converter. With no noise at all it is off by 0.29 of
 a step, which is the converter's rounding. That figure does not move with the test
@@ -475,6 +477,8 @@ on each:
 | The largest value the reference takes in the test set | 1.4 to 1.8% | 0 |
 | The output converter's full scale, 127 steps | 1.1 to 1.4% | 25 |
 | Its whole span, 254 steps | 0.56 to 0.70% | 150 |
+
+**Figure trail.** The four normalizations and their counts are checked in the [GRXCP chain summary at revision 74881a3, lines 1817–1820](https://github.com/kubeworkz/grxcp/blob/74881a39855e334f16ad5f62c09c09f4c9e41b88/docs/designs/pta_board_chain.py#L1817-L1820), for the first 1,000 images and both network cohorts.
 
 The demo says to "define full scale from the frozen golden manifest". If that is the
 largest value the reference takes, it is the second row, and it moves with which vectors
@@ -516,6 +520,8 @@ beside it, as the demo asks.
 | The tile as budgeted gives the high-precision host's class on | 99.34% | 96.46% | 98.79% |  |
 | How often the declared reference is right | 96.52% | 84.76% | 94.38% |  |
 | How often the high-precision host is right, of 10,000 | 97.09% | 83.82% | 95.39% |  |
+
+**Figure trail.** This is the [GRX930 chain experiment](https://github.com/kubeworkz/grx930/pull/67); its contemporaneous [design note](https://github.com/kubeworkz/grx930/blob/12c95e8becef455da906623f750988b5fcce83dc/c930/doc/pta_error_model_design_note.md), [harness](https://github.com/kubeworkz/grx930/blob/12c95e8becef455da906623f750988b5fcce83dc/c930/sim/pta_mnist.c) and [sweep script](https://github.com/kubeworkz/grx930/blob/12c95e8becef455da906623f750988b5fcce83dc/c930/sim/pta_mnist.sh) are pinned to merge `12c95e8becef455da906623f750988b5fcce83dc`. The [GRXCP chain checker at revision 74881a3, lines 1810–1816](https://github.com/kubeworkz/grxcp/blob/74881a39855e334f16ad5f62c09c09f4c9e41b88/docs/designs/pta_board_chain.py#L1810-L1816) asserts the declared-class rates, 99.5% run counts, least-run figures, format-only comparison, host-class rates, and reference accuracy shown here.
 
 **On one data set of three the stand-in is at the gate, and a draw decides which side.**
 On pooled MNIST the mean is 99.49% and 13 runs of 25 pass. On the other two it is under,
@@ -616,6 +622,8 @@ day: §10.6.*
 | On the first 1,000: runs of 25 at 99.5% or more | 13, 0, 1 | 13, 0, 1 | 3, 0, 0 |
 | Top-1 accuracy, % | 96.97, 83.47, 95.19 | 96.95, 83.35, 95.19 | 96.85, 82.41, 95.02 |
 
+**Figure trail.** The range-fit run is documented in [GRX930 PR #68](https://github.com/kubeworkz/grx930/pull/68). Its contemporaneous source is pinned to merge `10db481e59fd14b6b81f4383a2fb4b6ed93ca86b`: the [§5 design note](https://github.com/kubeworkz/grx930/blob/10db481e59fd14b6b81f4383a2fb4b6ed93ca86b/c930/doc/pta_error_model_design_note.md), [harness](https://github.com/kubeworkz/grx930/blob/10db481e59fd14b6b81f4383a2fb4b6ed93ca86b/c930/sim/pta_mnist.c) and [sweep script](https://github.com/kubeworkz/grx930/blob/10db481e59fd14b6b81f4383a2fb4b6ed93ca86b/c930/sim/pta_mnist.sh). The [GRXCP range summary at revision 74881a3, lines 1989–2001](https://github.com/kubeworkz/grxcp/blob/74881a39855e334f16ad5f62c09c09f4c9e41b88/docs/designs/pta_board_range.py#L1989-L2001) asserts the table's clipping counts, largest errors, RMS, converter steps/full-scale, class rates, and first-1,000 run counts.
+
 **Fitted to the manifest, nothing clips.** Not one output, in any of the 600 fitted
 runs, with the tile's noise or without it. Fitting changes the step of 5 networks of 30
 on 10,000 images and of 2 on the first 1,000, by one bit each. A tile with no noise is
@@ -679,21 +687,22 @@ board's last layer, with a range that clips nothing", and in GRXCP's
 
 ### 10.6 A converter with one more bit (added 2026-10-13)
 
-§10.5 said that a converter with one more bit at the same LSB was the other way to buy a
-range that clips nothing, and that we had not modelled it. grx930 has now run it
-(kubeworkz/grx930#69): the same stand-in classifier, tile, noise and draws, with the
-PTA's output converter given nine bits in place of eight. A ninth bit can be spent two
-ways, and both were run.
+§10.5 proposed a ninth converter bit as another way to avoid clipping. grx930 ran both
+versions (kubeworkz/grx930#69) on the same stand-in classifier, tile, noise settings and
+seeded draws. These are model comparisons without a light source; §10.7 adds the source.
 
-- **On range, at the same LSB.** The step stays what the engine's own rule gave it from
-  training images, and the converter has 255 codes where it had 127. Each output gets
-  the light it had and the noise it had. The receiver in front of the converter has to
-  stay linear over twice the signal.
+- **Same LSB, more range.** The ADC shift is selected from training images by the
+  harness rule, not fitted to the test manifest. The signed range changes from
+  [−128, 127] (256 codes; positive maximum 127) to [−256, 255] (512 codes; positive
+  maximum 255). The model holds light and noise settings fixed. Its thermal and shot
+  terms are parameterized in ADC-LSB units and added before quantization
+  (`grx930/c930/sim/pta_tile_model.c`); unchanged modeled noise therefore does not show
+  that physical receiver noise stays unchanged when signal range doubles. Receiver
+  gain, input-referred noise and linearity are not modeled.
 
-- **On finer steps, over the fitted range.** The range is §10.5's, fitted to the
-  manifest, in steps half the size. The receiver is asked for nothing new. Where the fit
-  had to widen the range, each output still gets half the light, as it does with eight
-  bits.
+- **Finer steps over the fitted range.** This follows §10.5's fit to the manifest's
+  reference values on the vectors being evaluated, with half-size steps. It is a
+  test-set fit, not an independent held-out range selection.
 
 | The reference networks, as budgeted: MNIST, Fashion-MNIST, inverted | 8 bits, range from training images | 8 bits, fitted to the manifest | 9 bits, the same LSB | 9 bits, the fitted range |
 |---|---|---|---|---|
@@ -705,69 +714,69 @@ ways, and both were run.
 | The same on the first 1,000 vectors, % | 99.49, 96.85, 99.10 | 99.49, 96.60, 99.10 | 99.49, 96.85, 99.10 | 99.50, 97.01, 99.14 |
 | Runs of 25 at 99.5% or more, on those | 13, 0, 1 | 13, 0, 1 | 13, 0, 1 | 15, 0, 3 |
 
-**Spent on range, nothing clips and the error does not change.** No output is clipped in
-any of 600 runs, where 70 of the same 600 clipped with eight bits. 530 of those runs are
-the 8-bit run exactly: every one in which the 8-bit converter had clipped nothing. The
-five networks of thirty that had clipped have 0.995 to 1.000 times the rms error they
-had, where the fit of §10.5 left them with 1.20 to 1.24 times. Nothing is fitted and no
-manifest is read to set it. The largest reference value is 0.66 of the converter's full
-scale at the most. That is room in these thirty networks, and not a guarantee.
+**Figure trail.** The two ninth-bit conditions are documented in [GRX930 PR #69](https://github.com/kubeworkz/grx930/pull/69). Its contemporaneous source is pinned to merge `a5e1eb6add4d66695673478cf98f29d3dc21ae7e`: the [§5 design note](https://github.com/kubeworkz/grx930/blob/a5e1eb6add4d66695673478cf98f29d3dc21ae7e/c930/doc/pta_error_model_design_note.md), [harness](https://github.com/kubeworkz/grx930/blob/a5e1eb6add4d66695673478cf98f29d3dc21ae7e/c930/sim/pta_mnist.c) and [sweep script](https://github.com/kubeworkz/grx930/blob/a5e1eb6add4d66695673478cf98f29d3dc21ae7e/c930/sim/pta_mnist.sh). The [GRXCP bit-width checker at revision 74881a3, lines 2130–2238](https://github.com/kubeworkz/grxcp/blob/74881a39855e334f16ad5f62c09c09f4c9e41b88/docs/designs/pta_board_bits.py#L2130-L2238) checks clipping, error, and class results across the two converter settings; its [reported-figure checks at lines 2256–2282](https://github.com/kubeworkz/grxcp/blob/74881a39855e334f16ad5f62c09c09f4c9e41b88/docs/designs/pta_board_bits.py#L2256-L2282) validate the published summary text.
 
-**Spent on finer steps, the rounding halves and the fit's cost stays.** The declared
-format alone is then 0.38 to 0.64% of the reference's rms off, where fitted with eight
-bits it was 0.76 to 1.27%. With noise, every network has 0.97 to 0.99 times the rms
-error it has fitted with eight. The five networks whose range the fit widened still have
-1.17 to 1.20 times the error they have with the bit spent on range. Class agreement
-gains 0.02 ± 0.01, 0.43 ± 0.10 and 0.03 ± 0.02 of a point over the 8-bit fit.
+**At the same LSB, clipping disappears in these runs.** No output clips in the 600
+nine-bit runs, compared with 70 clipped eight-bit runs; 530 nine-bit runs exactly match
+the corresponding eight-bit runs that did not clip. For the five networks that clipped,
+rms error is 0.995–1.000× the eight-bit training-range result, versus 1.20–1.24× with
+the eight-bit fitted range. This is an experiment-specific model result, not a receiver
+or range guarantee.
 
-**Neither moves the largest error.** With the bit spent on range it is 7.2 to 8.4% of
-the largest reference value in a set's mean and 9.7% at the most, and no run of 300 is
-within 2.0%. It is the noise's, as §10.1 and §10.5 found, and a converter's width does
-nothing for it.
+**With finer steps, quantization error falls, but the range-fit cost remains.** With
+noise disabled, rms error is 0.38–0.64% of reference rms, versus 0.76–1.27% for the
+eight-bit fitted case. With modeled noise, each network is at 0.97–0.99× that case;
+the five networks whose range widened remain at 1.17–1.20× the same-LSB nine-bit
+result. Class-agreement changes are shown in the table.
 
-**And as a share of the converter's full scale, the wider converter passes with the same
-error.** With nine bits at the same LSB the rms error is 1.43 to 1.83 steps, as it was
-with eight, and that is 0.56 to 0.72% of a full scale twice as large. All 150 runs are
-within 1.0% of the converter's full scale, where 20 were, and none is within 1.0% of the
-reference's rms, as none was. This is §10.5's reason for stating the bound against the
-reference, seen from the other side.
+**More range does not remove the largest errors.** Across the before and reference
+network cohorts, the 10,000-image runs' mean largest error is 7.2–8.4% of the reference
+peak by data set, with a maximum of 9.7%. None of the 300 as-budgeted runs across the
+10,000-image and first-1,000-image evaluations meets 2.0%. The modeled noise dominates
+this tail; added converter range does not reduce it.
 
-**What this changes in §10.5.**
+The same-LSB nine-bit result is 1.43–1.83 ADC steps rms, like eight bits, but 0.56–0.72%
+of its twice-as-large positive full scale. That denominator makes the error look
+smaller; the Gate F bound should remain normalized to the reference, not converter full
+scale.
 
-1. **Two words of its second item are taken back: "no wider".** For a converter of a
-   given width a wider range is a larger step, and a larger step costs error. A range
-   that is wider at the same step costs none. A manifest sees the declared format and
-   cannot tell which of the two an engine did. With the bound stated against the
-   reference there is also nothing to gain by declaring a wider range. So the manifest
-   needs only what §10.3's fourth item asked: the declared range holds the largest value
-   the reference takes, and a clipped output is a range fault.
+**What this changes in §10.5.** A bound in steps or as a share of converter full scale
+is not sufficient on its own; keep the rms bound against the reference and report
+clipping separately as a range fault. The manifest should state the output range and
+require it to contain the reference values. B14 keeps the PTA converter at eight bits:
+the nine-bit cases are counterfactual, with converter power and receiver linearity and
+noise not priced. Their no-source figures do not replace §10.7's source-included Gate F
+figures.
 
-2. **Its first and third items stand.** A bound in steps or as a share of full scale
-   stays withdrawn, and the rms bound is stated against the reference, its rms or its
-   largest value.
+**Run provenance and figure check.** GRX930 documents the `SHAPE=chain ... chainbit`
+run and its checks in [PR #69](https://github.com/kubeworkz/grx930/pull/69); the
+harness and model are pinned to [the merged source revision](https://github.com/kubeworkz/grx930/tree/a5e1eb6add4d66695673478cf98f29d3dc21ae7e).
+For each of MNIST, Fashion-MNIST and inverted MNIST, the experiment covers five
+before networks and five reference networks, five noise draws per network, four
+converter cases, format-only and as-budgeted operation, and both 10,000-image and
+first-1,000-image evaluations. The corresponding 8-bit and same-LSB 9-bit cases each
+have 600 evaluations; the table above is the reference-network, as-budgeted,
+10,000-image slice.
 
-3. **Gate F should not assume the ninth bit.** ~~Whether the PTA's interface chip
-   carries one is not decided on our side.~~ By GRXCP's own models it costs up to twice
-   the converter's power, and it needs a receiver whose linear range we have not priced.
-   The model's figures on the first 1,000 vectors, for the networks trained for the
-   tile, are 4.24 to 4.67% of the reference's rms with the bit spent on range and 4.24
-   to 4.85% with eight bits and a fitted range.
+I ran the [GRXCP summary artifact at revision
+132325d](https://github.com/kubeworkz/grxcp/blob/132325d62bd9b58a992d96a607097c42c88ba0d6/docs/designs/pta_board_bits.py)
+from a temporary checkout of that exact revision. Its captured per-run figures derive
+the seven summary tables and its checks completed with “All checks pass”; its 8-bit
+rows are taken from the corresponding [chain](https://github.com/kubeworkz/grxcp/blob/132325d62bd9b58a992d96a607097c42c88ba0d6/docs/designs/pta_board_chain.py)
+and [range-fit](https://github.com/kubeworkz/grxcp/blob/132325d62bd9b58a992d96a607097c42c88ba0d6/docs/designs/pta_board_range.py)
+results. The table values and ratios above agree with that output. This verifies the
+published summaries against the preserved result arrays; it does not rerun the
+original MNIST harness or independently reproduce its raw run files, which are not
+included in this checkout or the cited artifact.
 
-   *Settled the same day: it carries none. GRXCP keeps the PTA's output converter at 8
-   bits (its decision B14). The figures to set Gate F against are then the 8-bit ones
-   with a fitted range: 4.24 to 4.85% of the reference's rms here, and the rest in
-   §10.5's third item. What §10.6 found stands, and is not acted on.*
+The noise terms are model parameters expressed in ADC-LSB units, not measurements of a
+physical receiver. The [GRXCP results note](https://github.com/kubeworkz/grxcp/pull/103)
+also prices the ninth-bit counterfactual but explicitly leaves B14 at eight bits; the
+receiver's doubled linear range and physical noise remain unpriced.
 
-   *Those are with no source. §10.7's first item has them lit, and replaces them.*
-
-**What this is not.** A classifier of yours, or a chip: everything §10.4 says. A range
-that holds by rule. A model of the receiver, which is where the range has to come from.
-A remedy for the largest error. And of ten predictions written before these runs, seven
-held: the three that did not said the rms error would never be over what it was, where
-one set's is by a thousandth of a percent, put one set's largest error a hundredth too
-high, and put what finer steps do for Fashion-MNIST's class agreement at a quarter of
-what it is. It is held in grx930's design note §5, "The first board's last layer, with a
-converter of one more bit", and in GRXCP's `docs/designs/pta_board_bits.py`.
+**Limits.** These are results for the stand-in networks and model runs, not a classifier
+or hardware guarantee. The receiver is not modeled, and the extra bit does not resolve
+the largest-error result.
 
 ### 10.7 The same layer with a light source (added 2026-10-13)
 
@@ -787,6 +796,8 @@ the 8-bit one (our B14).
 | On the first 1,000 vectors: rms error, % of the reference's rms | 4.52, 4.67, 4.24 | 5.22, 5.35, 5.31 | 5.22, 5.48, 5.31 |
 | class agreement, % | 99.49, 96.85, 99.10 | 99.33, 96.41, 98.66 | 99.33, 96.17, 98.66 |
 | runs of 25 at 99.5% or more | 13, 0, 1 | 8, 0, 0 | 8, 0, 0 |
+
+**Figure trail.** The source-included run is documented in [GRX930 PR #70](https://github.com/kubeworkz/grx930/pull/70). Its contemporaneous source is pinned to merge `e8aa995d48a2065f911b50bfc839c41d8d366edb`: the [§5 design note](https://github.com/kubeworkz/grx930/blob/e8aa995d48a2065f911b50bfc839c41d8d366edb/c930/doc/pta_error_model_design_note.md), [harness](https://github.com/kubeworkz/grx930/blob/e8aa995d48a2065f911b50bfc839c41d8d366edb/c930/sim/pta_mnist.c) and [sweep script](https://github.com/kubeworkz/grx930/blob/e8aa995d48a2065f911b50bfc839c41d8d366edb/c930/sim/pta_mnist.sh). The [GRXCP lit checker at revision 74881a3, lines 3000–3028](https://github.com/kubeworkz/grxcp/blob/74881a39855e334f16ad5f62c09c09f4c9e41b88/docs/designs/pta_board_lit.py#L3000-L3028) reconciles preserved rows against the printed summary tables; [lines 3073–3155](https://github.com/kubeworkz/grxcp/blob/74881a39855e334f16ad5f62c09c09f4c9e41b88/docs/designs/pta_board_lit.py#L3073-L3155) assert the RMS/source contributions, largest-error means and maxima, clipping, and declared-class rates for the conditions summarized here.
 
 **The source adds a seventh to the rms error.** A network has 0.98 to 1.40 times the rms
 error it had with no source, 1.14 in the mean of thirty. The largest error grows by
