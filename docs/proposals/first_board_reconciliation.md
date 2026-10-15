@@ -19,6 +19,8 @@ layers, as the owner ruled them.
 FC3's declared reference and the output scale.
 *And an eleventh, 2026-10-15:* §10.15 is new: Gate F's band, its class and its tail, as
 the owner ruled them from the canary's model run.
+*And a twelfth:* §10.16 is new: the canary's freeze package, and the review the owner
+has asked of you.
 *A one-page cover for §10 is in [first_board_pta_note.md](first_board_pta_note.md).*
 **Decision behind it:** on 2026-10-11 the program chose the charter's modular layout
 for the first development board. GRXCP's in-package arrangement stays as the later
@@ -1370,3 +1372,91 @@ another network, or for a source other than B16's. The freeze's approval, which 
 2026-11-25. It is held in grx930's design note §5, "The first board's canary, its band",
 and in GRXCP's board plan (B22, and §8, question 11), where
 `docs/designs/pta_board_band.py` works every figure out again from the runs.
+
+### 10.16 The canary's freeze package, and your review of it (added 2026-10-15)
+
+Your golden-generation plan asks for more than the tensors. It wants the generation
+scripts, a pinned environment, the exact commands and the test reports packaged with the
+manifest. It wants the package verified by extracting it to a clean directory and
+regenerating every tensor byte for byte. And it wants every field of the manifest
+template filled from what exists, the rest left empty, so that a freeze review fails
+closed. That package now exists:
+
+| In GRXCP's `docs/designs/canary/` | What it is |
+|---|---|
+| The 23 artifacts | As §10.14 lists them: the tensors, the networks and the ids |
+| `CONTRACT.md` | The numerical contract: every step's arithmetic, rounding, saturation and order, the files' encodings, and Gate F as ruled |
+| `harness/` | grx930's four sources at a98656d, which made the tensors and the band's runs |
+| `environment.lock` | The environment they were made in: Ubuntu 24.04.3, gcc 13.3.0, glibc 2.39, Python 3.12.3, and 26 packages at their exact versions |
+| `regenerate.sh` | Makes the canary again from `harness/` and MNIST's four archives, and holds every tensor, network and id list to the folder's own |
+| `reports/` | The corpus worked out apart; how the tensors were made; the checker's report; the regeneration; the band; the planted errors |
+| `manifest.json` | Revision 0.3-candidate, on every field of your template; canonical SHA-256 `edeeb9df7f42cf74…` |
+| `SHA256SUMS` | Every file above, and the manifest |
+
+**Regenerated from nothing.** `regenerate.sh` was run from a copy of the folder, in an
+empty directory, on MNIST's archives as fetched. In 248 seconds it trained the recipe's
+five networks and wrote the tensors, and all 23 artifacts came out the folder's own,
+byte for byte.
+
+**Checked, and failing closed.** GRXCP's checker
+(`docs/designs/pta_board_canary_golden.py`) holds every file in the folder to the
+manifest's length and SHA-256. It holds the harness to the digests the manifest and
+`regenerate.sh` both pin, then works every tensor out again apart from the harness. With
+`--freeze` it lists every field still empty or pending, every blocker, and every
+approval not given, and fails while any is left. Errors were planted in all of it, and
+every one was caught. That is 11 in the checker; 41 ways of spoiling the folder, among
+them a harness source changed with its manifest entry made to match; and 11 ways of
+leaving one thing open in an otherwise ready manifest.
+
+**What the owner ruled on 2026-10-15**, as GRXCP recommended:
+
+1. **FC1 on the GRX930 NPU and FC2 on the G100 are tested against their stage references
+   in integration, after the freeze.** The freeze fixes the workload, its tensors and
+   its thresholds, and none of them depends on an engine. So the freeze on 2026-11-25
+   does not wait on a board.
+
+2. **You are the independent reviewer** of the numerical contract and the reference
+   implementation. You wrote the plan and the template and did not generate the bundle.
+
+3. **The stand-in's implementation path, owner and schedule is not part of the canary's
+   freeze.** It belongs to the stand-in's own plan (§6, ruling 1). The manifest says so
+   in place of an empty field.
+
+**What the review asks of you.** Read `CONTRACT.md` against your plan's §3 and §5, and
+against the reference implementation: `golden_image()` in `harness/pta_mnist.c`, and
+GRXCP's checker. Run the checker and `regenerate.sh` yourselves. Then send GRXCP the
+reviewer's name, the date, and anything the review found. GRXCP records them in
+`approval.independent_reviewer` and the change record, and makes the next revision for
+any finding. After that only Gridworkz's approval is open. Today `--freeze` names nine
+open items:
+
+- `freeze_approval`: pending
+
+- `freeze_date_utc`: empty
+
+- `approval.approved_by`: empty
+
+- `approval.approval_timestamp_utc`: empty
+
+- `approval.independent_reviewer`: empty
+
+- freeze blocker: the numerical contract and the reference implementation reviewed by
+  the grxgpu team, and the reviewer named in approval.independent_reviewer
+
+- freeze blocker: the freeze approved by Gridworkz, on or before 2026-11-25
+
+- `manifest_status`: candidate_not_frozen, not frozen
+
+- `approval.status`: not_frozen, not frozen
+
+**To check it yourselves**, from a GRXCP checkout:
+
+```
+python3 docs/designs/pta_board_canary_golden.py
+python3 docs/designs/pta_board_canary_golden.py --freeze
+bash docs/designs/canary/regenerate.sh MNIST_GZ_DIR NEW_EMPTY_DIR
+```
+
+**What this is not.** The freeze, which is Gridworkz's on or before 2026-11-25. Device
+evidence of any kind. A change to your drafts: the template's fields are filled in
+GRXCP's manifest, for your review.

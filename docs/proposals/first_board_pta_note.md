@@ -69,6 +69,11 @@ These are the revisions, both on `main`:
    is to be 2.5% to 7.3%; the class 98.5%; and at most 16 of 16,000 outputs 17 or more
    codes off. The manifest carries them, as revision 0.2-candidate.*
 
+   *And on 2026-10-15 the freeze package was completed (§10.16). It holds the contract,
+   the harness, the environment, a regeneration script and the reports. The owner named
+   you the independent reviewer, and the review and the approval are all the freeze
+   still needs.*
+
 2. **Two readings of Gate F that are yours to fix.** What "normalized" divides by: the
    reference's rms or its full scale. Our figure is over 5% one way and under 2% the
    other. And whether a vector is one shot or an average: part of the PTA's error is
