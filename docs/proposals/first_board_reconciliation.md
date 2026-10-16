@@ -24,6 +24,9 @@ has asked of you.
 *And a thirteenth:* §10.17 is new: the canary frozen, after your review.
 *And a fourteenth:* §10.18 is new: the PTA module's link, CXL, as the owner ruled §6's
 fifth question.
+*And a fifteenth:* §10.19 is new: the first board's interfaces and the PTA's transport,
+which keep the host path's descriptor.
+*And a sixteenth:* §10.20 is new: the stand-in and the map, ruled.
 *A one-page cover for §10 is in [first_board_pta_note.md](first_board_pta_note.md).*
 **Decision behind it:** on 2026-10-11 the program chose the charter's modular layout
 for the first development board. GRXCP's in-package arrangement stays as the later
@@ -381,9 +384,10 @@ On a stand-in, Gates L and E are not evaluable for the PTA at all (§3.5).
 
 1. **The stand-in** (§3.5). Whether an emulated tile on its own FPGA module, behind
    the PTA's register map and reporting that it is a model, may take the PTA's
-   place in the first board's integration runs, with the limits listed there.
+   place in the first board's integration runs, with the limits listed there. *Ruled
+   on 2026-10-15: yes, for integration only (§10.20).*
 2. **The register map** (§3.3). Whether the PTA's existing map is its discovery
-   contract on the first board.
+   contract on the first board. *Ruled on 2026-10-15: yes, on both boards (§10.20).*
 3. **Gate F's raw check** (§5.1). The normaliser for the RMS error; and, for a
    stand-in, equality with the seeded reference in place of a tolerance. *§10.3 adds
    what we would propose for the 1.0% and for the 2.0%. Ruled on 2026-10-13 for the
@@ -403,10 +407,10 @@ Ours to do, and listed here so that it is on record and not assumed.
 | What | Whose | State |
 |---|---|---|
 | The decision recorded in GRXCP's board plan, as B18: the first board is the charter's, and B1, B3, B4, B6, B7 and B9 are the later board's | GRXCP | Recorded alongside this proposal |
-| A first-board section in the interface control document | GRXCP | Unblocked: §6, question 5 ruled on 2026-10-15 (§10.18) |
-| A transport for the driver's three hooks from the GRX930 host, and the PTA's parent device on a host-attached module | GRXCP, grx930 | Unblocked: CXL.io and CXL.cache (§10.18) |
+| A first-board section in the interface control document | GRXCP | Written: GRXCP's `board_icd.md` §9 (§10.19) |
+| A transport for the driver's three hooks from the GRX930 host, and the PTA's parent device on a host-attached module | GRXCP, grx930 | Designed, not built: GRXCP's `pta_board_transport.md` (§10.19). The parent device's buffers are left open there |
 | The demo's classifier run through the error model at version 2 | grx930's harness, GRXCP | Waits on §6, question 4. *A stand-in for it was run on 2026-10-13: §10. Question 4 was ruled the same day (§10.10), and it now waits on the canary's data set and its first two layers* |
-| A stand-in at 128 × 64, in RTL | Unowned | Waits on §6, question 1 |
+| A stand-in at 128 × 64, in RTL | Unowned | Allowed for integration since §6, question 1 was ruled (§10.20). Not built |
 
 ---
 
@@ -1547,3 +1551,90 @@ about its working rate, and no faster.
 **What this is not.** A ruling on the stand-in (§6, question 1) or on the register map
 (§6, question 2), both still open. The G100's link on the first board, which the charter
 chooses by measurement. A change to rev A. It is recorded in GRXCP's board plan as B24.
+
+### 10.19 The first board's interfaces, and the PTA's transport (added 2026-10-15)
+
+§10.18 said the owner's ruling unblocked two items of §7. GRXCP has written both.
+
+- **The interface control document's first-board section**, GRXCP's
+  `docs/designs/board_icd.md` §9: the carrier as the charter draws it, its links F1 to
+  F8 with an owner at each end, its power, clocks, bring-up order and debug. F1 is the
+  PTA module's CXL 2.0 link. F2, the G100 module's, is left to the charter's
+  measurement.
+
+- **The transport for the driver's three hooks**, GRXCP's
+  `docs/designs/pta_board_transport.md`, with a model of it beside it,
+  `pta_board_transport.py`.
+
+**What it keeps of yours.** The GEMM command of `pta_chiplet_host_path.md`, §4, §9 and
+§10, field for field: its 64- and 80-byte descriptors, its flags and its five ways to
+end. On the first board no command processor stands between the host and the PTA, so the
+module carries its own queue: a ring of those descriptors in host memory, a doorbell
+over CXL.io, and the module writing what your CP would have written. Your draft decision
+of 2026-10-14 asks that one map and one GEMM contract serve a separate module and a
+later in-package one. Keeping the descriptor is how the first board does that.
+
+**Where the first board differs, and why.**
+
+1. A lost command's results are undefined, where §4 has them untouched. The module
+   writes results as its shots finish, and holding a whole GEMM's back would need 64 kB
+   on the module for the canary's thousand vectors and a megabyte for a 4096-square
+   layer at a batch of 64.
+
+2. A command that did not start reports `gemm_index` 0xFFFFFFFF. §4 did not say what it
+   reports.
+
+3. Configuration changes only with the queue drained, where your command list carries
+   DCR writes in order. A network whose layers need different settings drains between
+   them.
+
+None of the three asks anything of the G100. On rev A the host path stands as written.
+
+**What it costs.** At x16 the link carries the canary's FC3 at up to 0.927 GS/s, 93% of
+the PTA's working rate, with both directions bound at once: 59.31 GB/s of lines a
+direction is what is left of 64 after PCIe 5.0's coding and the flit's framing, before
+any header. **A correction to §10.18:** it priced the canary's results as one-byte
+codes, 16 GB/s out. The descriptor's format 0 returns four bytes a result, 64 GB/s, as
+much as goes in. Its conclusion stands.
+
+**What the model showed.** With nothing planted, all 12 of its checks hold over 42
+commands, a teardown and a module that stops answering among them. Each of 14 faults,
+planted alone in the module or the host, was named by the check written for it.
+
+**What it asks of you.** Nothing to build. A review if you want one: whether keeping the
+descriptor suits the host path's later revisions, and the three differences above. And
+your draft request for a stand-in, of 2026-10-14, asks first for an interface control
+document. It has a first-board draft now, on the link the owner chose.
+
+**What this is not.** Code, or a module. A ruling on the stand-in (§6, question 1) or on
+the register map as the discovery contract (§6, question 2), both still open. The G100
+module's own link. A change to rev A.
+
+### 10.20 The stand-in and the map, ruled (added 2026-10-15)
+
+§6's first two questions were still open. With the transport written (§10.19), Gridworkz
+ruled both, and two of the transport's own choices, at 23:52 UTC:
+
+| | Ruled |
+|---|---|
+| The stand-in (§6, question 1) | **Yes, for integration only.** An FPGA module with an emulated 128 × 64 tile may take the PTA's place in the first board's integration and reliability runs. It is reached over the module's real CXL link, the ICD's F1, and reports `PTA_CAPS2[31]`. Its outputs are checked exactly against the seeded reference, and nothing it shows is claimed for a photonic PTA |
+| The register map (§6, question 2) | **Yes, on both boards.** The PTA's map, version 1, is its discovery contract: page 0 of the module's BAR on the first board, beside the queue's `PTQ_ID` on page 1, and the GPU's window on rev A. Subject to verification on a module |
+| A lost GEMM's results (§10.19, difference 1) | **Undefined.** The host may reuse the buffer once the slot has ended |
+| Configuration between queued GEMMs (§10.19, difference 3) | **Only with the queue drained, for now** |
+
+The first row is §3.5's stand-in with every one of its limits: Gate F's integration
+items and the reliability package, raw outputs checked exactly, latency and energy
+reported as a stand-in's, C3's product-value targets not evaluable on it, and the bit in
+every run manifest. Your draft decision of 2026-10-14 says the same of the first two
+rows. This is the owner's ruling on the record, and your draft may cite it.
+
+**What it settles.** Every question of §6 now has a ruling. The transport's two choices
+stand as §10.19 described them.
+
+**What it leaves.** A stand-in that exists. No RTL has been written at 128 × 64, and
+nobody owns it yet (§3.5's gap). Its owner, its FPGA and its schedule are for your draft
+request of 2026-10-14 to record. Register writes in the queue, should a network need
+settings that change between its layers.
+
+**What this is not.** A stand-in, or device evidence of any kind. Qualification. A
+change to rev A, where the host path stands as written.
