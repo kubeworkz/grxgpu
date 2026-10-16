@@ -1,0 +1,85 @@
+{
+  "nodes": {
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1780734595,
+        "narHash": "sha256-DmTfP92QFYRLOGXlMIE54MAgxSJjDWocl3gRNOu72Os=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "9b696460ac78b5ccfc17c854d8c976f20456e943",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "9b696460ac78b5ccfc17c854d8c976f20456e943",
+        "type": "github"
+      }
+    },
+    "root": {
+      "inputs": {
+        "nixpkgs": "nixpkgs",
+        "surelog-src": "surelog-src",
+        "synlig-src": "synlig-src",
+        "yosys-src": "yosys-src"
+      }
+    },
+    "surelog-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1705214334,
+        "narHash": "sha256-EecPJ52a9waSytt/GuQ26jk7XlchQxoTkyuP4ywgxzQ=",
+        "ref": "refs/heads/master",
+        "rev": "37ce1bbf98ca26ba2e18603a271b55ac05e121d5",
+        "revCount": 6490,
+        "submodules": true,
+        "type": "git",
+        "url": "https://github.com/chipsalliance/Surelog.git"
+      },
+      "original": {
+        "rev": "37ce1bbf98ca26ba2e18603a271b55ac05e121d5",
+        "submodules": true,
+        "type": "git",
+        "url": "https://github.com/chipsalliance/Surelog.git"
+      }
+    },
+    "synlig-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1723015903,
+        "narHash": "sha256-yj+SBq6PqgPBcgz2zHZ9AUppllG/dqetU7lWPkFC+iE=",
+        "ref": "refs/heads/main",
+        "rev": "fd4b2bd9510c02c4cf42f8c4c6468c5c0a7dd9e6",
+        "revCount": 1738,
+        "type": "git",
+        "url": "https://github.com/chipsalliance/synlig.git"
+      },
+      "original": {
+        "rev": "fd4b2bd9510c02c4cf42f8c4c6468c5c0a7dd9e6",
+        "type": "git",
+        "url": "https://github.com/chipsalliance/synlig.git"
+      }
+    },
+    "yosys-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1728454080,
+        "narHash": "sha256-U+6Y6FMC5D+6rpdp222iqQp1qo7gdbktZseNZfPMO0U=",
+        "ref": "refs/heads/main",
+        "rev": "e97731b9dda91fa5fa53ed87df7c34163ba59a41",
+        "revCount": 14136,
+        "submodules": true,
+        "type": "git",
+        "url": "https://github.com/YosysHQ/yosys.git"
+      },
+      "original": {
+        "rev": "e97731b9dda91fa5fa53ed87df7c34163ba59a41",
+        "submodules": true,
+        "type": "git",
+        "url": "https://github.com/YosysHQ/yosys.git"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}
