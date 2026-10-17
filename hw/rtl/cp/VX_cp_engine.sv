@@ -37,6 +37,8 @@ module VX_cp_engine
   // Queue priority (a field of the regfile's q_state) used to tag the
   // arbiter bids. The engine needs nothing else from the queue state.
   input  wire [1:0]               prio_in,
+  input  wire                     cmd_in_last,
+  output logic                    line_accept,
   // Retired sequence-number telemetry back to the regfile's Q_SEQNUM.
   // A bare scalar (not a cpe_state_t passthrough): see the seqnum_out
   // driver below for why.
@@ -87,6 +89,7 @@ module VX_cp_engine
 
   state_e       fsm;
   cmd_t         cur_cmd;
+  logic         cur_cmd_last;
   cp_resource_e cur_res;
   logic         no_resource;        // true for opcodes that bypass arbiters (NOP, FENCE, EVENT_*)
   logic [63:0]  seqnum_r;
@@ -129,15 +132,19 @@ module VX_cp_engine
     if (reset) begin
       fsm         <= S_IDLE;
       cur_cmd     <= '0;
+      cur_cmd_last <= 1'b0;
       cur_res     <= RES_KMU;
       no_resource <= 1'b0;
       seqnum_r    <= '0;
+      line_accept <= 1'b0;
     end else begin
+      line_accept <= 1'b0;
       case (fsm)
         S_IDLE: begin
           if (cmd_in_valid) begin
-            cur_cmd <= cmd_in;
-            fsm     <= S_DECODE;
+            cur_cmd      <= cmd_in;
+            cur_cmd_last <= cmd_in_last;
+            fsm          <= S_DECODE;
           end
         end
         S_DECODE: begin
@@ -176,6 +183,8 @@ module VX_cp_engine
           // retire_seqnum keeps presenting the same value to the latch.
           if (retire_ready_i) begin
             seqnum_r <= seqnum_r + 64'd1;
+            if (cur_cmd_last)
+              line_accept <= 1'b1;
             fsm      <= S_IDLE;
           end
         end

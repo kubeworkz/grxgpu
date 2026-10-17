@@ -17,6 +17,7 @@
 //   - Q_CONTROL bit0 (enable) AND CP_CTRL bit0 (enable_global) together
 //     gate q_state.enabled. Bit1 (reset_pulse) self-clears after 1 cycle.
 //   - Q_RING_BASE_LO/HI assemble into q_state.ring_base.
+//   - Q_HEAD_SNAP_LO captures a coherent 64-bit consumer-head snapshot.
 //   - Out-of-range address returns DECERR; rdata is the 0xDEADBEEF
 //     sentinel for read-side, B has 2'b11 on the write side.
 // ============================================================================
@@ -172,6 +173,8 @@ static constexpr uint16_t Q_TAIL_LO        = 0x20;
 static constexpr uint16_t Q_TAIL_HI        = 0x24;
 static constexpr uint16_t Q_SEQNUM         = 0x28;
 static constexpr uint16_t Q_ERROR          = 0x2C;
+static constexpr uint16_t Q_HEAD_SNAP_LO   = 0x34;
+static constexpr uint16_t Q_HEAD_SNAP_HI   = 0x38;
 
 int main(int argc, char** argv) {
     Verilated::commandArgs(argc, argv);
@@ -290,10 +293,58 @@ int main(int argc, char** argv) {
         EXPECT(v == 0xCAFE, "T7: Q_SEQNUM reflects q_seqnum input");
     }
 
-    // ----- Test 8: q_reset_pulse fires for exactly 1 cycle on Q_CONTROL.reset -----
+    // ----- Test 8: low-half response snapshots the full monotonic head -----
     {
-        // Write Q_CONTROL with bit1 set (reset). bit0 also set so it
-        // stays enabled afterwards.
+        sim->q_head_packed = 0x0000000200000040ull;
+        sim->arvalid = 1;
+        sim->araddr = Q0_BASE + Q_HEAD_SNAP_LO;
+        sim->rready = 0;
+        sim->eval();
+        EXPECT(sim->arready, "T8: head-low AR never accepted");
+        cycle(sim, tick);
+        sim->arvalid = 0;
+        // Change the live head after AR acceptance but before R is returned.
+        sim->q_head_packed = 0x0000000300000080ull;
+        cycle(sim, tick);
+        EXPECT(sim->rvalid, "T8: head-low R never asserted");
+        uint32_t lo = sim->rdata;
+        sim->rready = 1;
+        cycle(sim, tick);
+        sim->rready = 0;
+        sim->q_head_packed = 0x00000004000000C0ull;
+        uint32_t hi = (uint32_t)axil_read(sim, tick, Q0_BASE + Q_HEAD_SNAP_HI);
+        EXPECT(lo == 0x40 && hi == 0x2,
+               "T8: head snapshot should reflect the value at AR acceptance");
+    }
+    // ----- Test 8b: hold R under backpressure without recapturing the head -----
+    {
+        sim->q_head_packed = 0x0000000400000100ull;
+        uint32_t lo = (uint32_t)axil_read(sim, tick, Q0_BASE + Q_HEAD_SNAP_LO);
+        sim->q_head_packed = 0x0000000500000140ull;
+        sim->arvalid = 1;
+        sim->araddr = Q0_BASE + Q_HEAD_SNAP_LO;
+        sim->rready = 0;
+        sim->eval();
+        EXPECT(sim->arready, "T8b: second head-low AR never accepted");
+        cycle(sim, tick);
+        sim->arvalid = 0;
+        cycle(sim, tick);
+        EXPECT(sim->rvalid, "T8b: second head-low R never asserted");
+        sim->q_head_packed = 0x0000000600000180ull;
+        for (int i = 0; i < 4; ++i) cycle(sim, tick);
+        EXPECT(sim->rvalid && sim->rdata == 0x140,
+               "T8b: stalled R data changed under backpressure");
+        sim->rready = 1;
+        cycle(sim, tick);
+        sim->rready = 0;
+        sim->q_head_packed = 0x00000007000001C0ull;
+        uint32_t hi = (uint32_t)axil_read(sim, tick, Q0_BASE + Q_HEAD_SNAP_HI);
+        EXPECT(lo == 0x100 && hi == 0x5,
+               "T8b: snapshot was not held stable through R backpressure");
+    }
+
+    // ----- Test 9: q_reset_pulse fires for exactly 1 cycle on Q_CONTROL.reset -----
+    {
         // Write Q_CONTROL with bit1 set (reset). bit0 also set so it stays enabled.
         axil_write(sim, tick, Q0_BASE + Q_CONTROL, 0b11);
         // The pulse may have already fired before this sampling window;
@@ -304,23 +355,23 @@ int main(int argc, char** argv) {
             if (sim->q_reset_pulse & 1) high_cnt++;
             cycle(sim, tick);
         }
-        EXPECT(high_cnt <= 1, "T8: q_reset_pulse held high too long");
+        EXPECT(high_cnt <= 1, "T9: q_reset_pulse held high too long");
     }
 
-    // ----- Test 9: out-of-range write → bresp = DECERR -----
+    // ----- Test 10: out-of-range write → bresp = DECERR -----
     {
         uint8_t resp = axil_write(sim, tick, 0xF000, 0xFFFFFFFF);
         EXPECT(resp == 0b11, "T9: out-of-range write should DECERR");
     }
 
-    // ----- Test 10: out-of-range read → rresp = DECERR + sentinel -----
+    // ----- Test 11: out-of-range read → rresp = DECERR + sentinel -----
     {
         uint64_t r = axil_read(sim, tick, 0xF004);
         EXPECT((r >> 32) == 0b11, "T10: out-of-range read should DECERR");
         EXPECT((uint32_t)r == 0xDEADBEEF, "T10: sentinel rdata on DECERR");
     }
 
-    // ----- Test 11: GPU_DEV_CAPS / GPU_ISA_CAPS readable + read-only -----
+    // ----- Test 12: GPU_DEV_CAPS / GPU_ISA_CAPS readable + read-only -----
     {
         uint64_t dl = axil_read(sim, tick, GPU_DEV_CAPS_LO);
         uint64_t dh = axil_read(sim, tick, GPU_DEV_CAPS_HI);
@@ -346,6 +397,6 @@ int main(int argc, char** argv) {
                "T11: GPU_DEV_CAPS_LO is read-only");
     }
 
-    std::printf("PASSED — 11 scenarios\n");
+    std::printf("PASSED — 13 scenarios\n");
     return 0;
 }

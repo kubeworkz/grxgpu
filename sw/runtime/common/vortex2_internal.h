@@ -208,7 +208,7 @@ public:
 
     // ----- Command Processor submission path -----
     // The CP is the sole control path: the device owns a CP ring +
-    // completion slot in device memory, and the Queue layer calls
+    // completion slot in CP-visible memory, and the Queue layer calls
     // cp_submit_* for every launch and DCR op. cp_enabled() is always
     // true post-init and is exposed as a method only for readability
     // at the call sites.
@@ -253,18 +253,19 @@ public:
     // / cp_submit_cache_flush writes its CL into the ring and reserves a
     // seqnum but does NOT ring the doorbell or poll. cp_batch_end commits
     // Q_TAIL once, polls Q_SEQNUM once for the last appended command, drains
-    // COUT once, and releases the lock. The CP then retires the whole
-    // sequence autonomously — and because each CMD_LAUNCH holds the grant
-    // until the kernel drains, launch-drain serialization is the device-wide
+    // COUT once, and releases the lock. Each append checks capacity; if one
+    // does not fit, the whole uncommitted batch is rejected without a doorbell.
+    // The CP then retires the whole sequence autonomously. Each CMD_LAUNCH
+    // holds the grant until its kernel drains, providing the device-wide
     // inter-stage barrier the graphics front end needs, with the host idle
     // between submit and the final poll (NVIDIA pushbuffer model).
     //
     // The lock is held for the batch's whole duration, so a batch must not
     // contain a CMD_EVENT_WAIT that depends on another queue posting a
-    // CMD_EVENT_SIGNAL (that submitter would deadlock on cp_mu_). Graphics
-    // draw batches contain only DCR writes + launches, so this never arises.
-    // cp_batch_end is always paired with cp_batch_begin (call it even on a
-    // mid-batch error) to release the lock and drain the partial sequence.
+    // CMD_EVENT_SIGNAL (that submitter would deadlock on the batch lock).
+    // Graphics draw batches contain only DCR writes + launches, so this never arises.
+    // cp_batch_end is always paired with cp_batch_begin, including after an
+    // append error, so the lock is released and uncommitted bytes are discarded.
     void        cp_batch_begin();
     vx_result_t cp_batch_end();
 
@@ -334,7 +335,7 @@ private:
     explicit Device(std::unique_ptr<Platform> plat);
     ~Device();
 
-    // Allocate ring/head/cmpl buffers and program the CP regfile.
+    // Allocate ring/completion buffers and program the CP regfile.
     // Called from Device::open() after the platform is ready.
     vx_result_t cp_init();
 
@@ -344,10 +345,12 @@ private:
     // doorbell + poll are deferred to cp_batch_end.
     vx_result_t cp_submit_cl_(const void* cl);
 
-    // Append one CL at the current tail and reserve its seqnum (bump
-    // cp_tail_ + cp_expected_seqnum_). Caller must hold cp_mu_ (directly in
-    // the non-batch path, or via cp_batch_begin). No doorbell, no poll.
+    // Append one CL at the current tail and reserve its seqnum. Caller holds
+    // cp_mu_; full batches are rejected before any bytes are appended.
     vx_result_t cp_ring_append_(const void* cl);
+    vx_result_t cp_read_head_locked_(uint64_t* head);
+    vx_result_t cp_commit_tail_locked_();
+    vx_result_t cp_wait_seqnum_(uint64_t target);
 
     // Build + submit a CMD_MEM_* descriptor (opcode, dst, src, size).
     // `physical` sets the CMD_MEM header flag so the CP DMA skips VM
@@ -403,21 +406,24 @@ private:
     Queue*                         legacy_q_     = nullptr;
     Event*                         legacy_last_  = nullptr;
 
-    // CP state — populated only when cp_enabled_ == true. The ring / head /
+    // CP state — populated only when cp_enabled_ == true. The ring /
     // completion buffers are CP-visible host memory (HostMem): the runtime
     // writes commands straight through their host_ptr.
     bool                           cp_enabled_         = false;
     HostMem                        cp_ring_;
-    HostMem                        cp_head_;
     HostMem                        cp_cmpl_;
     uint64_t                       cp_tail_            = 0;
     uint64_t                       cp_expected_seqnum_ = 0;
+    uint64_t                       cp_batch_start_tail_ = 0;
+    uint64_t                       cp_batch_start_seqnum_ = 0;
+    bool                           cp_batch_failed_    = false;
+    vx_result_t                    cp_batch_error_     = VX_SUCCESS;
     uint64_t                       cp_num_cores_       = 0; // cached VX_CAPS_NUM_CORES, used for CMD_CACHE_FLUSH
-    std::mutex                     cp_mu_;             // serialize ring writes
+    std::recursive_mutex           cp_mu_;             // serialize ring writes and CP MMIO
     // Batched-submit state. cp_in_batch_ is set between cp_batch_begin and
     // cp_batch_end (cp_mu_ held throughout); while set, cp_submit_* append
-    // without ringing the doorbell. cp_batch_target_ tracks the seqnum the
-    // last appended command will reach, which cp_batch_end polls for once.
+    // without ringing the doorbell. A failed append causes the entire
+    // uncommitted batch to be discarded; cp_batch_target_ tracks its seqnum.
     bool                           cp_in_batch_        = false;
     uint64_t                       cp_batch_target_    = 0;
 

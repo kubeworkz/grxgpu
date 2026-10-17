@@ -19,10 +19,9 @@
 //                  → S_WAIT_R on arready
 //   S_WAIT_R     : wait for rvalid; latch rdata into cl_data_r
 //                  → S_EMIT on rvalid && rlast
-//   S_EMIT       : present cmds[slot]; on cmd_out_ready advance slot.
-//                  When slot == cmd_count - 1: head += 64, → S_IDLE
-//                  Pure-padding lines (cmd_count == 0) skip directly to
-//                  head advance + IDLE.
+//   S_EMIT       : present one decoded command at a time; hold the head until
+//                  the engine retires the last decoded command in the line.
+//                  Pure-padding lines advance directly to the next cache line.
 //
 // Issues a single-beat 512 b AR (one cache line) per ring transaction.
 // The ring is `1 << ring_size_log2` bytes; head/tail are byte offsets
@@ -44,14 +43,15 @@ module VX_cp_fetch
 
   // Per-CPE state mirror from the regfile.
   input  cpe_state_t                state_in,
-  // Updated head pointer — the regfile / CPE-state mirror tracks this
-  // for the host to read back.
+  // Monotonic consumer head, published to the CP regfile for host reads.
   output logic [63:0]               head_out,
 
   // Decoded command stream out to the CPE.
   output logic                      cmd_out_valid,
   output cmd_t                      cmd_out,
+  output wire                       cmd_out_last,
   input  wire                       cmd_out_ready,
+  input  wire                       line_accept,
 
   // AXI4 master sub-port (one of the sources on VX_mem_axi_xbar).
   VX_mem_axi_if.master             axi_m
@@ -65,9 +65,13 @@ module VX_cp_fetch
   logic [CL_BITS-1:0]  cl_data_r;
   localparam int       OFF_W = $clog2(CL_BYTES + 1);
   logic [OFF_W-1:0]    offset_r;     // byte offset of the command being emitted
+  logic                line_dispatched_r;
   cmd_t                cmd_w;        // decoded command at offset_r
   logic                has_cmd_w;    // 1 = valid command at offset_r (0 = end-of-line)
   logic [OFF_W-1:0]    cmd_size_w;   // bytes consumed by cmd_w
+  logic [OFF_W-1:0]    next_offset_w;
+  logic                has_next_cmd_w;
+  cmd_t                next_cmd_w;
 
   // Decode exactly the command at the current offset. The FSM walks the line
   // by advancing offset_r += cmd_size_w after each emit, instead of decoding
@@ -79,6 +83,18 @@ module VX_cp_fetch
     .cmd       (cmd_w),
     .cmd_size  (cmd_size_w)
   );
+
+  assign next_offset_w = offset_r + cmd_size_w;
+
+  VX_cp_unpack u_unpack_next (
+    .cl_data   (cl_data_r),
+    .offset    (next_offset_w),
+    .has_cmd   (has_next_cmd_w),
+    .cmd       (next_cmd_w),
+    .cmd_size  ()
+  );
+
+  assign cmd_out_last = (state == S_EMIT) && has_cmd_w && !has_next_cmd_w;
 
   typedef enum logic [1:0] { S_IDLE, S_ISSUE_AR, S_WAIT_R, S_EMIT } state_e;
   state_e state;
@@ -92,6 +108,7 @@ module VX_cp_fetch
       head_r    <= '0;
       cl_data_r <= '0;
       offset_r  <= '0;
+      line_dispatched_r <= 1'b0;
     end else begin
       case (state)
         S_IDLE: begin
@@ -108,18 +125,21 @@ module VX_cp_fetch
           if (axi_m.rvalid && axi_m.rready) begin
             cl_data_r <= axi_m.rdata;
             offset_r  <= '0;
+            line_dispatched_r <= 1'b0;
             state     <= S_EMIT;
           end
         end
         S_EMIT: begin
-          // Decode-and-emit one command per cycle. has_cmd_w==0 means the
-          // line is exhausted (zero-header padding, no room for a header, or
-          // we have walked past the last command) → advance head, next line.
-          if (!has_cmd_w) begin
+          // Head advances only once every command in the fetched line has
+          // been accepted by the engine.
+          if (has_cmd_w) begin
+            if (cmd_out_ready) begin
+              offset_r <= offset_r + cmd_size_w;
+              line_dispatched_r <= 1'b1;
+            end
+          end else if (!line_dispatched_r || line_accept) begin
             head_r <= head_r + 64'd64;
             state  <= S_IDLE;
-          end else if (cmd_out_ready) begin
-            offset_r <= offset_r + cmd_size_w;
           end
         end
         default: state <= S_IDLE;
@@ -164,6 +184,7 @@ module VX_cp_fetch
   `UNUSED_VAR (axi_m.rid)
   `UNUSED_VAR (axi_m.rlast)
   `UNUSED_VAR (axi_m.rresp)
+  `UNUSED_VAR (next_cmd_w)
   `UNUSED_VAR (state_in.head_addr)
   `UNUSED_VAR (state_in.cmpl_addr)
   `UNUSED_VAR (state_in.head)

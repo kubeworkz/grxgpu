@@ -123,7 +123,8 @@ module VX_cp_core_top
 
   // ---- Debug taps into the inner regfile state for the TB ----
   output wire                       dbg_q0_enabled,
-  output wire [63:0]                dbg_q0_tail
+  output wire [63:0]                dbg_q0_tail,
+  output wire [63:0]                dbg_q0_head
 );
 
   VX_cp_axil_s_if #(.ADDR_W(AXIL_AW)) axil_s_if ();
@@ -243,5 +244,6 @@ module VX_cp_core_top
   // Cross-module references resolve at elaboration time.
   assign dbg_q0_enabled = u_dut.q_state[0].enabled;
   assign dbg_q0_tail    = u_dut.q_state[0].tail;
+  assign dbg_q0_head    = u_dut.q_state[0].head;
 
 endmodule : VX_cp_core_top

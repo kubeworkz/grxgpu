@@ -89,9 +89,8 @@ Device::~Device() {
             this->mem_free(addr);
         args_pool_free_.clear();
     }
-    // Release the CP ring / head / completion host buffers.
+    // Release the CP ring / completion host buffers.
     if (cp_ring_.cp_addr) host_free(cp_ring_.cp_addr);
-    if (cp_head_.cp_addr) host_free(cp_head_.cp_addr);
     if (cp_cmpl_.cp_addr) host_free(cp_cmpl_.cp_addr);
     // Queues / buffers are torn down by their own refcount path; this
     // just detaches the device backlinks.
@@ -182,6 +181,8 @@ constexpr uint32_t CP_Q_TAIL_LO         = 0x120;
 constexpr uint32_t CP_Q_TAIL_HI         = 0x124;
 constexpr uint32_t CP_Q_SEQNUM          = 0x128;
 constexpr uint32_t CP_Q_LAST_DCR_RSP    = 0x130;
+constexpr uint32_t CP_Q_HEAD_SNAP_LO    = 0x134;
+constexpr uint32_t CP_Q_HEAD_SNAP_HI    = 0x138;
 constexpr uint32_t CP_SATP_LO           = 0x028;  // CP DMA MMU page-table root
 constexpr uint32_t CP_SATP_HI           = 0x02C;
 
@@ -236,14 +237,11 @@ vx_result_t Device::cp_init() {
     auto* p = platform();
     auto r = host_alloc(CP_RING_SIZE, &cp_ring_);
     if (r != VX_SUCCESS) return r;
-    r = host_alloc(CP_CL_BYTES, &cp_head_);
-    if (r != VX_SUCCESS) return r;
     r = host_alloc(CP_CL_BYTES, &cp_cmpl_);
     if (r != VX_SUCCESS) return r;
 
     // Zero them so the CP doesn't read stale data on first fetch.
     std::memset(cp_ring_.host_ptr, 0, CP_RING_SIZE);
-    std::memset(cp_head_.host_ptr, 0, CP_CL_BYTES);
     std::memset(cp_cmpl_.host_ptr, 0, CP_CL_BYTES);
 
     // Program CP queue 0. Any failure here is fatal — the CP regfile is
@@ -255,8 +253,6 @@ vx_result_t Device::cp_init() {
     } while (0)
     CP_WR(CP_Q_RING_BASE_LO,   uint32_t(cp_ring_.cp_addr & 0xFFFFFFFFu));
     CP_WR(CP_Q_RING_BASE_HI,   uint32_t(cp_ring_.cp_addr >> 32));
-    CP_WR(CP_Q_HEAD_ADDR_LO,   uint32_t(cp_head_.cp_addr & 0xFFFFFFFFu));
-    CP_WR(CP_Q_HEAD_ADDR_HI,   uint32_t(cp_head_.cp_addr >> 32));
     CP_WR(CP_Q_CMPL_ADDR_LO,   uint32_t(cp_cmpl_.cp_addr & 0xFFFFFFFFu));
     CP_WR(CP_Q_CMPL_ADDR_HI,   uint32_t(cp_cmpl_.cp_addr >> 32));
     CP_WR(CP_Q_RING_SIZE_LOG2, CP_RING_SIZE_LOG2);
@@ -333,125 +329,126 @@ vx_result_t Device::cp_init() {
     return VX_SUCCESS;
 }
 
+vx_result_t Device::cp_read_head_locked_(uint64_t* head) {
+    if (!head) return VX_ERR_INVALID_VALUE;
+    uint32_t lo = 0, hi = 0;
+    auto r = platform()->cp_reg_read(CP_Q_HEAD_SNAP_LO, &lo);
+    if (r != VX_SUCCESS) return r;
+    r = platform()->cp_reg_read(CP_Q_HEAD_SNAP_HI, &hi);
+    if (r != VX_SUCCESS) return r;
+    *head = (uint64_t(hi) << 32) | lo;
+    if (*head > cp_tail_ || (cp_tail_ - *head) > CP_RING_SIZE)
+        return VX_ERR_DEVICE_LOST;
+    return VX_SUCCESS;
+}
+
 vx_result_t Device::cp_ring_append_(const void* cl) {
-    // Caller holds cp_mu_. Write one CL into the ring at the current tail —
-    // a plain memcpy through the ring's CP-visible host pointer — then bump
-    // tail + reserve the seqnum slot. No doorbell, no poll.
+    // Caller holds cp_mu_. Appends use monotonic byte offsets; only the DMA
+    // address is masked, so the final line wraps to byte zero naturally.
+    if (!cl) return VX_ERR_INVALID_VALUE;
+    uint64_t head = 0;
+    auto r = cp_read_head_locked_(&head);
+    if (r != VX_SUCCESS) return r;
+    const uint64_t used = cp_tail_ - head;
+    if (used > CP_RING_SIZE || CP_CL_BYTES > CP_RING_SIZE - used)
+        return VX_ERR_OUT_OF_DEVICE_MEMORY;
     const uint64_t ring_off = cp_tail_ & (CP_RING_SIZE - 1);
-    if (ring_off + CP_CL_BYTES > CP_RING_SIZE)
-        return VX_ERR_INVALID_VALUE;  // mid-CL ring wrap not yet supported
     std::memcpy(static_cast<uint8_t*>(cp_ring_.host_ptr) + ring_off,
                 cl, CP_CL_BYTES);
-    cp_tail_           += CP_CL_BYTES;
+    cp_tail_            += CP_CL_BYTES;
     cp_expected_seqnum_ += 1;
     return VX_SUCCESS;
 }
 
-void Device::cp_batch_begin() {
-    cp_mu_.lock();                       // held until cp_batch_end
-    cp_in_batch_     = true;
-    // Baseline target: an empty batch polls for an already-retired seqnum
-    // and returns immediately.
-    cp_batch_target_ = cp_expected_seqnum_;
-}
-
-vx_result_t Device::cp_batch_end() {
-    auto* p = platform();
-    const uint64_t target = cp_batch_target_;
-    cp_in_batch_ = false;
-
-    // Commit the staged tail once (the single doorbell for the whole batch),
-    // while still holding cp_mu_ from cp_batch_begin. Release fence first so
-    // the CP cannot read a stale ring entry (see cp_submit_cl_).
+vx_result_t Device::cp_commit_tail_locked_() {
     std::atomic_thread_fence(std::memory_order_release);
-    auto r = p->cp_reg_write(CP_Q_TAIL_LO, uint32_t(cp_tail_ & 0xFFFFFFFFu));
-    if (r == VX_SUCCESS)
-        r = p->cp_reg_write(CP_Q_TAIL_HI, uint32_t(cp_tail_ >> 32));
-    cp_mu_.unlock();                     // release the batch lock before polling
+    auto r = platform()->cp_reg_write(CP_Q_TAIL_LO, uint32_t(cp_tail_));
     if (r != VX_SUCCESS) return r;
-
-    // Poll Q_SEQNUM once for the last command in the batch. Reacquire cp_mu_
-    // around each MMIO read so simx's tick() and concurrent posts don't race.
-    for (;;) {
-        uint32_t seqnum32 = 0;
-        {
-            std::lock_guard<std::mutex> g(cp_mu_);
-            r = p->cp_reg_read(CP_Q_SEQNUM, &seqnum32);
-        }
-        if (r != VX_SUCCESS) return r;
-        if (uint64_t(seqnum32) >= target) break;
-    #ifdef SCOPE
-        (void)vx_scope_drain();
-    #endif
-    }
-    // The batch's trailing CMD_CACHE_FLUSH(es) have retired, so every kernel's
-    // writes are coherent: drain the console rings once for the whole batch
-    // (deferred from each in-batch cp_submit_launch).
-    return drain_cout();
+    return platform()->cp_reg_write(CP_Q_TAIL_HI, uint32_t(cp_tail_ >> 32));
 }
 
-vx_result_t Device::cp_submit_cl_(const void* cl) {
-    auto* p = platform();
-
-    // Batch mode: append only — cp_mu_ is already held for the batch, and
-    // the single doorbell + poll happen in cp_batch_end.
-    if (cp_in_batch_) {
-        auto r = cp_ring_append_(cl);
-        if (r == VX_SUCCESS) cp_batch_target_ = cp_expected_seqnum_;
-        return r;
-    }
-
-    uint64_t target;
-    {
-        // Hold cp_mu_ only through ring write + TAIL doorbell; release before
-        // polling so concurrent CMD_EVENT_WAIT submitters can post SIGNALs that
-        // unblock a stalled WAIT at the ring head.
-        std::lock_guard<std::mutex> g(cp_mu_);
-
-        // 1) Write the CL into the ring and reserve its seqnum.
-        auto r = cp_ring_append_(cl);
-        if (r != VX_SUCCESS) return r;
-        target = cp_expected_seqnum_;
-
-        // Release fence between the ring memcpy and the doorbell MMIO so
-        // the CP cannot read a stale ring entry. The MMIO write is a
-        // serializing UC store on x86 (sfence-equivalent), but on ARM /
-        // RISC-V and on shells that map host_only BOs WB this fence is
-        // required for correctness. Cheap on x86; matters everywhere else.
-        std::atomic_thread_fence(std::memory_order_release);
-
-        // 2) Commit the new tail. Atomic-pair: LO stages, HI commits both.
-        r = p->cp_reg_write(CP_Q_TAIL_LO, uint32_t(cp_tail_ & 0xFFFFFFFFu));
-        if (r != VX_SUCCESS) return r;
-        r = p->cp_reg_write(CP_Q_TAIL_HI, uint32_t(cp_tail_ >> 32));
-        if (r != VX_SUCCESS) return r;
-    }   // release cp_mu_ — another submitter can now post its own command
-
-    // 3) Poll Q_SEQNUM. Reacquire cp_mu_ around each individual MMIO read
-    // so simx's tick() (which mutates simulator state) and concurrent
-    // posts from other queues don't race; this still leaves a window
-    // between iterations for other submitters to come in.
+vx_result_t Device::cp_wait_seqnum_(uint64_t target) {
     for (;;) {
         uint32_t seqnum32 = 0;
         vx_result_t r;
         {
-            std::lock_guard<std::mutex> g(cp_mu_);
-            r = p->cp_reg_read(CP_Q_SEQNUM, &seqnum32);
+            std::lock_guard<std::recursive_mutex> g(cp_mu_);
+            r = platform()->cp_reg_read(CP_Q_SEQNUM, &seqnum32);
         }
         if (r != VX_SUCCESS) return r;
         if (uint64_t(seqnum32) >= target) return VX_SUCCESS;
-        // COUT is drained post-launch only (see cp_submit_launch). The CP
-        // ring is serial — a COUT CMD_MEM_READ posted here would queue
-        // behind the very command being waited on; mid-launch draining is not
-        // possible on a single-queue CP. A kernel that overruns its COUT ring
-        // within one launch back-pressures until the launch ends.
     #ifdef SCOPE
-        // Same discipline for the SCOPE tap rings: drain continuously so
-        // the on-chip ring pauses capture only briefly. Best-effort.
         (void)vx_scope_drain();
     #endif
-        // No host sleep: each MMIO read already ticks sim cycles.
     }
+}
+
+void Device::cp_batch_begin() {
+    cp_mu_.lock();
+    cp_in_batch_ = true;
+    cp_batch_failed_ = false;
+    cp_batch_error_ = VX_SUCCESS;
+    cp_batch_start_tail_ = cp_tail_;
+    cp_batch_start_seqnum_ = cp_expected_seqnum_;
+    cp_batch_target_ = cp_expected_seqnum_;
+}
+
+vx_result_t Device::cp_batch_end() {
+    const uint64_t target = cp_batch_target_;
+    const uint64_t start_seqnum = cp_batch_start_seqnum_;
+    const bool batch_failed = cp_batch_failed_;
+    const auto batch_error = cp_batch_error_;
+    auto r = VX_SUCCESS;
+    if (batch_failed) {
+        cp_tail_ = cp_batch_start_tail_;
+        cp_expected_seqnum_ = start_seqnum;
+    } else if (target != start_seqnum) {
+        r = cp_commit_tail_locked_();
+    }
+    cp_in_batch_ = false;
+    cp_mu_.unlock();
+    if (r != VX_SUCCESS) return r;
+    if (batch_failed) return batch_error;
+    if (target == start_seqnum) return VX_SUCCESS;
+    r = cp_wait_seqnum_(target);
+    if (r != VX_SUCCESS) return r;
+    return drain_cout();
+}
+
+vx_result_t Device::cp_submit_cl_(const void* cl) {
+    uint64_t target;
+    {
+        std::lock_guard<std::recursive_mutex> g(cp_mu_);
+        // Batch mode: append only; the outer batch owns the recursive lock
+        // until cp_batch_end commits or rolls back the complete sequence.
+        if (cp_in_batch_) {
+            if (cp_batch_failed_) return cp_batch_error_;
+            auto r = cp_ring_append_(cl);
+            if (r == VX_SUCCESS) {
+                cp_batch_target_ = cp_expected_seqnum_;
+            } else {
+                cp_batch_failed_ = true;
+                cp_batch_error_ = r;
+            }
+            return r;
+        }
+
+        // Hold cp_mu_ only through ring write + TAIL doorbell; release before
+        // polling so concurrent submitters can post commands that unblock a
+        // stalled WAIT at the ring head.
+        auto r = cp_ring_append_(cl);
+        if (r != VX_SUCCESS) return r;
+        target = cp_expected_seqnum_;
+
+        // Order ring data before the tail doorbell on weakly ordered hosts.
+        std::atomic_thread_fence(std::memory_order_release);
+        r = cp_commit_tail_locked_();
+        if (r != VX_SUCCESS) return r;
+    }
+
+    auto r = cp_wait_seqnum_(target);
+    if (r != VX_SUCCESS) return r;
+    return VX_SUCCESS;
 }
 
 vx_result_t Device::cp_submit_dcr_write(uint32_t addr, uint32_t value) {
@@ -821,7 +818,7 @@ vx_result_t Device::query_caps(uint32_t caps_id, uint64_t* out_value) {
     // The two static caps words are read once from the CP regfile caps
     // window; serialize the load against concurrent cp_reg_* traffic.
     if (!caps_loaded_) {
-        std::lock_guard<std::mutex> g(cp_mu_);
+        std::lock_guard<std::recursive_mutex> g(cp_mu_);
         if (!caps_loaded_) {
             auto rd = [this](uint32_t off, uint32_t* v) -> int {
                 return platform_->cp_reg_read(off, v) == VX_SUCCESS ? 0 : -1;

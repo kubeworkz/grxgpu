@@ -12,23 +12,20 @@
 //     pulsing gpu.busy for a few cycles.
 //
 // End-to-end happy-path sequence:
-//   1. Seed memory at ring_base with a single CMD_NOP+F_PROFILE so the
-//      walker doesn't treat it as the padding sentinel.
+//   1. Seed one profiled NOP on the final physical ring line and a second
+//      at ring offset zero, with padding-only cache lines before the boundary.
 //   2. Program regs:
 //        Q_RING_BASE_LO/HI = ring_base
 //        Q_CMPL_ADDR_LO/HI = cmpl_slot
 //        Q_RING_SIZE_LOG2  = 12 (4 KiB)
 //        Q_CONTROL.enable  = 1, Q_CONTROL.profile = 1
 //        CP_CTRL.enable_global = 1
-//   3. Ring the doorbell: write Q_TAIL_LO = 64, then Q_TAIL_HI = 0.
-//   4. Watch:
-//        - AXI AR at ring_base from CP fetch
-//        - AXI W to cmpl_slot with value 1 (first retired seqnum)
-//   5. Verify memory[cmpl_slot] == 1.
+//   3. Ring the doorbell with a monotonic tail past the physical ring end.
+//   4. Watch both commands retire and the head advance across the wrap.
+//   5. Verify the completion sequence and coherent head snapshot.
 //
-// NOP retires without bidding for any resource, so this exercises the
-// regfile → fetch → unpack → engine → completion path without touching
-// the launch or DMA paths.
+// NOP retires without bidding for a resource; this exercises regfile → fetch
+// → unpack → engine → completion and host-visible head reporting.
 // ============================================================================
 
 #include "vl_simulator.h"
@@ -245,6 +242,9 @@ static constexpr uint16_t Q_RING_SIZE_LOG2 = 0x18;
 static constexpr uint16_t Q_CONTROL        = 0x1C;
 static constexpr uint16_t Q_TAIL_LO        = 0x20;
 static constexpr uint16_t Q_TAIL_HI        = 0x24;
+static constexpr uint16_t Q_SEQNUM         = 0x28;
+static constexpr uint16_t Q_HEAD_SNAP_LO   = 0x34;
+static constexpr uint16_t Q_HEAD_SNAP_HI   = 0x38;
 
 int main(int argc, char** argv) {
     Verilated::commandArgs(argc, argv);
@@ -264,17 +264,15 @@ int main(int argc, char** argv) {
         EXPECT((v & 0xff) == 1, "DEV_CAPS NUM_QUEUES");
     }
 
-    // ----- Seed memory: a single NOP+F_PROFILE at ring_base -----
+    // ----- Seed commands on both sides of the physical ring boundary -----
     constexpr uint64_t RING_BASE = AxiSlave::MEM_BASE;
+    constexpr uint64_t RING_BYTES = 1u << 12;
     constexpr uint64_t CMPL_ADDR = AxiSlave::MEM_BASE + 0x200;
     {
         uint8_t cl[64];
         emit_nop_profiled(cl, /*profile_slot=*/0xCAFEBABEull);
-        slave.mem_write_cl(RING_BASE, cl);
-        // Seed the cmpl slot with 0xFF...FF so we can detect a write of
-        // seqnum=0 (the first retired command writes 0; the increment
-        // happens at the retire posedge so retire_seqnum is the pre-
-        // increment value).
+        slave.mem_write_cl(RING_BASE + RING_BYTES - 64, cl);
+        // The first retired command writes sequence number zero.
         for (int i = 0; i < 8; ++i)
             slave.mem[CMPL_ADDR - AxiSlave::MEM_BASE + i] = 0xFF;
     }
@@ -295,8 +293,27 @@ int main(int argc, char** argv) {
     // CP_CTRL.enable_global = 1
     axil_write(sim, slave, gpu, tick, CP_CTRL, 1);
 
-    // ----- Ring the doorbell: Q_TAIL_LO=64, then Q_TAIL_HI=0 (commit). -----
-    axil_write(sim, slave, gpu, tick, Q0_BASE + Q_TAIL_LO, 64);
+    // Consume the padding up to the final physical line, then publish two
+    // command lines spanning the end-to-start ring wrap.
+    constexpr uint64_t PRE_WRAP_TAIL = RING_BYTES - 64;
+    constexpr uint64_t FINAL_TAIL = RING_BYTES + 64;
+    axil_write(sim, slave, gpu, tick, Q0_BASE + Q_TAIL_LO,
+               (uint32_t)PRE_WRAP_TAIL);
+    axil_write(sim, slave, gpu, tick, Q0_BASE + Q_TAIL_HI, 0);
+    for (int g = 0; g < 1000 && sim->dbg_q0_head != PRE_WRAP_TAIL; ++g)
+        cycle(sim, slave, gpu, tick);
+    EXPECT(sim->dbg_q0_head == PRE_WRAP_TAIL,
+           "fetch did not consume padding up to the physical ring boundary");
+    EXPECT(slave.mem_read64(CMPL_ADDR) == 0xFFFFFFFFFFFFFFFFull,
+           "padding before the boundary unexpectedly retired a command");
+    {
+        uint8_t cl[64];
+        emit_nop_profiled(cl, /*profile_slot=*/0xDEADBEEFull);
+        slave.mem_write_cl(RING_BASE, cl);
+    }
+
+    axil_write(sim, slave, gpu, tick, Q0_BASE + Q_TAIL_LO,
+               (uint32_t)FINAL_TAIL);
     axil_write(sim, slave, gpu, tick, Q0_BASE + Q_TAIL_HI, 0);
 
     // Verify the registers were programmed before waiting.
@@ -308,19 +325,20 @@ int main(int argc, char** argv) {
                      rb_lo, ctrl, cp, sim->dbg_q0_enabled, (unsigned long)sim->dbg_q0_tail);
     }
 
-    // ----- Wait for completion writeback at CMPL_ADDR -----
-    // First retired seqnum is 0 (engine pre-increments at posedge, so the
-    // retire_seqnum payload is the pre-increment value). We pre-seeded
-    // CMPL_ADDR with 0xFF...FF so any new write changes it.
-    bool got = false;
-    for (int g = 0; g < 500 && !got; ++g) {
+    // ----- Wait for both commands to retire across the ring wrap -----
+    for (int g = 0; g < 1000 && sim->dbg_q0_head != FINAL_TAIL; ++g)
         cycle(sim, slave, gpu, tick);
-        if (slave.mem_read64(CMPL_ADDR) != 0xFFFFFFFFFFFFFFFFull) got = true;
-    }
-    EXPECT(got, "completion never wrote seqnum to cmpl_addr within 500 cycles");
-    uint64_t seq = slave.mem_read64(CMPL_ADDR);
-    EXPECT(seq == 0, "completion wrote wrong seqnum");
-
-    std::printf("PASSED — CP end-to-end: NOP retired, seqnum=1 written to cmpl_addr\n");
+    EXPECT(sim->dbg_q0_head == FINAL_TAIL,
+           "consumer head did not advance monotonically across ring wrap");
+    EXPECT(slave.mem_read64(CMPL_ADDR) == 1,
+           "completion slot did not record the second retired command");
+    EXPECT(axil_read(sim, slave, gpu, tick, Q0_BASE + Q_SEQNUM) == 2,
+           "queue sequence count did not reach two after the wrapped commands");
+    uint32_t head_lo = axil_read(sim, slave, gpu, tick, Q0_BASE + Q_HEAD_SNAP_LO);
+    uint32_t head_hi = axil_read(sim, slave, gpu, tick, Q0_BASE + Q_HEAD_SNAP_HI);
+    EXPECT((((uint64_t)head_hi << 32) | head_lo) == FINAL_TAIL,
+           "head snapshot MMIO pair did not publish wrapped consumer head");
+    std::printf("PASSED — CP end-to-end: wrapped two-line ring, consumer head=%llu, retired=2\n",
+                (unsigned long long)FINAL_TAIL);
     return 0;
 }

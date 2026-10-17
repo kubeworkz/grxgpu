@@ -37,6 +37,8 @@
 //     +0x24 Q_TAIL_HI       WO staging + atomic commit pulse
 //     +0x28 Q_SEQNUM        RO  latest retired seqnum (mirrors cmpl slot)
 //     +0x2C Q_ERROR         RO  per-queue error word
+//     +0x34 Q_HEAD_SNAP_LO  RO  read response captures monotonic consumer head
+//     +0x38 Q_HEAD_SNAP_HI  RO  high half from that same snapshot
 //
 // Atomic-tail rule: the host writes Q_TAIL_LO into a staging register
 // *without* advancing q_state.tail, then writes Q_TAIL_HI which stages
@@ -88,6 +90,9 @@ module VX_cp_axil_regfile
   logic [7:0]  r_ring_size_log2  [NUM_QUEUES];
   logic [31:0] r_control         [NUM_QUEUES];
   logic [63:0] r_tail            [NUM_QUEUES];
+  logic [63:0] r_head_snapshot    [NUM_QUEUES];
+  logic [63:0] r_head_at_ar      [NUM_QUEUES];
+  logic [NUM_QUEUES-1:0] r_head_at_ar_valid;
 
   // Tail-half staging registers. The host can write Q_TAIL_LO multiple
   // times before committing; we always present the most recent value
@@ -196,6 +201,8 @@ module VX_cp_axil_regfile
         6'h1C: return r_control[qid];
         6'h20: return r_tail_lo_staging[qid];     // WO; readback for debug
         6'h24: return r_tail[qid][63:32];         // returns currently committed HI
+        6'h34: return r_head_snapshot[qid][31:0];  // captured with the low R response
+        6'h38: return r_head_snapshot[qid][63:32]; // matching high half of the snapshot
         6'h28: return q_seqnum[qid][31:0];        // RO mirror
         6'h2C: return q_error[qid];               // RO
         6'h30: return last_dcr_rsp;               // RO — last CMD_DCR_READ response
@@ -221,7 +228,7 @@ module VX_cp_axil_regfile
     if (decode_queue(addr, qid, off)) begin
       case (off)
         6'h00, 6'h04, 6'h08, 6'h0C, 6'h10, 6'h14,
-        6'h18, 6'h1C, 6'h20, 6'h24, 6'h28, 6'h2C, 6'h30: return 1'b1;
+        6'h18, 6'h1C, 6'h20, 6'h24, 6'h28, 6'h2C, 6'h30, 6'h34, 6'h38: return 1'b1;
         default: return 1'b0;
       endcase
     end
@@ -345,22 +352,45 @@ module VX_cp_axil_regfile
   logic              rd_addr_buf_valid;
   logic [ADDR_W-1:0] rd_addr_buf;
 
-  assign axil_s.arready = !rd_addr_buf_valid;
+  // Do not accept another AR while the previous R response is stalled.
+  assign axil_s.arready = !rd_addr_buf_valid && !axil_s.rvalid;
 
   always_ff @(posedge clk) begin
+    automatic logic [QID_W-1:0] qid;
+    automatic logic [5:0]       off;
+    automatic logic [63:0]      snapshot_head;
     if (reset) begin
-      rd_addr_buf_valid <= 1'b0;
-      rd_addr_buf       <= '0;
-      axil_s.rvalid     <= 1'b0;
-      axil_s.rdata      <= '0;
-      axil_s.rresp      <= 2'b00;
+      rd_addr_buf_valid   <= 1'b0;
+      rd_addr_buf         <= '0;
+      for (int i = 0; i < NUM_QUEUES; ++i) begin
+        r_head_snapshot[i]    <= '0;
+        r_head_at_ar[i]       <= '0;
+        r_head_at_ar_valid[i] <= 1'b0;
+      end
+      axil_s.rvalid       <= 1'b0;
+      axil_s.rdata        <= '0;
+      axil_s.rresp        <= 2'b00;
     end else begin
       if (axil_s.arvalid && axil_s.arready) begin
         rd_addr_buf       <= axil_s.araddr;
         rd_addr_buf_valid <= 1'b1;
+        if (decode_queue(axil_s.araddr, qid, off) && off == 6'h34) begin
+          r_head_at_ar[qid]       <= q_head[qid];
+          r_head_at_ar_valid[qid] <= 1'b1;
+        end else if (decode_queue(axil_s.araddr, qid, off) && off == 6'h38) begin
+          r_head_at_ar_valid[qid] <= 1'b0;
+        end
       end
       if (rd_addr_buf_valid && !axil_s.rvalid) begin
-        axil_s.rdata      <= read_reg(rd_addr_buf);
+        if (decode_queue(rd_addr_buf, qid, off) && off == 6'h34) begin
+          snapshot_head = r_head_at_ar_valid[qid]
+                        ? r_head_at_ar[qid]
+                        : q_head[qid];
+          r_head_snapshot[qid] <= snapshot_head;
+          axil_s.rdata <= snapshot_head[31:0];
+        end else begin
+          axil_s.rdata <= read_reg(rd_addr_buf);
+        end
         axil_s.rresp      <= is_decoded(rd_addr_buf) ? 2'b00 : 2'b11;
         axil_s.rvalid     <= 1'b1;
         rd_addr_buf_valid <= 1'b0;

@@ -172,6 +172,8 @@ module VX_cp_core
   logic       cpe_cmd_valid [NUM_QUEUES];
   cmd_t       cpe_cmd       [NUM_QUEUES];
   logic       cpe_cmd_ready [NUM_QUEUES];
+  logic       cpe_cmd_last  [NUM_QUEUES];
+  logic       cpe_line_accept [NUM_QUEUES];
 
   // Shared-resource done pulses.
   logic launch_done, dma_done, dcr_done, event_done;
@@ -190,7 +192,9 @@ module VX_cp_core
         .head_out      (q_head_to_reg[q]),
         .cmd_out_valid (cpe_cmd_valid[q]),
         .cmd_out       (cpe_cmd[q]),
+        .cmd_out_last  (cpe_cmd_last[q]),
         .cmd_out_ready (cpe_cmd_ready[q]),
+        .line_accept   (cpe_line_accept[q]),
         .axi_m         (fetch_axi[q])
       );
 
@@ -198,6 +202,8 @@ module VX_cp_core
         .clk           (clk),
         .reset         (reset),
         .prio_in       (q_state[q].prio),
+        .cmd_in_last   (cpe_cmd_last[q]),
+        .line_accept   (cpe_line_accept[q]),
         .seqnum_out    (seqnum_out[q]),
         .cmd_in_valid  (cpe_cmd_valid[q]),
         .cmd_in        (cpe_cmd[q]),

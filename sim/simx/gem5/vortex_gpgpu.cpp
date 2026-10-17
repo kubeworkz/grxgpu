@@ -127,7 +127,7 @@ public:
     // The SimObject's PIO handlers route MMIO reads/writes here.
     // CP regfile is 32-bit; address map is in sim/common/cmd_processor.h.
     void cp_mmio_write(uint32_t off, uint32_t value) { cp_.mmio_write(off, value); }
-    uint32_t cp_mmio_read (uint32_t off) const       { return cp_.mmio_read(off); }
+    uint32_t cp_mmio_read (uint32_t off)       { return cp_.mmio_read(off); }
 
     // ---------------- CP tick / introspection ---------------------------
     // Advances the CP one functional cycle; returns true while the CP has work.

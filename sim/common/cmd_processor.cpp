@@ -92,14 +92,14 @@ void CommandProcessor::mmio_write(uint32_t off, uint32_t value) {
                 q0_.tail = (uint64_t(value) << 32) | uint64_t(q0_.tail_lo_staging);
                 return;
             }
-            // SEQNUM / ERROR are RO; ignore.
-            case 0x28: case 0x2C: return;
+            // SEQNUM / ERROR and consumer-head snapshots are read-only.
+            case 0x28: case 0x2C: case 0x34: case 0x38: return;
         }
     }
     // Unknown offset — silently ignored.
 }
 
-uint32_t CommandProcessor::mmio_read(uint32_t off) const {
+uint32_t CommandProcessor::mmio_read(uint32_t off) {
     switch (off) {
         case 0x000: return cp_ctrl_;
         case 0x004: return uint32_t(busy() ? 1 : 0);    // CP_STATUS bit0
@@ -145,6 +145,17 @@ uint32_t CommandProcessor::mmio_read(uint32_t off) const {
             case 0x28: return uint32_t(q0_.seqnum & 0xFFFFFFFF);
             case 0x2C: return q0_.error;
             case 0x30: return last_dcr_rsp_;  // last CMD_DCR_READ response
+            case 0x34: {
+                // Reading low snapshots both halves; the subsequent high read
+                // observes the same monotonic consumer-head value.
+                q0_.head_snapshot = q0_.head;
+                q0_.head_snapshot_valid = true;
+                return uint32_t(q0_.head_snapshot);
+            }
+            case 0x38:
+                if (q0_.head_snapshot_valid)
+                    return uint32_t(q0_.head_snapshot >> 32);
+                return uint32_t(q0_.head >> 32);
         }
     }
     return 0xDEADBEEF;

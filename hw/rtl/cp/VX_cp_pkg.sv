@@ -130,7 +130,7 @@ package VX_cp_pkg;
   typedef struct packed {
     logic [63:0]                       ring_base;        // host IO addr of ring
     logic [VX_CP_RING_SIZE_LOG2_C-1:0] ring_size_mask;   // size_bytes - 1
-    logic [63:0]                       head_addr;        // CP publishes head here
+    logic [63:0]                       head_addr;        // reserved for host-memory head writeback
     logic [63:0]                       cmpl_addr;        // CP publishes seqnum here
     logic [63:0]                       tail;             // last committed via doorbell
     logic [63:0]                       head;             // CPE consumer pointer

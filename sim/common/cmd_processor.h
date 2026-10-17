@@ -34,7 +34,7 @@
 //     0x024 GPU_ISA_CAPS_HI  ISA caps, high 32 bits            (RO)
 //   Per queue 0 (CP-internal offsets 0x100..0x13F)
 //     0x100/04 Q_RING_BASE_LO/HI
-//     0x108/0C Q_HEAD_ADDR_LO/HI   (where the CP publishes head)
+//     0x108/0C Q_HEAD_ADDR_LO/HI   (reserved for host-memory head writeback)
 //     0x110/14 Q_CMPL_ADDR_LO/HI   (where the CP publishes seqnum)
 //     0x118    Q_RING_SIZE_LOG2
 //     0x11C    Q_CONTROL          bit0=enable, bit1=reset
@@ -43,6 +43,7 @@
 //     0x128    Q_SEQNUM           (RO mirror)
 //     0x12C    Q_ERROR
 //     0x130    Q_LAST_DCR_RSP     (RO — latest CMD_DCR_READ response)
+//     0x134/38 Q_HEAD_SNAP_LO/HI (RO — coherent monotonic consumer head)
 //
 // CMD_DRAW (OP_DRAW, opcode 0x0C) — device-orchestrated draw.
 //   A single ring command whose arg0 points at a resident *draw descriptor*:
@@ -106,7 +107,7 @@ public:
     // Backends doing MMIO at byte offset 0x1000+ should subtract 0x1000
     // on their side before calling these.
     void     mmio_write(uint32_t off, uint32_t value);
-    uint32_t mmio_read (uint32_t off) const;
+    uint32_t mmio_read (uint32_t off);
 
     // ----- Sim integration -----
     // Advance the CP one functional cycle. Called by the simulator's
@@ -180,6 +181,8 @@ private:
         uint32_t tail_lo_staging = 0;
         // CP-tracked state (not host-writable):
         uint64_t head        = 0;      // bytes consumed
+        uint64_t head_snapshot = 0;    // coherent two-half MMIO snapshot
+        bool     head_snapshot_valid = false;
         uint64_t seqnum      = 0;      // commands retired
         uint32_t error       = 0;
     };
