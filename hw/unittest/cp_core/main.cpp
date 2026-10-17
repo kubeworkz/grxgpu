@@ -267,7 +267,7 @@ int main(int argc, char** argv) {
     // ----- Seed commands on both sides of the physical ring boundary -----
     constexpr uint64_t RING_BASE = AxiSlave::MEM_BASE;
     constexpr uint64_t RING_BYTES = 1u << 12;
-    constexpr uint64_t CMPL_ADDR = AxiSlave::MEM_BASE + 0x200;
+    constexpr uint64_t CMPL_ADDR = RING_BASE + RING_BYTES;
     {
         uint8_t cl[64];
         emit_nop_profiled(cl, /*profile_slot=*/0xCAFEBABEull);
@@ -330,6 +330,8 @@ int main(int argc, char** argv) {
         cycle(sim, slave, gpu, tick);
     EXPECT(sim->dbg_q0_head == FINAL_TAIL,
            "consumer head did not advance monotonically across ring wrap");
+    for (int g = 0; g < 1000 && slave.mem_read64(CMPL_ADDR) != 1; ++g)
+        cycle(sim, slave, gpu, tick);
     EXPECT(slave.mem_read64(CMPL_ADDR) == 1,
            "completion slot did not record the second retired command");
     EXPECT(axil_read(sim, slave, gpu, tick, Q0_BASE + Q_SEQNUM) == 2,
