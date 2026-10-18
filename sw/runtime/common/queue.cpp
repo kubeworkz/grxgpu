@@ -704,18 +704,18 @@ vx_result_t Queue::enqueue_commands(const vx_command_t* commands,
         if (r == VX_SUCCESS) {
             std::lock_guard<std::mutex> g(enqueue_mu_);
             *s = now_ns();
-            device_->cp_batch_begin();
-            for (size_t i = 0; i < recs.size(); ++i) {
-                const CmdRec& rec = recs[i];
-                r = rec.is_launch
-                  ? cmd_submit_launch(device_, staged[i])
-                  : device_->cp_submit_dcr_write(rec.dcr_addr, rec.dcr_value);
-                if (r != VX_SUCCESS) break;
+            r = device_->cp_batch_begin();
+            if (r == VX_SUCCESS) {
+                for (size_t i = 0; i < recs.size(); ++i) {
+                    const CmdRec& rec = recs[i];
+                    r = rec.is_launch
+                      ? cmd_submit_launch(device_, staged[i])
+                      : device_->cp_submit_dcr_write(rec.dcr_addr, rec.dcr_value);
+                    if (r != VX_SUCCESS) break;
+                }
+                auto re = device_->cp_batch_end();
+                if (r == VX_SUCCESS) r = re;
             }
-            // Always close the batch (commit + poll + drain) even on a mid-batch
-            // error so the partial sequence retires and the lock releases.
-            auto re = device_->cp_batch_end();
-            if (r == VX_SUCCESS) r = re;
             *e = now_ns();
         } else {
             *s = *e = now_ns();
@@ -823,16 +823,18 @@ vx_result_t Queue::enqueue_draw(const vx_command_t* commands,
             if (use_op_draw) {
                 r = device_->cp_submit_draw(desc_addr);
             } else {
-                device_->cp_batch_begin();
-                for (size_t i = 0; i < recs.size(); ++i) {
-                    const CmdRec& rec = recs[i];
-                    r = rec.is_launch
-                      ? cmd_submit_launch(device_, staged[i])
-                      : device_->cp_submit_dcr_write(rec.dcr_addr, rec.dcr_value);
-                    if (r != VX_SUCCESS) break;
+                r = device_->cp_batch_begin();
+                if (r == VX_SUCCESS) {
+                    for (size_t i = 0; i < recs.size(); ++i) {
+                        const CmdRec& rec = recs[i];
+                        r = rec.is_launch
+                          ? cmd_submit_launch(device_, staged[i])
+                          : device_->cp_submit_dcr_write(rec.dcr_addr, rec.dcr_value);
+                        if (r != VX_SUCCESS) break;
+                    }
+                    auto re = device_->cp_batch_end();
+                    if (r == VX_SUCCESS) r = re;
                 }
-                auto re = device_->cp_batch_end();
-                if (r == VX_SUCCESS) r = re;
             }
             *e = now_ns();
         } else {

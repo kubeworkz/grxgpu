@@ -10,22 +10,9 @@
 //     pinned ring + completion slot live here).
 //   - gpu_if (Vortex side): tiny FSM that responds to gpu.start by
 //     pulsing gpu.busy for a few cycles.
-//
-// End-to-end happy-path sequence:
-//   1. Seed one profiled NOP on the final physical ring line and a second
-//      at ring offset zero, with padding-only cache lines before the boundary.
-//   2. Program regs:
-//        Q_RING_BASE_LO/HI = ring_base
-//        Q_CMPL_ADDR_LO/HI = cmpl_slot
-//        Q_RING_SIZE_LOG2  = 12 (4 KiB)
-//        Q_CONTROL.enable  = 1, Q_CONTROL.profile = 1
-//        CP_CTRL.enable_global = 1
-//   3. Ring the doorbell with a monotonic tail past the physical ring end.
-//   4. Watch both commands retire and the head advance across the wrap.
-//   5. Verify the completion sequence and coherent head snapshot.
-//
-// NOP retires without bidding for a resource; this exercises regfile → fetch
-// → unpack → engine → completion and host-visible head reporting.
+// End-to-end test covers ring wrap, exact-full acceptance, delayed command
+// retirement, and producer resume after the consumer frees ring space.
+
 // ============================================================================
 
 #include "vl_simulator.h"
@@ -55,14 +42,18 @@ void   sim_trace_enable(bool e) { trace_en = e; }
     } \
 } while (0)
 
-// ---- cmd_t pack (header at MSB word, profile_slot at LSB words) ----
+// ---- Command pack (header at byte 0, payload fields little-endian) ----
 static constexpr int F_PROFILE_BIT = 0;
 static void emit_nop_profiled(uint8_t* cl, uint64_t profile_slot) {
     std::memset(cl, 0, 64);
-    cl[0] = 0x00;                // opcode = NOP
-    cl[1] = 1u << F_PROFILE_BIT; // flags  = F_PROFILE (so it's not padding)
-    // NOP profiled size = 12 B; profile_slot at tail (offset 4..11)
+    cl[0] = 0x00;
+    cl[1] = 1u << F_PROFILE_BIT;
     for (int i = 0; i < 8; ++i) cl[4 + i] = (uint8_t)(profile_slot >> (8*i));
+}
+
+static void emit_launch(uint8_t* cl) {
+    std::memset(cl, 0, 64);
+    cl[0] = 0x06;
 }
 
 // ============================================================================
@@ -147,28 +138,43 @@ struct AxiSlave {
 };
 
 // ============================================================================
-// Synthetic gpu_if model. Pulses dcr_req_ready always; pulses busy for
-// a few cycles after start. dcr_rsp is unused in this NOP test.
+// Synthetic gpu_if model. Can hold busy after a launch for the backpressure test.
 // ============================================================================
 struct GpuModel {
     int busy_cnt = 0;
+    bool hold_start = false;
+    uint32_t delayed_busy_cycles = 0;
     template <typename T>
     void comb_drive(T* top) {
         top->gpu_dcr_req_ready = 1;
         top->gpu_dcr_rsp_valid = 0;
         top->gpu_dcr_rsp_data  = 0;
-        top->gpu_busy = (busy_cnt > 0);
+        top->gpu_busy = (busy_cnt != 0);
     }
     template <typename T>
     void posedge_update(T* top) {
-        if (top->gpu_start) busy_cnt = 4;
-        else if (busy_cnt > 0) busy_cnt--;
+        if (top->gpu_start) busy_cnt = hold_start ? -1 : 4;
+        else if (busy_cnt == -1) {
+            if (delayed_busy_cycles > 0) --delayed_busy_cycles;
+            else busy_cnt = 4;
+        } else if (busy_cnt > 0) {
+            busy_cnt--;
+        }
     }
 };
 
+struct AxilHandshake {
+    bool aw = false;
+    bool w = false;
+    bool b = false;
+    bool ar = false;
+    bool r = false;
+    uint32_t rdata = 0;
+};
+
 template <typename T>
-static void cycle(vl_simulator<T>& sim, AxiSlave& slave, GpuModel& gpu,
-                  uint64_t& tick) {
+static AxilHandshake cycle(vl_simulator<T>& sim, AxiSlave& slave, GpuModel& gpu,
+                           uint64_t& tick) {
     auto* top = sim.operator->();
     slave.comb_drive(top);
     gpu.comb_drive(top);
@@ -176,12 +182,20 @@ static void cycle(vl_simulator<T>& sim, AxiSlave& slave, GpuModel& gpu,
     slave.comb_drive(top);
     gpu.comb_drive(top);
     top->eval();
+    AxilHandshake handshake;
+    handshake.aw = top->s_awvalid && top->s_awready;
+    handshake.w  = top->s_wvalid && top->s_wready;
+    handshake.b  = top->s_bvalid && top->s_bready;
+    handshake.ar = top->s_arvalid && top->s_arready;
+    handshake.r  = top->s_rvalid && top->s_rready;
+    handshake.rdata = top->s_rdata;
     slave.posedge_update(top);
     gpu.posedge_update(top);
     tick = sim.step(tick, 2);
     slave.comb_drive(top);
     gpu.comb_drive(top);
     top->eval();
+    return handshake;
 }
 
 // ---- AXI-Lite W and R helpers (drive the host control plane) ----
@@ -194,10 +208,10 @@ static void axil_write(vl_simulator<T>& sim, AxiSlave& slave, GpuModel& gpu,
     sim->s_bready  = 1;
     bool aw_done = false, w_done = false;
     for (int g = 0; g < 32; ++g) {
-        cycle(sim, slave, gpu, tick);
-        if (!aw_done && sim->s_awready) { aw_done = true; sim->s_awvalid = 0; }
-        if (!w_done  && sim->s_wready)  { w_done  = true; sim->s_wvalid  = 0; }
-        if (aw_done && w_done && sim->s_bvalid) {
+        auto handshake = cycle(sim, slave, gpu, tick);
+        if (!aw_done && handshake.aw) { aw_done = true; sim->s_awvalid = 0; }
+        if (!w_done  && handshake.w)  { w_done  = true; sim->s_wvalid  = 0; }
+        if (aw_done && w_done && handshake.b) {
             sim->s_bready = 0;
             return;
         }
@@ -215,13 +229,13 @@ static uint32_t axil_read(vl_simulator<T>& sim, AxiSlave& slave, GpuModel& gpu,
     bool ar_done = false;
     uint32_t captured = 0;
     for (int g = 0; g < 32; ++g) {
-        cycle(sim, slave, gpu, tick);
-        if (!ar_done && sim->s_arready) {
+        auto handshake = cycle(sim, slave, gpu, tick);
+        if (!ar_done && handshake.ar) {
             ar_done = true;
             sim->s_arvalid = 0;
         }
-        if (sim->s_rvalid) {
-            captured = sim->s_rdata;
+        if (handshake.r) {
+            captured = handshake.rdata;
             sim->s_rready = 0;
             return captured;
         }
@@ -256,6 +270,7 @@ int main(int argc, char** argv) {
     // Idle inputs before reset.
     sim->s_awvalid = sim->s_wvalid = sim->s_bready = 0;
     sim->s_arvalid = sim->s_rready = 0;
+    sim->gpu_dcr_req_ready = 1;
     tick = sim.reset(tick);
 
     // Sanity: CP_DEV_CAPS readable.
@@ -264,18 +279,25 @@ int main(int argc, char** argv) {
         EXPECT((v & 0xff) == 1, "DEV_CAPS NUM_QUEUES");
     }
 
-    // ----- Seed commands on both sides of the physical ring boundary -----
     constexpr uint64_t RING_BASE = AxiSlave::MEM_BASE;
     constexpr uint64_t RING_BYTES = 1u << 12;
+    constexpr uint64_t RING_LINES = RING_BYTES / 64;
     constexpr uint64_t CMPL_ADDR = RING_BASE + RING_BYTES;
+    // Seed commands across the physical ring boundary.
     {
         uint8_t cl[64];
-        emit_nop_profiled(cl, /*profile_slot=*/0xCAFEBABEull);
-        slave.mem_write_cl(RING_BASE + RING_BYTES - 64, cl);
+        emit_launch(cl);
+        slave.mem_write_cl(RING_BASE, cl);
+        for (uint64_t i = 1; i < RING_BYTES / 64; ++i) {
+            emit_nop_profiled(cl, i);
+            slave.mem_write_cl(RING_BASE + i * 64, cl);
+        }
         // The first retired command writes sequence number zero.
         for (int i = 0; i < 8; ++i)
             slave.mem[CMPL_ADDR - AxiSlave::MEM_BASE + i] = 0xFF;
     }
+    gpu.hold_start = true;
+    gpu.delayed_busy_cycles = 1000;
 
     // ----- Program the queue regs -----
     axil_write(sim, slave, gpu, tick, Q0_BASE + Q_RING_BASE_LO,
@@ -293,27 +315,38 @@ int main(int argc, char** argv) {
     // CP_CTRL.enable_global = 1
     axil_write(sim, slave, gpu, tick, CP_CTRL, 1);
 
-    // Consume the padding up to the final physical line, then publish two
-    // command lines spanning the end-to-start ring wrap.
-    constexpr uint64_t PRE_WRAP_TAIL = RING_BYTES - 64;
-    constexpr uint64_t FINAL_TAIL = RING_BYTES + 64;
+    // Publish an exactly full ring while its first launch is held busy.
+    constexpr uint64_t FULL_TAIL = RING_BYTES;
+    constexpr uint64_t RESUME_TAIL = RING_BYTES + 64;
     axil_write(sim, slave, gpu, tick, Q0_BASE + Q_TAIL_LO,
-               (uint32_t)PRE_WRAP_TAIL);
+               (uint32_t)FULL_TAIL);
     axil_write(sim, slave, gpu, tick, Q0_BASE + Q_TAIL_HI, 0);
-    for (int g = 0; g < 1000 && sim->dbg_q0_head != PRE_WRAP_TAIL; ++g)
+    EXPECT(sim->dbg_q0_tail == FULL_TAIL,
+           "consumer did not observe the exact-full producer tail");
+    for (int g = 0; g < 1000 && gpu.busy_cnt == 0; ++g)
         cycle(sim, slave, gpu, tick);
-    EXPECT(sim->dbg_q0_head == PRE_WRAP_TAIL,
-           "fetch did not consume padding up to the physical ring boundary");
-    EXPECT(slave.mem_read64(CMPL_ADDR) == 0xFFFFFFFFFFFFFFFFull,
-           "padding before the boundary unexpectedly retired a command");
+    EXPECT(gpu.busy_cnt == -1,
+           "first launch did not enter the delayed-busy state");
+    EXPECT(sim->dbg_q0_head == 0,
+           "consumer head advanced before the delayed launch was accepted");
+
+    // The delayed launch eventually completes, then the full ring drains.
+    gpu.hold_start = false;
+    gpu.delayed_busy_cycles = 0;
+    for (int g = 0; g < 1000 && sim->dbg_q0_head != FULL_TAIL; ++g)
+        cycle(sim, slave, gpu, tick);
+    EXPECT(sim->dbg_q0_head == FULL_TAIL,
+           "consumer did not resume after the delayed launch completed");
+    EXPECT(axil_read(sim, slave, gpu, tick, Q0_BASE + Q_SEQNUM) == RING_LINES,
+           "full ring did not retire after the delayed launch completed");
+
     {
         uint8_t cl[64];
         emit_nop_profiled(cl, /*profile_slot=*/0xDEADBEEFull);
         slave.mem_write_cl(RING_BASE, cl);
     }
-
     axil_write(sim, slave, gpu, tick, Q0_BASE + Q_TAIL_LO,
-               (uint32_t)FINAL_TAIL);
+               (uint32_t)RESUME_TAIL);
     axil_write(sim, slave, gpu, tick, Q0_BASE + Q_TAIL_HI, 0);
 
     // Verify the registers were programmed before waiting.
@@ -325,22 +358,22 @@ int main(int argc, char** argv) {
                      rb_lo, ctrl, cp, sim->dbg_q0_enabled, (unsigned long)sim->dbg_q0_tail);
     }
 
-    // ----- Wait for both commands to retire across the ring wrap -----
-    for (int g = 0; g < 1000 && sim->dbg_q0_head != FINAL_TAIL; ++g)
+    // Wait for the wrapped command to retire and verify host-visible head.
+    for (int g = 0; g < 1000 && sim->dbg_q0_head != RESUME_TAIL; ++g)
         cycle(sim, slave, gpu, tick);
-    EXPECT(sim->dbg_q0_head == FINAL_TAIL,
-           "consumer head did not advance monotonically across ring wrap");
-    for (int g = 0; g < 1000 && slave.mem_read64(CMPL_ADDR) != 1; ++g)
+    EXPECT(sim->dbg_q0_head == RESUME_TAIL,
+           "consumer did not resume after wrap and delayed DCR acceptance");
+    for (int g = 0; g < 1000 && slave.mem_read64(CMPL_ADDR) != RING_LINES; ++g)
         cycle(sim, slave, gpu, tick);
-    EXPECT(slave.mem_read64(CMPL_ADDR) == 1,
-           "completion slot did not record the second retired command");
-    EXPECT(axil_read(sim, slave, gpu, tick, Q0_BASE + Q_SEQNUM) == 2,
-           "queue sequence count did not reach two after the wrapped commands");
+    EXPECT(slave.mem_read64(CMPL_ADDR) == RING_LINES,
+           "completion slot did not record the resumed wrapped command");
+    EXPECT(axil_read(sim, slave, gpu, tick, Q0_BASE + Q_SEQNUM) == RING_LINES + 1,
+           "queue sequence count did not advance after resumed wrapped command");
     uint32_t head_lo = axil_read(sim, slave, gpu, tick, Q0_BASE + Q_HEAD_SNAP_LO);
     uint32_t head_hi = axil_read(sim, slave, gpu, tick, Q0_BASE + Q_HEAD_SNAP_HI);
-    EXPECT((((uint64_t)head_hi << 32) | head_lo) == FINAL_TAIL,
-           "head snapshot MMIO pair did not publish wrapped consumer head");
-    std::printf("PASSED — CP end-to-end: wrapped two-line ring, consumer head=%llu, retired=2\n",
-                (unsigned long long)FINAL_TAIL);
+    EXPECT((((uint64_t)head_hi << 32) | head_lo) == RESUME_TAIL,
+           "head snapshot MMIO pair did not publish resumed consumer head");
+    std::printf("PASSED — CP ring: exact-full wrap + delayed launch/resume, retired=%llu\n",
+                (unsigned long long)(RING_LINES + 1));
     return 0;
 }

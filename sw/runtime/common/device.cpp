@@ -20,6 +20,7 @@
 #include <cstring>
 #include <iostream>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace vx {
@@ -204,6 +205,7 @@ constexpr uint8_t  CP_OPCODE_CACHE_FLUSH= 0x0A;
 constexpr uint8_t  CP_OPCODE_LAUNCH_QMD = 0x0B;
 constexpr uint8_t  CP_OPCODE_DRAW       = 0x0C;
 constexpr std::size_t CP_CL_BYTES    = 64;
+constexpr uint32_t CP_RING_POLL_US = 50;
 
 // CMD_EVENT_WAIT comparison operations (encoded in arg2[1:0]).
 // Mirrors hw/rtl/cp/VX_cp_pkg.sv:wait_op_e.
@@ -380,17 +382,21 @@ vx_result_t Device::cp_wait_seqnum_(uint64_t target) {
     #ifdef SCOPE
         (void)vx_scope_drain();
     #endif
+        std::this_thread::sleep_for(std::chrono::microseconds(CP_RING_POLL_US));
     }
 }
 
-void Device::cp_batch_begin() {
-    cp_mu_.lock();
+vx_result_t Device::cp_batch_begin() {
+    std::unique_lock<std::recursive_mutex> lk(cp_mu_);
+    if (cp_in_batch_) return VX_ERR_INTERNAL;
     cp_in_batch_ = true;
     cp_batch_failed_ = false;
     cp_batch_error_ = VX_SUCCESS;
     cp_batch_start_tail_ = cp_tail_;
     cp_batch_start_seqnum_ = cp_expected_seqnum_;
     cp_batch_target_ = cp_expected_seqnum_;
+    lk.release();
+    return VX_SUCCESS;
 }
 
 vx_result_t Device::cp_batch_end() {
@@ -416,9 +422,9 @@ vx_result_t Device::cp_batch_end() {
 }
 
 vx_result_t Device::cp_submit_cl_(const void* cl) {
-    uint64_t target;
-    {
-        std::lock_guard<std::recursive_mutex> g(cp_mu_);
+    for (;;) {
+        uint64_t target = 0;
+        std::unique_lock<std::recursive_mutex> lk(cp_mu_);
         // Batch mode: append only; the outer batch owns the recursive lock
         // until cp_batch_end commits or rolls back the complete sequence.
         if (cp_in_batch_) {
@@ -433,22 +439,32 @@ vx_result_t Device::cp_submit_cl_(const void* cl) {
             return r;
         }
 
-        // Hold cp_mu_ only through ring write + TAIL doorbell; release before
-        // polling so concurrent submitters can post commands that unblock a
-        // stalled WAIT at the ring head.
         auto r = cp_ring_append_(cl);
+        if (r == VX_ERR_OUT_OF_DEVICE_MEMORY) {
+            // This append cannot proceed while a previously posted command
+            // retains the ring space. Wait without the producer lock so a
+            // different queue can post a signal and unblock the consumer.
+            target = cp_expected_seqnum_;
+            lk.unlock();
+            r = cp_wait_seqnum_(target);
+            if (r != VX_SUCCESS) return r;
+            continue;
+        }
         if (r != VX_SUCCESS) return r;
         target = cp_expected_seqnum_;
 
-        // Order ring data before the tail doorbell on weakly ordered hosts.
+        // Hold cp_mu_ only through ring write + TAIL doorbell; release before
+        // polling so concurrent submitters can post commands that unblock a
+        // stalled WAIT at the ring head.
         std::atomic_thread_fence(std::memory_order_release);
         r = cp_commit_tail_locked_();
         if (r != VX_SUCCESS) return r;
-    }
+        lk.unlock();
 
-    auto r = cp_wait_seqnum_(target);
-    if (r != VX_SUCCESS) return r;
-    return VX_SUCCESS;
+        r = cp_wait_seqnum_(target);
+        if (r != VX_SUCCESS) return r;
+        return VX_SUCCESS;
+    }
 }
 
 vx_result_t Device::cp_submit_dcr_write(uint32_t addr, uint32_t value) {

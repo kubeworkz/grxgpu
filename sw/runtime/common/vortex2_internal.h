@@ -248,7 +248,7 @@ public:
     vx_result_t cp_submit_cache_flush();
 
     // ----- Batched CP submission (one draw = one ring batch) -----
-    // cp_batch_begin holds the ring lock and switches cp_submit_* into
+    // cp_batch_begin acquires the ring lock and switches cp_submit_* into
     // append-only mode: each subsequent cp_submit_dcr_write / cp_submit_launch
     // / cp_submit_cache_flush writes its CL into the ring and reserves a
     // seqnum but does NOT ring the doorbell or poll. cp_batch_end commits
@@ -264,9 +264,9 @@ public:
     // contain a CMD_EVENT_WAIT that depends on another queue posting a
     // CMD_EVENT_SIGNAL (that submitter would deadlock on the batch lock).
     // Graphics draw batches contain only DCR writes + launches, so this never arises.
-    // cp_batch_end is always paired with cp_batch_begin, including after an
+    // cp_batch_end follows every successful cp_batch_begin, including after an
     // append error, so the lock is released and uncommitted bytes are discarded.
-    void        cp_batch_begin();
+    vx_result_t cp_batch_begin();
     vx_result_t cp_batch_end();
 
     // Post one CMD_DCR_READ to the ring, wait for retire, and read the
@@ -345,8 +345,8 @@ private:
     // doorbell + poll are deferred to cp_batch_end.
     vx_result_t cp_submit_cl_(const void* cl);
 
-    // Append one CL at the current tail and reserve its seqnum. Caller holds
-    // cp_mu_; full batches are rejected before any bytes are appended.
+    // Append one CL at the current tail after confirming consumer capacity.
+    // Caller holds cp_mu_; a full ring returns OUT_OF_DEVICE_MEMORY.
     vx_result_t cp_ring_append_(const void* cl);
     vx_result_t cp_read_head_locked_(uint64_t* head);
     vx_result_t cp_commit_tail_locked_();

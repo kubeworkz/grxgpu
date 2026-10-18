@@ -220,6 +220,33 @@ int test_user_event_gated_enqueue(vx_device_h dev) {
 }
 
 // ---------------------------------------------------------------------------
+// A command batch that cannot fit in the ring is rejected without submission.
+int test_oversized_command_batch(vx_device_h dev) {
+    constexpr uint32_t RING_COMMANDS = (1u << 16) / 64;
+    constexpr uint32_t COUNT = RING_COMMANDS + 1;
+    vx_queue_info_t qi = {};
+    qi.struct_size = sizeof(qi);
+    vx_queue_h q = nullptr;
+    CHECK_VX(vx_queue_create(dev, &qi, &q));
+
+    std::vector<vx_command_t> commands(COUNT);
+    for (auto& command : commands) {
+        command.type = VX_COMMAND_DCR_WRITE;
+        command.data.dcr.addr = 0;
+        command.data.dcr.value = 0;
+    }
+    vx_event_h event = nullptr;
+    CHECK_VX(vx_enqueue_commands(q, commands.data(), COUNT, 0, nullptr, &event));
+    auto r = vx_event_wait_value(event, 1, VX_TIMEOUT_INFINITE);
+    EXPECT(r == VX_ERR_OUT_OF_DEVICE_MEMORY,
+           "batch larger than the CP ring must fail without committing");
+
+    CHECK_VX(vx_event_release(event));
+    CHECK_VX(vx_queue_release(q));
+    return 0;
+}
+
+// ---------------------------------------------------------------------------
 // vx_enqueue_barrier as a join point inside a single queue.
 // Issues N writes with no inter-dependency, then a barrier, then a marker copy.
 // The marker event completes only after all prior writes finish.
@@ -474,6 +501,7 @@ int main() {
         { "event_chain",               test_event_chain               },
         { "user_event",                test_user_event                },
         { "user_event_gated_enqueue",  test_user_event_gated_enqueue  },
+        { "oversized_command_batch",   test_oversized_command_batch   },
         { "barrier",                   test_barrier                   },
         { "profiling",                 test_profiling                 },
         { "map_unmap",                 test_map_unmap                 },

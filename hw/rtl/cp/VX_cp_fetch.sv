@@ -91,7 +91,7 @@ module VX_cp_fetch
     .offset    (next_offset_w),
     .has_cmd   (has_next_cmd_w),
     .cmd       (next_cmd_w),
-    .cmd_size  ()
+    `UNUSED_PIN (cmd_size)
   );
 
   assign cmd_out_last = (state == S_EMIT) && has_cmd_w && !has_next_cmd_w;
@@ -185,6 +185,7 @@ module VX_cp_fetch
   `UNUSED_VAR (axi_m.rlast)
   `UNUSED_VAR (axi_m.rresp)
   `UNUSED_VAR (next_cmd_w)
+  `UNUSED_VAR (has_next_cmd_w)
   `UNUSED_VAR (state_in.head_addr)
   `UNUSED_VAR (state_in.cmpl_addr)
   `UNUSED_VAR (state_in.head)

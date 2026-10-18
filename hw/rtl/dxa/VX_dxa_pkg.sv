@@ -20,6 +20,8 @@ package VX_dxa_pkg;
 
     import VX_gpu_pkg::*;
 
+    `IGNORE_UNUSED_BEGIN
+
     // DXA local-memory path: dimensioned to cover all banks in one request.
     localparam DXA_LMEM_WORD_SIZE = `VX_CFG_LMEM_NUM_BANKS * (`VX_CFG_XLEN / 8);
     localparam DXA_LMEM_ADDR_W = LMEM_DMA_ADDR_WIDTH;
@@ -176,5 +178,7 @@ package VX_dxa_pkg;
     endtask
 
 endpackage
+
+    `IGNORE_UNUSED_END
 
 `endif // VX_DXA_PKG_VH
