@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "manifest_type": "grxgpu-integration-baseline",
+  "schema_version": "1.0.0",
+  "baseline_id": "unassigned",
+  "status": "draft",
+  "created_at": "YYYY-MM-DD",
+  "updated_at": "YYYY-MM-DD",
+  "owner": {
+    "organization": "unassigned",
+    "role": "integration owner",
+    "name": "unassigned"
+  },
+  "scope": {
+    "product": "G100 + PTA chiplet",
+    "purpose": "cross-project integration baseline",
+    "claim_boundary": "Replace with the exact claim this baseline is intended to support."
+  },
+  "components": [
+    {
+      "id": "g100",
+      "role": "GPU implementation",
+      "repository": "https://github.com/kubeworkz/grxgpu",
+      "revision": {
+        "commit": "REQUIRED_40_HEX_COMMIT",
+        "tree": "REQUIRED_40_HEX_TREE"
+      },
+      "configuration": "REQUIRED_CONFIG_PATH_OR_DIGEST",
+      "build_artifacts": [],
+      "evidence_refs": []
+    },
+    {
+      "id": "pta",
+      "role": "photonic tensor accelerator component",
+      "repository": "REQUIRED_CANONICAL_GRXCP_REPOSITORY_URL",
+      "revision": {
+        "commit": "REQUIRED_40_HEX_COMMIT",
+        "tree": "REQUIRED_40_HEX_TREE"
+      },
+      "configuration": "REQUIRED_CONFIG_PATH_OR_DIGEST",
+      "build_artifacts": [],
+      "evidence_refs": []
+    },
+    {
+      "id": "grx930",
+      "role": "host SoC, when included in this baseline",
+      "repository": "REQUIRED_CANONICAL_GRX930_REPOSITORY_URL",
+      "revision": {
+        "commit": "REQUIRED_40_HEX_COMMIT",
+        "tree": "REQUIRED_40_HEX_TREE"
+      },
+      "configuration": "REQUIRED_CONFIG_PATH_OR_DIGEST",
+      "build_artifacts": [],
+      "evidence_refs": []
+    },
+    {
+      "id": "board",
+      "role": "board design and physical integration, when included",
+      "repository": "REQUIRED_CANONICAL_BOARD_REPOSITORY_URL",
+      "revision": {
+        "commit": "REQUIRED_40_HEX_COMMIT",
+        "tree": "REQUIRED_40_HEX_TREE"
+      },
+      "configuration": "REQUIRED_BOARD_REVISION_AND_BOM_DIGEST",
+      "build_artifacts": [],
+      "evidence_refs": []
+    }
+  ],
+  "integration_contract": {
+    "document": "REQUIRED_INTERFACE_CONTROL_DOCUMENT_PATH_AND_REVISION",
+    "interface_version": "REQUIRED_SEMVER_OR_CONTROLLED_VERSION",
+    "status": "draft",
+    "open_decisions": []
+  },
+  "workloads": [
+    {
+      "id": "REQUIRED_WORKLOAD_ID",
+      "version": "REQUIRED_VERSION",
+      "source_ref": "REQUIRED_REPOSITORY_COMMIT_OR_CONTROLLED_ID",
+      "input_sha256": "REQUIRED_SHA256",
+      "golden_sha256": "REQUIRED_SHA256",
+      "numerical_contract": "REQUIRED_REFERENCE_AND_TOLERANCE",
+      "acceptance_thresholds": {
+        "status": "unratified",
+        "reference": "REQUIRED_APPROVED_REQUIREMENTS_RECORD"
+      }
+    }
+  ],
+  "environment": {
+    "tools": [],
+    "platform": "REQUIRED_SIMULATOR_FPGA_OR_BOARD_ID",
+    "run_procedure": "REQUIRED_REPRODUCIBLE_COMMANDS_OR_SCRIPT_REVISION"
+  },
+  "acceptance_evidence": [
+    {
+      "id": "REQUIRED_EVIDENCE_ID",
+      "claim": "REQUIRED_NARROW_CLAIM",
+      "scope": "component | integration | physical_board",
+      "status": "not_run",
+      "procedure": "REQUIRED_TEST_OR_MEASUREMENT_ID",
+      "result": "not_run",
+      "artifact_uri": "REQUIRED_DURABLE_URI_OR_CONTROLLED_RECORD_ID",
+      "sha256": "REQUIRED_SHA256_OR_NULL_IF_NOT_AVAILABLE",
+      "source_pins": ["g100", "pta"],
+      "configuration": "REQUIRED_CONFIGURATION_REFERENCE",
+      "tools": [],
+      "workload_ids": ["REQUIRED_WORKLOAD_ID"],
+      "limitations": [],
+      "review": {
+        "reviewer": "unassigned",
+        "reviewed_at": null,
+        "disposition": "pending"
+      }
+    }
+  ],
+  "decisions": [],
+  "change_history": []
+}
