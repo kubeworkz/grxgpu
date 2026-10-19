@@ -1,0 +1,291 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "manifest_type": "grxgpu-integration-baseline",
+  "schema_version": "1.0.0",
+  "baseline_id": "g100-pta-first-board-canary-v0.1-draft",
+  "status": "draft_blocked_not_a_baseline",
+  "created_at": "2026-10-18",
+  "updated_at": "2026-10-18",
+  "owner": {
+    "organization": "GRXCP/PTA",
+    "role": "PTA technical owner",
+    "name": "Dave Cook"
+  },
+  "scope": {
+    "product": "G100 with an explicitly identified FPGA PTA stand-in",
+    "purpose": "Track evidence for a proposed first-board G100-to-PTA functional integration claim",
+    "claim_boundary": "Only G100 FC2 output handoff through system-managed activation conversion to a separately addressable FPGA PTA stand-in, plus exact seeded declared-format FC3 output comparison, after required source/config/workload/transport pins and implementations exist. Not a passed integration result, physical PTA capability, optical computation, performance result, or whole-board qualification."
+  },
+  "components": [
+    {
+      "id": "g100",
+      "role": "GPU implementation; separate component discovery evidence only, not yet a participant in a joint PTA test",
+      "repository": "https://github.com/kubeworkz/grxgpu",
+      "revision": {
+        "commit": "ff5790806973a1586478531c3d6710a0fa614384",
+        "tree": "9ecc11da261a4f7ad952761d6d6768e54086d7bd",
+        "pin_status": "verified git object and tree exist locally; historical discovery source pin, not current worktree HEAD"
+      },
+      "configuration": {
+        "id": "g100-discovery-rv32-1x4-tcu-dxa-wgmma-nrc16",
+        "status": "reproduced experiment configuration; not a ratified integration or product configuration",
+        "resolved_config_path": "evidence/g100-discovery-2026-10-13/resolved-config.txt",
+        "resolved_config_sha256": "e8434432378156e106a12b6a97f9a647592b462d78fdee9523fad8ca08d3ae71",
+        "key_overrides": "RV32; 1 cluster x 4 cores; 4 warps; 8 threads; issue width 4; L2 enabled; 2 DXA cores; TCU, DXA, WGMMA enabled; NRC=16; FP16 input, FP32 output. The recorded same-kernel comparison used WGMMA_RS and WGMMA_DXA_DOUBLE_BUFFER in SimX and rtlsim.",
+        "scope_note": "This only identifies the separate G100 discovery run. The first-board canary's G100 source/config/kernel and exact FC2 format are not selected or pinned here."
+      },
+      "build_artifacts": [],
+      "evidence_refs": [
+        "evidence/g100-discovery-2026-10-13/run-record.md",
+        "evidence/g100-discovery-2026-10-13/SHA256SUMS",
+        "evidence/g100-discovery-2026-10-13/g100-db-run-sha256.txt"
+      ]
+    },
+    {
+      "id": "pta",
+      "role": "PTA technical owner: Dave Cook; component architecture, model, and interface authority; no standalone FPGA stand-in implementation identified",
+      "repository": "https://github.com/kubeworkz/grxcp",
+      "revision": {
+        "commit": "9667adec5e8f07a5415a2832a1622ee9c93d87ab",
+        "tree": "bd518a4bd4c8fe9d3d5365d1e5af3020c6e76bc7",
+        "pin_status": "verified immutable public GitHub commit and root tree; resolved from main endpoint on 2026-10-18; pin these IDs, not the moving branch"
+      },
+      "configuration": {
+        "status": "proposed test assumptions only; no implementation/configuration pin",
+        "approved_assumptions": "One logical 64-to-16 FC3 operation on an assumed 128x64 tile; 6-bit activations; tile-trained 6-bit weights; 8-bit output ADC; one vector per shot; separately addressable FPGA stand-in identified by PTA_CAPS2[31]=1.",
+        "pta_technical_owner": "Dave Cook",
+        "stand_in_target": {
+          "status": "not_selected",
+          "decision_required": "Select a board and FPGA part specifically for the standalone PTA 128x64 stand-in; name implementation lead, tool/platform version, constraints/resource limits, and decision authority.",
+          "not_selections": "Arty A7-200T/xc7a200t appears in C930/NPU synthesis work; U55C appears in G100 work. Neither is evidence of a PTA stand-in target selection."
+        },
+        "first_board_transport": {
+          "status": "design_decision_recorded_not_implemented",
+          "decision": "CXL 2.0 Type-1 over PCIe 5.0 PHY from the GRX930 host",
+          "source_blob": "e76a3c6aa3cf1e66efaee23bc2ecb6c89bd42664",
+          "limitation": "The pinned GRXCP design says no module, root port, or driver code exists; this is not verified hardware."
+        },
+        "unverified": "Physical capability, stand-in build and target, register-map implementation/version and actual capability words, exact activation mapping, FC3 bias/rounding, and transport are not verified. The pinned PTA board-transport design says the stand-in builder is open and 128x64 RTL does not exist; it describes a software module queue/twin model, not an FPGA implementation."
+      },
+      "build_artifacts": [],
+      "evidence_refs": [
+        {
+          "path": "https://github.com/kubeworkz/grxcp/blob/9667adec5e8f07a5415a2832a1622ee9c93d87ab/docs/designs/pta_chiplet_regmap.md",
+          "blob": "469b272bf2a6b5ea4e67619122b863fd4bb35b98",
+          "classification": "immutable GRXCP design/interface evidence; proposed register map, not hardware implementation evidence"
+        },
+        {
+          "path": "https://github.com/kubeworkz/grxcp/blob/9667adec5e8f07a5415a2832a1622ee9c93d87ab/docs/designs/pta_board_transport.md",
+          "blob": "e76a3c6aa3cf1e66efaee23bc2ecb6c89bd42664",
+          "classification": "immutable GRXCP design/model evidence; CXL 2.0 Type-1 over PCIe 5.0 is the recorded first-board link decision, but module/root port/driver and 128x64 stand-in RTL do not exist"
+        },
+        {
+          "path": "https://github.com/kubeworkz/grxcp/blob/9667adec5e8f07a5415a2832a1622ee9c93d87ab/src/backends/pta_chiplet/pta_chiplet_module.c",
+          "blob": "607d6cf4c5c0471e70d9554a0d7bd9631a8c08e0",
+          "classification": "immutable C module-queue model, not synthesizable PTA FPGA RTL"
+        },
+        {
+          "path": "https://github.com/kubeworkz/grxcp/blob/9667adec5e8f07a5415a2832a1622ee9c93d87ab/src/backends/pta_chiplet/pta_chiplet_twin.c",
+          "blob": "3cdcb3201c84890044338f59f27232f485c07b21",
+          "classification": "immutable PTA software digital twin, not FPGA implementation evidence"
+        }
+      ]
+    },
+    {
+      "id": "grx930",
+      "role": "Host CPU/system software may orchestrate the modular first-board handoff; not part of the narrow claim's pinned source set yet",
+      "repository": null,
+      "revision": {
+        "commit": null,
+        "tree": null,
+        "pin_status": "not_pinned"
+      },
+      "configuration": "Not included in the narrow source claim; exact host, firmware, adapter, driver, and build configuration must be pinned before the joint test.",
+      "build_artifacts": [],
+      "evidence_refs": []
+    },
+    {
+      "id": "board",
+      "role": "Separately attachable module path and physical board context, if used",
+      "repository": null,
+      "revision": {
+        "commit": null,
+        "tree": null,
+        "pin_status": "not_pinned; canonical board project/repository has not been selected"
+      },
+      "configuration": "No board revision, BOM, or module target has been selected. The first-board transport has a CXL 2.0 Type-1 over PCIe 5.0 design decision, but no module/root-port/driver implementation or verified link exists; record board and implementation configuration before acceptance execution.",
+      "build_artifacts": [],
+      "evidence_refs": []
+    }
+  ],
+  "integration_contract": {
+    "document": "proposals/g100_pta_first_integration_claim_v0.1.md",
+    "document_sha256": "5113f9755ed89ffef1f5bdc215b5857ea85c8cd8873b96c766600d21b860f932",
+    "interface_version": "G100-PTA-CANARY 0.1-draft",
+    "status": "proposed_not_approved_hardware_interface",
+    "register_map": {
+      "document": "https://github.com/kubeworkz/grxcp/blob/9667adec5e8f07a5415a2832a1622ee9c93d87ab/docs/designs/pta_chiplet_regmap.md",
+      "blob": "469b272bf2a6b5ea4e67619122b863fd4bb35b98",
+      "status": "adopted as first-board discovery-contract basis subject to implementation verification; immutable design revision is pinned, but hardware implementation and reported values remain unverified",
+      "proposed_registers": {
+        "PTA_ID": "0x000",
+        "PTA_CAPS0": "0x004",
+        "PTA_CAPS1": "0x008",
+        "PTA_CAPS2": "0x00C",
+        "stand_in_indicator": "PTA_CAPS2[31]"
+      }
+    },
+    "open_decisions": [
+      "Implement and verify the recorded CXL 2.0 Type-1 over PCIe 5.0 first-board transport decision, or record a superseding decision; the pinned design/model is not hardware evidence.",
+      "Confirm the pinned canonical GRXCP snapshot as the component baseline; Dave Cook is the PTA technical owner. Identify the standalone stand-in implementation/source/configuration and select its FPGA target.",
+      "Select and pin the actual G100 FC2 source/config/kernel and its output format/scale.",
+      "Freeze exact ReLU boundary, six-bit activation mapping/scale/rounding, FC3 bias and output arithmetic, seed/RNG, and declared-format reference.",
+      "Confirm implemented register-map version/encoding, capability values, command/descriptor/queue semantics, error reporting, and atomic completion contract against the target implementation.",
+      "Select and pin host/adapter firmware and driver, board/module revision, and buffer ownership/copy path if the narrow test uses them.",
+      "Assign a stand-in implementation owner and FPGA target, name the GRXGPU integration owner, and identify component interface approvers; Dave Cook is the PTA technical owner.",
+      "Freeze, hash, and approve the canary and acceptance artifacts before testing."
+    ]
+  },
+  "workloads": [
+    {
+      "id": "GRXGPU-FIRST-BOARD-3ENGINE-CANARY-FC2-FC3",
+      "version": "0.1-draft; canary manifest is incomplete and not frozen",
+      "source_ref": "docs/grxgpu_first_board_canary_manifest.json (draft revision 0.1-draft; data/model artifacts absent)",
+      "input_sha256": null,
+      "golden_sha256": null,
+      "numerical_contract": "FC2 64-to-64 followed by FC3 64-to-16; top-six-bit post-ReLU activation-conversion method; 6-bit activations, tile-trained 6-bit weights, assumed 128x64 tile and 8-bit output ADC; one vector/shot; stand-in comparison exact against the seeded declared-format FC3 reference. Exact scale, integer mapping, arithmetic and data/reference are unresolved.",
+      "acceptance_thresholds": {
+        "status": "unratified_and_blocked",
+        "reference": "docs/proposals/g100_pta_first_integration_claim_v0.1.md and docs/proposals/first_board_gridworz_decision_2026-10-14.md; these define approved test assumptions but are not a frozen data package",
+        "stand_in_functional": "zero mismatches across 16,000 outputs after all 1,000 ordered vectors complete exactly once; test has not run",
+        "physical_pta": "not applicable to this stand-in claim; physical PTA RMS/tail/class thresholds remain pending pre-qualification approval"
+      },
+      "dataset_status": "not_selected_or_frozen",
+      "partition": "62 full jobs of 16 vectors and one final job of 8 vectors; no padding"
+    }
+  ],
+  "environment": {
+    "tools": [],
+    "platform": "No joint integration platform identified; the G100 evidence is a separate RV32 SimX/Verilated rtlsim experiment from Ubuntu 24.04.3 under WSL2 with tool details in evidence/g100-discovery-2026-10-13/run-record.md",
+    "run_procedure": "G100/PTA joint test G100-PTA-CANARY-FUNC-01 is not run. Proposed preconditions/procedure are in proposals/g100_pta_first_integration_claim_v0.1.md; no runnable joint command or implementation is currently available."
+  },
+  "acceptance_evidence": [
+    {
+      "id": "G100-PTA-CANARY-FUNC-01",
+      "claim": "For the frozen canary, the pinned G100 FC2 output and system-managed activation conversion reach a separately addressable FPGA PTA stand-in over the selected real module link; one shot per vector returns all FC3 outputs with exact seeded declared-format reference equality and observable completion/errors.",
+      "scope": "integration",
+      "status": "blocked",
+      "procedure": "proposals/g100_pta_first_integration_claim_v0.1.md#3-acceptance-procedure-and-pass-criteria",
+      "result": "not_run",
+      "artifact_uri": null,
+      "sha256": null,
+      "source_pins": ["g100", "pta", "grx930", "board"],
+      "configuration": "Not frozen; dependencies and pin requirements are enumerated in integration_contract.open_decisions.",
+      "tools": [],
+      "workload_ids": ["GRXGPU-FIRST-BOARD-3ENGINE-CANARY-FC2-FC3"],
+      "limitations": [
+        "No joint G100/PTA acceptance execution or artifacts exist.",
+        "Canary input, weights, labels, scales and declared-format references are not frozen or hashed.",
+        "No identified FPGA PTA stand-in implementation or bitstream; Dave Cook is the PTA technical owner, but no stand-in implementation lead or FPGA target is assigned/selected.",
+        "The first-board CXL 2.0 Type-1 / PCIe 5.0 transport is documented as a design decision but is not implemented or verified; adapter/driver, memory ownership and exact FC2 output interface remain open.",
+        "GRXCP sources are pinned to immutable commit 9667adec5e8f07a5415a2832a1622ee9c93d87ab and tree bd518a4bd4c8fe9d3d5365d1e5af3020c6e76bc7; the accessible local grxcp/ directory is still only a mutable snapshot without nested Git metadata.",
+        "The separate G100 component evidence is pending independent review and has cycle-count divergence between SimX and rtlsim; no cycle parity is claimed.",
+        "No physical PTA capability, optical result, board qualification, or latency/energy claim is established."
+      ],
+      "review": {
+        "reviewer": null,
+        "reviewed_at": null,
+        "disposition": "pending; test not run and independent review not assigned"
+      }
+    },
+    {
+      "id": "G100-DISCOVERY-WGMMA-K64-K512",
+      "claim": "Separate G100 component discovery checks at K=64 and K=512 pass their host FP32 reference on the recorded configuration; same-kernel SimX and rtlsim runs have matching retired-instruction counts but differing cycles.",
+      "scope": "component",
+      "status": "passed_pending_review",
+      "procedure": "evidence/g100-discovery-2026-10-13/run-record.md#commands-and-results",
+      "result": "Eight local host-reference correctness invocations are recorded as passed: four variant-specific and four same-kernel double-buffered checks. For the same-kernel group, instruction counts match at both K values but cycle counts differ; not a parity pass.",
+      "artifact_uri": "evidence/g100-discovery-2026-10-13/",
+      "sha256": "1d556fa419cbad9b6e92eef2295b11ec0ffaad8b17b9269f731fea49a174e9d3",
+      "source_pins": ["g100"],
+      "configuration": "G100 pin ff5790806973a1586478531c3d6710a0fa614384, tree 9ecc11da261a4f7ad952761d6d6768e54086d7bd; RV32 1 cluster x 4 cores; 4 warps; 8 threads; issue width 4; L2 enabled; 2 DXA cores; TCU+DXA+WGMMA; NRC=16; FP16 input/FP32 output; M=N=64, K=64 and 512; same-kernel double-buffered SimX/rtlsim comparison.",
+      "tools": [
+        "Ubuntu 24.04.3 LTS under WSL2; Linux kernel 6.18.33.2-microsoft-standard-WSL2; x86_64",
+        "GCC/G++ 13.3.0; GNU Make 4.3; Python 3.12.3; CMake 3.29.6",
+        "Vortex LLVM/Clang 20.1.8, commit 4c836512a60c0b965bb298104e084cd0f07ca962",
+        "Verilator 5.046 (2026-02-28, revision v5.046-55-g1264184fb)"
+      ],
+      "workload_ids": ["G100-DISCOVERY-SGEMM-TCU-WG-DXA-K64", "G100-DISCOVERY-SGEMM-TCU-WG-DXA-K512"],
+      "limitations": [
+        "Component-only G100 evidence; it does not test a PTA handoff or joint integration.",
+        "Run status is pending independent review; generated input/output bytes were not retained or hashed.",
+        "Same-kernel cycle counts differ; no tolerance or parity pass is asserted.",
+        "Not FPGA timing/fit, board behavior, product acceptance, silicon, or production evidence."
+      ],
+      "review": {
+        "reviewer": null,
+        "reviewed_at": null,
+        "disposition": "pending_independent_review"
+      },
+      "artifact_hashes": [
+        {
+          "path": "evidence/g100-discovery-2026-10-13/resolved-config.txt",
+          "sha256": "e8434432378156e106a12b6a97f9a647592b462d78fdee9523fad8ca08d3ae71"
+        },
+        {
+          "path": "evidence/g100-discovery-2026-10-13/g100-db-run-sha256.txt",
+          "sha256": "b9c6c7bda7843bbf46a87c780f954032eeca6f798f28e76b6c1bbb4483c04569"
+        },
+        {
+          "path": "evidence/g100-discovery-2026-10-13/g100-simx-k64-db.log",
+          "sha256": "b9bd8092f0348b83eab0f2162deb1465339b2cee4390776e8a13e0bee8665cf4"
+        },
+        {
+          "path": "evidence/g100-discovery-2026-10-13/g100-rtlsim-k64-db.log",
+          "sha256": "6f82e9badba7aa19daf5d92e8d09212d440016e6c8f67ecc69693df52e09f81a"
+        },
+        {
+          "path": "evidence/g100-discovery-2026-10-13/g100-simx-k512-db.log",
+          "sha256": "50735e19fc86c7b58c1b0aad261e456243c6867c596bb03ab74ad506f3bda0e7"
+        },
+        {
+          "path": "evidence/g100-discovery-2026-10-13/g100-rtlsim-k512-db.log",
+          "sha256": "3d6a3ea27b0db722663d4903532d5d9e2f879a2460661843eb133595381fa756"
+        }
+      ]
+    }
+  ],
+  "decisions": [
+    {
+      "id": "GRIDWORZ-FIRST-BOARD-PTA-CONTRACT-2026-10-14",
+      "decision": "Approve the modular first-board integration assumptions, PTA discovery-map basis subject to verification, FC3 64-to-16 and assumed tile/formats, one vector per shot, and an explicit separately addressable FPGA stand-in exact-match test category.",
+      "authority": "Gridworz",
+      "date": "2026-10-14",
+      "status": "approved_for_specification_and_planning_only",
+      "artifact": "proposals/first_board_gridworz_decision_2026-10-14.md",
+      "artifact_sha256": "2a2bc423cd25febff50ed6c733c65ab8f8b43ec37ee37d9badfa3003d9d0b782",
+      "limitations": [
+        "No qualification run authorization.",
+        "No stand-in implementation lead, FPGA target, or schedule is established; Dave Cook is the PTA technical owner.",
+        "Physical PTA thresholds and capabilities remain unverified; the first-board transport is a design decision without hardware implementation or validation.",
+        "Decision is not a product/supplier/funding/tapeout/release approval."
+      ]
+    }
+  ],
+  "change_history": [
+    {
+      "version": "0.1-draft",
+      "date": "2026-10-18",
+      "change": "Pinned canonical GRXCP repository, immutable main snapshot, PTA owner and blob-identified interface/model evidence; documented that the standalone PTA FPGA target remains unselected. The manifest remains a blocked evidence ledger, not a reproducible cross-project baseline.",
+      "author": "Buffy"
+    }
+  ],
+  "manifest_limitations": [
+    "The current worktree HEAD is 74e4b75b3ea7d5c0039a32f00b0b1ef8d5cb8907, but the tracked G100 discovery evidence is pinned to historical component commit ff5790806973a1586478531c3d6710a0fa614384; that pin is verified in the local object database and must not be mistaken for this document's current source revision.",
+    "The canonical public GRXCP repository and immutable snapshot are pinned, but this establishes source identity only: the pinned PTA materials identify a digital twin and a modeled module queue, not standalone PTA RTL or a built FPGA stand-in.",
+    "No PTA stand-in FPGA board/part is selected. Arty A7-200T/xc7a200t references in GRXCP are for C930/NPU synthesis work; U55C references in GRXGPU are for G100 work, not an approved PTA stand-in target.",
+    "The first-board CXL 2.0 Type-1 / PCIe 5.0 link is recorded as a design decision but is not implemented or validated as hardware.",
+    "No board repository, board revision, PTA FPGA stand-in build, canary data hash, or joint G100/PTA result exists in this manifest.",
+    "This draft records a reviewer as pending, not as completed; independent review has not occurred."
+  ]
+}
