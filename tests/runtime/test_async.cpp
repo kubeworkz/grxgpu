@@ -220,28 +220,47 @@ int test_user_event_gated_enqueue(vx_device_h dev) {
 }
 
 // ---------------------------------------------------------------------------
-// A command batch that cannot fit in the ring is rejected without submission.
-int test_oversized_command_batch(vx_device_h dev) {
+// Exact-full batches fit, subsequent commands wrap safely, and oversized
+// batches fail atomically rather than overwriting commands still in the ring.
+int test_command_ring_capacity(vx_device_h dev) {
     constexpr uint32_t RING_COMMANDS = (1u << 16) / 64;
-    constexpr uint32_t COUNT = RING_COMMANDS + 1;
+    constexpr uint32_t OVERSIZED_COUNT = RING_COMMANDS + 1;
     vx_queue_info_t qi = {};
     qi.struct_size = sizeof(qi);
     vx_queue_h q = nullptr;
     CHECK_VX(vx_queue_create(dev, &qi, &q));
 
-    std::vector<vx_command_t> commands(COUNT);
+    std::vector<vx_command_t> commands(RING_COMMANDS);
     for (auto& command : commands) {
         command.type = VX_COMMAND_DCR_WRITE;
         command.data.dcr.addr = 0;
         command.data.dcr.value = 0;
     }
-    vx_event_h event = nullptr;
-    CHECK_VX(vx_enqueue_commands(q, commands.data(), COUNT, 0, nullptr, &event));
-    auto r = vx_event_wait_value(event, 1, VX_TIMEOUT_INFINITE);
+    vx_event_h full_event = nullptr;
+    CHECK_VX(vx_enqueue_commands(q, commands.data(), RING_COMMANDS,
+                                 0, nullptr, &full_event));
+    CHECK_VX(vx_event_wait_value(full_event, 1, VX_TIMEOUT_INFINITE));
+    CHECK_VX(vx_event_release(full_event));
+
+    // The retired exact-full batch leaves the monotonic tail at the ring end.
+    // This next command must be written at slot zero, not past the allocation.
+    vx_event_h wrapped_event = nullptr;
+    CHECK_VX(vx_enqueue_dcr_write(q, 0, 0, 0, nullptr, &wrapped_event));
+    CHECK_VX(vx_event_wait_value(wrapped_event, 1, VX_TIMEOUT_INFINITE));
+    CHECK_VX(vx_event_release(wrapped_event));
+
+    commands.resize(OVERSIZED_COUNT);
+    commands.back().type = VX_COMMAND_DCR_WRITE;
+    commands.back().data.dcr.addr = 0;
+    commands.back().data.dcr.value = 0;
+    vx_event_h oversized_event = nullptr;
+    CHECK_VX(vx_enqueue_commands(q, commands.data(), OVERSIZED_COUNT,
+                                 0, nullptr, &oversized_event));
+    auto r = vx_event_wait_value(oversized_event, 1, VX_TIMEOUT_INFINITE);
     EXPECT(r == VX_ERR_OUT_OF_DEVICE_MEMORY,
            "batch larger than the CP ring must fail without committing");
 
-    CHECK_VX(vx_event_release(event));
+    CHECK_VX(vx_event_release(oversized_event));
     CHECK_VX(vx_queue_release(q));
     return 0;
 }
@@ -501,7 +520,7 @@ int main() {
         { "event_chain",               test_event_chain               },
         { "user_event",                test_user_event                },
         { "user_event_gated_enqueue",  test_user_event_gated_enqueue  },
-        { "oversized_command_batch",   test_oversized_command_batch   },
+        { "command_ring_capacity",    test_command_ring_capacity    },
         { "barrier",                   test_barrier                   },
         { "profiling",                 test_profiling                 },
         { "map_unmap",                 test_map_unmap                 },
