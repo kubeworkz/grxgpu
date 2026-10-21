@@ -1,0 +1,44 @@
+Targeted SimX issue-arbitration diagnostics
+Benchmark: sgemm_tcu_wg_dxa; M=N=256, K=64
+Config: 1 cluster x 4 cores; 4 warps; 8 threads; issue width 4; WGMMA NRC=16; DXA double buffer
+Result: PASSED
+Issue-arb records: 3364176
+no_issue_reason counts:
+  no_ibuffer_candidate: 2613862
+  accepted: 347968
+  operand_backpressure: 309893
+  scoreboard: 92453
+ready candidate-count distribution:
+  0: 2706315
+  1: 657861
+records by core:
+  cluster0-socket0-core0: 841044
+  cluster0-socket1-core0: 841044
+  cluster0-socket2-core0: 841044
+  cluster0-socket3-core0: 841044
+selected_wid counts:
+  none: 2706315
+  0: 176225
+  1: 161351
+  3: 160158
+  2: 160127
+
+Scoreboard-blocked examples:
+TRACE        190: cluster0-socket0-core0-issue-arb: iw=0, candidates={0:scoreboard}, ready={}, suppressed={}, scoreboard_blocked={0}, fu_locked={}, tcu_cta_blocked={}, rtu_pool_blocked={}, fu_credit_blocked={}, empty={}, selected_w=none, selected_wid=none, selected_pc=0x0, selected_uuid=0, operand_accepted=0, operand_backpressure={}, no_issue_reason=scoreboard
+TRACE        191: cluster0-socket0-core0-issue-arb: iw=0, candidates={0:scoreboard}, ready={}, suppressed={}, scoreboard_blocked={0}, fu_locked={}, tcu_cta_blocked={}, rtu_pool_blocked={}, fu_credit_blocked={}, empty={}, selected_w=none, selected_wid=none, selected_pc=0x0, selected_uuid=0, operand_accepted=0, operand_backpressure={}, no_issue_reason=scoreboard
+TRACE        191: cluster0-socket0-core0-issue-arb: iw=1, candidates={0:scoreboard}, ready={}, suppressed={}, scoreboard_blocked={0}, fu_locked={}, tcu_cta_blocked={}, rtu_pool_blocked={}, fu_credit_blocked={}, empty={}, selected_w=none, selected_wid=none, selected_pc=0x0, selected_uuid=0, operand_accepted=0, operand_backpressure={}, no_issue_reason=scoreboard
+TRACE        191: cluster0-socket1-core0-issue-arb: iw=0, candidates={0:scoreboard}, ready={}, suppressed={}, scoreboard_blocked={0}, fu_locked={}, tcu_cta_blocked={}, rtu_pool_blocked={}, fu_credit_blocked={}, empty={}, selected_w=none, selected_wid=none, selected_pc=0x0, selected_uuid=0, operand_accepted=0, operand_backpressure={}, no_issue_reason=scoreboard
+TRACE        192: cluster0-socket0-core0-issue-arb: iw=0, candidates={0:scoreboard}, ready={}, suppressed={}, scoreboard_blocked={0}, fu_locked={}, tcu_cta_blocked={}, rtu_pool_blocked={}, fu_credit_blocked={}, empty={}, selected_w=none, selected_wid=none, selected_pc=0x0, selected_uuid=0, operand_accepted=0, operand_backpressure={}, no_issue_reason=scoreboard
+TRACE        192: cluster0-socket0-core0-issue-arb: iw=1, candidates={0:scoreboard}, ready={}, suppressed={}, scoreboard_blocked={0}, fu_locked={}, tcu_cta_blocked={}, rtu_pool_blocked={}, fu_credit_blocked={}, empty={}, selected_w=none, selected_wid=none, selected_pc=0x0, selected_uuid=0, operand_accepted=0, operand_backpressure={}, no_issue_reason=scoreboard
+TRACE        192: cluster0-socket0-core0-issue-arb: iw=2, candidates={0:scoreboard}, ready={}, suppressed={}, scoreboard_blocked={0}, fu_locked={}, tcu_cta_blocked={}, rtu_pool_blocked={}, fu_credit_blocked={}, empty={}, selected_w=none, selected_wid=none, selected_pc=0x0, selected_uuid=0, operand_accepted=0, operand_backpressure={}, no_issue_reason=scoreboard
+TRACE        192: cluster0-socket1-core0-issue-arb: iw=0, candidates={0:scoreboard}, ready={}, suppressed={}, scoreboard_blocked={0}, fu_locked={}, tcu_cta_blocked={}, rtu_pool_blocked={}, fu_credit_blocked={}, empty={}, selected_w=none, selected_wid=none, selected_pc=0x0, selected_uuid=0, operand_accepted=0, operand_backpressure={}, no_issue_reason=scoreboard
+
+Accepted-issue examples:
+TRACE        172: cluster0-socket0-core0-issue-arb: iw=0, candidates={0:0@80000000#0}, ready={0}, suppressed={}, scoreboard_blocked={}, fu_locked={}, tcu_cta_blocked={}, rtu_pool_blocked={}, fu_credit_blocked={}, empty={}, selected_w=0, selected_wid=0, selected_pc=0x80000000, selected_uuid=0, operand_accepted=1, operand_backpressure={}, no_issue_reason=accepted
+TRACE        173: cluster0-socket0-core0-issue-arb: iw=1, candidates={0:1@80000000#4294967296}, ready={0}, suppressed={}, scoreboard_blocked={}, fu_locked={}, tcu_cta_blocked={}, rtu_pool_blocked={}, fu_credit_blocked={}, empty={}, selected_w=0, selected_wid=1, selected_pc=0x80000000, selected_uuid=4294967296, operand_accepted=1, operand_backpressure={}, no_issue_reason=accepted
+TRACE        173: cluster0-socket1-core0-issue-arb: iw=0, candidates={0:0@80000000#17179869184}, ready={0}, suppressed={}, scoreboard_blocked={}, fu_locked={}, tcu_cta_blocked={}, rtu_pool_blocked={}, fu_credit_blocked={}, empty={}, selected_w=0, selected_wid=0, selected_pc=0x80000000, selected_uuid=17179869184, operand_accepted=1, operand_backpressure={}, no_issue_reason=accepted
+TRACE        174: cluster0-socket0-core0-issue-arb: iw=2, candidates={0:2@80000000#8589934592}, ready={0}, suppressed={}, scoreboard_blocked={}, fu_locked={}, tcu_cta_blocked={}, rtu_pool_blocked={}, fu_credit_blocked={}, empty={}, selected_w=0, selected_wid=2, selected_pc=0x80000000, selected_uuid=8589934592, operand_accepted=1, operand_backpressure={}, no_issue_reason=accepted
+TRACE        174: cluster0-socket1-core0-issue-arb: iw=1, candidates={0:1@80000000#21474836480}, ready={0}, suppressed={}, scoreboard_blocked={}, fu_locked={}, tcu_cta_blocked={}, rtu_pool_blocked={}, fu_credit_blocked={}, empty={}, selected_w=0, selected_wid=1, selected_pc=0x80000000, selected_uuid=21474836480, operand_accepted=1, operand_backpressure={}, no_issue_reason=accepted
+TRACE        174: cluster0-socket2-core0-issue-arb: iw=0, candidates={0:0@80000000#34359738368}, ready={0}, suppressed={}, scoreboard_blocked={}, fu_locked={}, tcu_cta_blocked={}, rtu_pool_blocked={}, fu_credit_blocked={}, empty={}, selected_w=0, selected_wid=0, selected_pc=0x80000000, selected_uuid=34359738368, operand_accepted=1, operand_backpressure={}, no_issue_reason=accepted
+TRACE        175: cluster0-socket0-core0-issue-arb: iw=3, candidates={0:3@80000000#12884901888}, ready={0}, suppressed={}, scoreboard_blocked={}, fu_locked={}, tcu_cta_blocked={}, rtu_pool_blocked={}, fu_credit_blocked={}, empty={}, selected_w=0, selected_wid=3, selected_pc=0x80000000, selected_uuid=12884901888, operand_accepted=1, operand_backpressure={}, no_issue_reason=accepted
+TRACE        175: cluster0-socket1-core0-issue-arb: iw=2, candidates={0:2@80000000#25769803776}, ready={0}, suppressed={}, scoreboard_blocked={}, fu_locked={}, tcu_cta_blocked={}, rtu_pool_blocked={}, fu_credit_blocked={}, empty={}, selected_w=0, selected_wid=2, selected_pc=0x80000000, selected_uuid=25769803776, operand_accepted=1, operand_backpressure={}, no_issue_reason=accepted

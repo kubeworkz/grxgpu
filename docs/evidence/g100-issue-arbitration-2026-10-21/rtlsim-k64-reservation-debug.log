@@ -1,0 +1,20 @@
+Function "vx::Device::mem_reserve(unsigned long, unsigned long, unsigned int)" not defined.
+Breakpoint 1 (vx::Device::mem_reserve(unsigned long, unsigned long, unsigned int)) pending.
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+[New Thread 0x7ffff6bff6c0 (LWP 160509)]
+[New Thread 0x7ffff63fe6c0 (LWP 160510)]
+
+Thread 1 "sgemm_tcu_wg_dx" hit Breakpoint 1, 0x00007ffff7f94ca0 in vx::Device::mem_reserve(unsigned long, unsigned long, unsigned int) () from /home/ubuntu/grxgpu/build32/sw/runtime_issue_arb/libvortex.so
+rsi            0x80000000          2147483648
+rdx            0x1280              4736
+Single stepping until exit from function _ZN2vx6Device11mem_reserveEmmj,
+which has no line number information.
+0x00007ffff7f9874e in vx::Buffer::reserve(vx::Device*, unsigned long, unsigned long, unsigned int, vx::Buffer**) () from /home/ubuntu/grxgpu/build32/sw/runtime_issue_arb/libvortex.so
+[New Thread 0x7ffff5bfd6c0 (LWP 160514)]
+[Thread 0x7ffff5bfd6c0 (LWP 160514) exited]
+[Thread 0x7ffff6bff6c0 (LWP 160509) exited]
+[Thread 0x7ffff7e87740 (LWP 160228) exited]
+[Thread 0x7ffff63fe6c0 (LWP 160510) exited]
+[New process 160228]
+[Inferior 1 (process 160228) exited normally]

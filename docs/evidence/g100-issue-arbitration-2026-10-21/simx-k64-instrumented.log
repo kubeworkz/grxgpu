@@ -1,0 +1,23 @@
+open device connection
+config: test=(1 clusters x 4 cores, DXA=2) device=(1 clusters x 4 cores), wait timeout=14400s
+input type: fp16, output type: fp32
+WGMMA tile: M=8, N=16, K=8
+CTA tile: M=32 (warps=4)
+grid: 16x8
+block: 32x1
+matrix A: 256x64
+matrix B: 64x256
+smem: 1536 bytes
+allocate device memory
+A_addr=0x10000
+B_addr=0x18000
+C_addr=0x20000
+upload source data
+load kernel module
+start device
+download result
+wait for completion (timeout 14400s)
+Elapsed time: 4462 ms
+verify result
+PERF: instrs=347968, cycles=210261, IPC=1.655
+PASSED!

@@ -1,0 +1,19 @@
+G100 targeted issue-arbitration run record — 2026-10-21
+
+Workload: tests/regression/sgemm_tcu_wg_dxa, M=N=256, K=64, fp16 inputs/fp32 output, one cluster/four cores, four warps, eight threads, issue width 4, WGMMA_NRC=16, DXA double buffering.
+
+Input/build artifacts:
+- Original regression kernel ELF: kernel.elf; SHA-256 e827d92db7f55b5d0ba4bdb916d2f7bbf2fe2b3f740585152984f7836ef042aa
+- Freshly emitted run VXBIN: rebuilt-kernel.vxbin; SHA-256 357f2cb28053a924ee31397c70a1793986a5d4efcad33a426e099b63e65853ae
+- These are distinct formats/artifacts. The VXBIN was rebuilt in the isolated run output directory using the regression kernel ELF and selected CONFIGS; this record does not claim the ELF and VXBIN are byte-identical.
+
+Outcome sequence:
+1. SimX 256x256x64 completed and printed PASSED! (347,968 instructions; 210,261 cycles; IPC 1.655). The workload log is simx-k64-instrumented.log.
+2. Initial instrumented RTLSIM exited 255. The log prints `Error: 'vx_module_load_file(device, kernel_file, &module_)' returned 3!`; in this API, result 3 is VX_ERR_INVALID_VALUE. The raw log and status file are archived. This locates the failure at the module-load API call, not at a specific loader check.
+3. GDB later observed `Device::mem_reserve(0x80000000, 0x1280, ...)` during a module-load attempt. The transcript records a normal process exit. This proves the reservation call was reached in that diagnostic run; it does not prove why the initial run returned VX_ERR_INVALID_VALUE.
+4. A first 600-second retry was recorded on the host as exit 124 before module load; its full log was not archived in this directory. Do not treat it as evidence about RTL execution.
+5. The archived full-size timeout retry log records `load kernel module`, `start device`, `download result`, and `wait for completion`; its status is 124. The raw log tail is at about 141,773 simulator cycles (roughly 142k). It is a timeout, not a correctness pass.
+6. The filtered arbitration trace/status (exit 124) is a separate later trace capture. It contains 347,968 accepted-issue events; its tail reaches roughly cycle 471,029 and ends without completion/correctness output. This trace is diagnostic only and should not be conflated with the raw log above; different logging modes/run outputs may represent separate attempts.
+7. A debugger-assisted 64x64x64 run completed and printed PASSED! (21,808 instructions; 13,984 cycles). It is a smaller workload and does not replace the incomplete 256x256x64 RTL run.
+
+The associated VCD rebuild attempt failed for lack of remote filesystem space; rtlsim-vcd-build-failed.log.gz is a build failure, not a test result. All archived byte hashes and status records are in SHA256SUMS. The source/runtime worktree used for these targeted runs was dirty; independent source review is open. No SimX/RTLSIM parity result is claimed.
