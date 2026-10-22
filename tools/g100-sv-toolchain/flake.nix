@@ -89,7 +89,10 @@
             paths = [ yosys surelog synlig ];
             postBuild = ''
               mkdir -p "$out/bin"
-              ln -sf ${yosys}/bin/yosys "$out/bin/yosys"
+              rm -f "$out/bin/yosys"
+              cp ${yosys}/bin/yosys "$out/bin/yosys"
+              rm -f "$out/bin/yosys-abc"
+              cp ${yosys}/bin/yosys-abc "$out/bin/yosys-abc"
               ln -sf ${surelog}/bin/surelog "$out/bin/surelog"
               ln -sf ${synlig}/share/yosys/plugins/synlig-sv.so "$out/share/yosys/plugins/synlig-sv.so"
             '';
@@ -97,6 +100,42 @@
         in {
           default = toolchain;
           inherit yosys surelog synlig;
+        });
+
+      checks = eachSystem (system:
+        let
+          pkgs = import nixpkgs { inherit system; };
+          toolchain = self.packages.${system}.default;
+        in {
+          default = pkgs.runCommand "g100-sv-toolchain-lowmem-smoke" {
+            nativeBuildInputs = [ pkgs.gnugrep ];
+          } ''
+            set -eu
+            test ! -L ${toolchain}/bin/yosys
+            test ! -L ${toolchain}/bin/yosys-abc
+            test -x ${toolchain}/bin/surelog
+            mkdir work
+            cd work
+            cat > tiny.sv <<'SV'
+            module tiny(input logic a, output logic y);
+              assign y = a;
+            endmodule
+            SV
+            cat > smoke.ys <<YS
+            read_systemverilog -lowmem -mt 1 -mp 1 -noinfo -top tiny "$PWD/tiny.sv"
+            YS
+            ${toolchain}/bin/yosys \
+              -m ${toolchain}/share/yosys/plugins/synlig-sv.so \
+              -Q -s smoke.ys -l smoke.log > run.log 2>&1
+            grep -F "${toolchain}/bin/surelog" run.log
+            grep -F "Surelog preproc status: 0" run.log
+            grep -F "Surelog parsing status: 0" run.log
+            grep -F "[  FATAL] : 0" run.log
+            grep -F "[ SYNTAX] : 0" run.log
+            grep -F "[  ERROR] : 0" run.log
+            grep -F "[WARNING] : 0" run.log
+            touch "$out"
+          '';
         });
 
       devShells = eachSystem (system:

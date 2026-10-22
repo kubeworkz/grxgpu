@@ -13,4 +13,15 @@ If you intentionally change an input revision, regenerate and review `flake.lock
 
 The lock file fixes the fetched Git revisions, source hashes, and Nixpkgs. `--submodules=1` is used for Yosys (ABC) and Surelog. Synlig's source revision records different Yosys/Surelog submodule commits; the derivation explicitly replaces those checkouts with the top-level pinned source inputs before building its systemverilog plugin. The build uses separate pinned Yosys and Surelog derivations and then the Synlig plugin built against them.
 
-This flake has not yet been built in the interrupted session. It is a reproducibility starting point, not proof that this cross-version trio compiles. Resolve any Nix expression/build errors with the pinned revisions; do not silently advance a source commit. Verify after build that `yosys -V`, `surelog`'s version banner, and `read_systemverilog` plugin registration match the pins. Pin any dependency/build fixes in this flake and regenerate `flake.lock` only for intentional changes.
+The toolchain package installs a real copy of the pinned Yosys executable beside a `surelog` symlink. Surelog's embedded plugin derives its companion path from `/proc/self/exe`, so a Yosys symlink in the Nix store would still resolve beside the original Yosys and fail to find Surelog. Yosys' compiled-in data directory and ABC paths remain Nix-store-absolute, so `YOSYS_PREFIX` is not needed. The package also places the `yosys-abc` companion beside the copy because Yosys itself resolves ABC from `/proc/self/exe`. Do not replace these executable copies with wrappers or symlinks.
+
+Run the focused low-memory smoke test and the Nix checks with:
+
+```sh
+nix --extra-experimental-features 'nix-command flakes' build .#checks.x86_64-linux.default
+nix --extra-experimental-features 'nix-command flakes' flake check
+```
+
+The smoke check launches the packaged Yosys and Synlig plugin on a tiny SystemVerilog module with `-lowmem -mt 1 -mp 1`. It verifies that both Surelog subprocesses run from the packaged `bin/surelog` path and that Surelog reports zero fatal, syntax, and error diagnostics. A passing smoke test validates the companion-executable layout only; it does not prove full Vortex elaboration or synthesis.
+
+If intentionally changing an input revision, regenerate and review `flake.lock` with `nix --extra-experimental-features 'nix-command flakes' flake lock`; do not advance source commits to work around build failures. Verify tool versions and plugin registration against the pins. This Nix flake has not yet been built in this workspace, so the pinned cross-version trio and the new check still need a Nix build before this flow is considered verified.
