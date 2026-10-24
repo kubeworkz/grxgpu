@@ -16,8 +16,7 @@
 // Generic unsigned mantissa multiplier for the TFR FEDP.
 //   p[i] = a[i] * b[SHARED_B ? 0 : i]   (i = 0 .. LANES-1)
 //
-// USE_DSP=0: LUT fabric — a Wallace tree per lane when square (N==M), else an
-//            inferred multiply. Area-optimal / ASIC-portable.
+// USE_DSP=0: LUT fabric — an inferred multiply.
 // USE_DSP=1: pack all LANES products into ONE DSP48 by placing the per-lane
 //            operands in non-overlapping fields of the 27x18 product:
 //   LANES==1            : plain DSP multiply.
@@ -46,12 +45,7 @@ module VX_tcu_tfr_wmul #(
     if (USE_DSP == 0) begin : g_lut
         for (genvar i = 0; i < LANES; ++i) begin : g_mul
             localparam BI = (SHARED_B != 0) ? 0 : i;
-            if (N == M) begin : g_wal
-                VX_wallace_mul #(.N(N), .P(P), .CPA_KS(!`FORCE_BUILTIN_ADDER(N+M))) u_mul (
-                    .a(a[i]), .b(b[BI]), .p(p[i]));
-            end else begin : g_inf
-                assign p[i] = a[i] * b[BI];
-            end
+            assign p[i] = a[i] * b[BI];
         end
         if (SHARED_B != 0 && LANES > 1) begin : g_unused
             `UNUSED_VAR (b[1])
