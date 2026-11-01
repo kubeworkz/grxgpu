@@ -25,6 +25,7 @@ all:
 	$(MAKE) -C fsqrt_unit
 	$(MAKE) -C fcvt_unit
 	$(MAKE) -C fdivsqrt_unit
+	$(MAKE) -C t0_dbg
 
 run:
 	$(MAKE) -C generic_queue run
@@ -53,6 +54,7 @@ run:
 	$(MAKE) -C fsqrt_unit run
 	$(MAKE) -C fcvt_unit run
 	$(MAKE) -C fdivsqrt_unit run
+	$(MAKE) -C t0_dbg run
 
 # FPU arithmetic units only — executed (not just built) so CI gates correctness.
 run-fpu:
@@ -143,3 +145,4 @@ clean:
 	$(MAKE) -C fsqrt_unit clean
 	$(MAKE) -C fcvt_unit clean
 	$(MAKE) -C fdivsqrt_unit clean
+	$(MAKE) -C t0_dbg clean
