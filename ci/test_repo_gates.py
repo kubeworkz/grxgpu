@@ -8,7 +8,9 @@ the tests drive them through real git state rather than mocking it:
 
   ci/check_tracked_artifacts.sh  build output and machine binaries
   ci/check_lf_endings.sh         CRLF blobs in scripts and pinned files
-  ci/hooks/pre-commit            both gates on the staged paths
+  ci/check_config_boundary.sh    sw/ never includes the hardware config
+  ci/check_sw_sim_boundary.sh    sw/ and sim/+hw/ stay isolated
+  ci/hooks/pre-commit            both hygiene gates on the staged paths
   ci/install_hooks.sh            core.hooksPath enablement
   ci/binary_magic.py             the batch parser behind the staged scan
 
@@ -30,6 +32,8 @@ pytestmark = pytest.mark.skipif(BASH is None, reason="the gates need a POSIX she
 COPIED = (
     "ci/check_tracked_artifacts.sh",
     "ci/check_lf_endings.sh",
+    "ci/check_config_boundary.sh",
+    "ci/check_sw_sim_boundary.sh",
     "ci/binary_magic.py",
     "ci/hooks/pre-commit",
     "ci/install_hooks.sh",
@@ -104,6 +108,14 @@ def _lf(repo, *args):
 
 def _hook(repo):
     return _run([BASH, str(Path(repo) / "ci/hooks/pre-commit")], repo)
+
+
+def _config_boundary(repo):
+    return _run([BASH, str(Path(repo) / "ci/check_config_boundary.sh")], repo)
+
+
+def _sw_sim_boundary(repo):
+    return _run([BASH, str(Path(repo) / "ci/check_sw_sim_boundary.sh")], repo)
 
 
 # --------------------------------------------------------------------------- #
@@ -303,3 +315,121 @@ def test_binary_magic_parser_handles_missing_and_submodule(repo, tmp_path):
     assert parsed.returncode == 0, parsed.stderr.decode()
     # One answer per request, in order, and only the ELF blob is a hit.
     assert parsed.stdout.decode().split() == ["tool"]
+
+
+# --------------------------------------------------------------------------- #
+# hook: full-scan fallback
+# --------------------------------------------------------------------------- #
+
+def test_hook_falls_back_to_the_full_tree_when_attributes_change(repo):
+    """Staging .gitattributes changes what is in scope for every path."""
+    _write(repo, ".gitattributes", (ROOT / ".gitattributes").read_text() + "# trigger\n")
+    _git(repo, "add", ".gitattributes")
+
+    result = _hook(repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "scanning the full tree" in result.stdout
+
+
+def test_hook_fallback_finds_a_problem_outside_the_staged_paths(repo):
+    # A tracked-and-ignored file is a whole-tree finding, so staging only the
+    # attribute file still has to surface it.
+    _write(repo, ".gitignore", "*.tmp\n")
+    _write(repo, "scratch.tmp", "x\n")
+    _git(repo, "add", ".gitignore")
+    _git(repo, "add", "-f", "scratch.tmp")
+    _git(repo, "commit", "-q", "-m", "ignored file")
+
+    _write(repo, ".gitattributes", (ROOT / ".gitattributes").read_text() + "# trigger\n")
+    _git(repo, "add", ".gitattributes")
+
+    result = _hook(repo)
+
+    assert result.returncode == 1
+    assert "scanning the full tree" in result.stdout
+    assert "scratch.tmp" in result.stdout
+
+
+# --------------------------------------------------------------------------- #
+# config layering boundary
+# --------------------------------------------------------------------------- #
+
+def test_config_boundary_passes_a_clean_tree(repo):
+    _write(repo, "sw/runtime/device.c", '#include "vx_device.h"\n')
+    _write(repo, "tests/regression/demo/demo.c", "#include <stdio.h>\n")
+
+    result = _config_boundary(repo)
+
+    assert result.returncode == 0, result.stderr
+    assert "OK" in result.stdout
+
+
+def test_config_boundary_rejects_a_sw_include(repo):
+    _write(repo, "sw/runtime/device.c", '#include "VX_config.h"\n')
+
+    result = _config_boundary(repo)
+
+    assert result.returncode == 1
+    assert "sw/runtime/device.c" in result.stdout
+
+
+def test_config_boundary_leaves_the_hardware_side_alone(repo):
+    # VX_config.h is private to hw/ and sim/, so including it there is correct.
+    _write(repo, "sim/simx/init.cpp", '#include "VX_config.h"\n')
+
+    result = _config_boundary(repo)
+
+    assert result.returncode == 0, result.stderr
+
+
+# --------------------------------------------------------------------------- #
+# sw/ <-> sim/+hw/ isolation
+# --------------------------------------------------------------------------- #
+
+def test_sw_sim_boundary_passes_a_clean_tree(repo):
+    _write(repo, "sw/kernel/sched.c", '#include "vx_kernel.h"\n')
+    _write(repo, "sim/simx/core.cpp", '#include "core.h"\n')
+    _write(repo, "hw/rtl/Vortex.sv", "module Vortex; endmodule\n")
+
+    result = _sw_sim_boundary(repo)
+
+    assert result.returncode == 0, result.stderr
+    assert "OK" in result.stdout
+
+
+def test_sw_sim_boundary_rejects_a_sw_include_of_hardware(repo):
+    _write(repo, "sw/runtime/device.c", '#include "hw/rtl/vortex.h"\n')
+
+    result = _sw_sim_boundary(repo)
+
+    assert result.returncode == 1
+    assert "hw/rtl/vortex.h" in result.stderr
+
+
+def test_sw_sim_boundary_rejects_a_hardware_include_of_sw(repo):
+    _write(repo, "sw/kernel/include/vx_kernel.h", "#pragma once\n")
+    _write(repo, "sim/simx/core.cpp", '#include "sw/kernel/include/vx_kernel.h"\n')
+
+    result = _sw_sim_boundary(repo)
+
+    assert result.returncode == 1
+    assert "vx_kernel.h" in result.stderr
+
+
+def test_sw_sim_boundary_allows_the_sw_common_escape_hatch(repo):
+    _write(repo, "sw/common/vx_abi.h", "#pragma once\n")
+    _write(repo, "sim/simx/core.cpp", '#include "sw/common/vx_abi.h"\n')
+
+    result = _sw_sim_boundary(repo)
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_sw_sim_boundary_rejects_a_cross_layer_makefile_flag(repo):
+    _write(repo, "sim/Makefile", "CFLAGS += -I$(ROOT)/sw/kernel/include\n")
+
+    result = _sw_sim_boundary(repo)
+
+    assert result.returncode == 1
+    assert "Makefile" in result.stderr
