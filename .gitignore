@@ -2,6 +2,7 @@
 /.*
 !/.github/
 !/.github/**
+!/.gitattributes
 # Archived/superseded docs — kept on disk, never tracked
 docs/archives/
 

@@ -1,0 +1,11 @@
+# Keep shell and build files LF in every checkout. A CRLF shebang or make
+# recipe fails on Linux (`./configure: bad interpreter: /bin/bash^M`,
+# `$'\r': command not found`) when a Windows checkout is built in WSL or a
+# container. Sources keep the platform default.
+.gitattributes text eol=lf
+configure  text eol=lf
+Makefile   text eol=lf
+*.in       text eol=lf
+*.mk       text eol=lf
+*.sh       text eol=lf
+*.py       text eol=lf
