@@ -76,28 +76,55 @@ fi
 # executable is still build output. Other binary assets are legitimate, so
 # match magic bytes rather than "is binary" — and every tracked file is
 # examined, because git's text heuristic calls a short binary text and a
-# text/binary split would let it through. Four bytes per file, read with a
-# builtin, cost about what the grep that used to narrow the set did.
+# text/binary split would let it through.
 : > "$tmpdir/binaries"
 
-while IFS= read -r file; do
-  magic=""
-  if [ "$STAGED" -eq 1 ]; then
-    # Staged content, not the checkout: a partially staged file is judged by
-    # the bytes the commit would receive.
-    IFS= read -r -N 4 magic < <(git cat-file blob ":$file" 2>/dev/null) 2>/dev/null || true
-  else
-    [ -f "$file" ] || continue   # submodule gitlinks and absent entries
-    IFS= read -r -N 4 magic < "$file" 2>/dev/null || true
+if [ "$STAGED" -eq 1 ]; then
+  # Staged content, not the checkout: a partially staged file is judged by
+  # the bytes the commit would receive. One batch read answers for the whole
+  # commit; a process per path costs ~40ms and a commit can touch hundreds.
+  # The record bodies are skipped by ci/binary_magic.py because a shell
+  # cannot skip binary content safely (`read -N` drops NUL bytes).
+  if [ -s "$tmpdir/tracked" ]; then
+    # The interpreter is probed, not assumed: `python3` may be an install
+    # stub that exists on PATH but exits without running anything.
+    python=""
+    for candidate in python3 python; do
+      if "$candidate" -c 'import sys' > /dev/null 2>&1; then
+        python=$candidate
+        break
+      fi
+    done
+    if [ -z "$python" ]; then
+      echo "check_tracked_artifacts: no working python3/python on PATH" >&2
+      exit 1
+    fi
+
+    mapfile -t requests < "$tmpdir/tracked"
+    printf ':%s\n' "${requests[@]}" \
+      | git cat-file --batch 2>/dev/null \
+      | "$python" "$ROOT/ci/binary_magic.py" "$tmpdir/tracked" > "$tmpdir/binaries" || true
   fi
-  case "$magic" in
-    $'\x7f'ELF|MZ*|$'\xcf\xfa\xed\xfe'|$'\xce\xfa\xed\xfe'|$'\xfe\xed\xfa\xce'|$'\xfe\xed\xfa\xcf'|$'\xca\xfe\xba\xbe')
-      echo "ERROR: machine binary is tracked: $file"
-      echo "$file" >> "$tmpdir/binaries"
-      fail=1
-      ;;
-  esac
-done < "$tmpdir/tracked"
+else
+  # The first four bytes of the checkout copy, read with the shell builtin:
+  # a process per file cost ~6s on a large tree.
+  while IFS= read -r file; do
+    [ -f "$file" ] || continue   # submodule gitlinks and absent entries
+    magic=""
+    IFS= read -r -N 4 magic < "$file" 2>/dev/null || true
+    case "$magic" in
+      $'\x7f'ELF|MZ*|$'\xcf\xfa\xed\xfe'|$'\xce\xfa\xed\xfe'|$'\xfe\xed\xfa\xce'|$'\xfe\xed\xfa\xcf'|$'\xca\xfe\xba\xbe')
+        echo "$file" >> "$tmpdir/binaries"
+        ;;
+    esac
+  done < "$tmpdir/tracked"
+fi
+
+while IFS= read -r file; do
+  [ -n "$file" ] || continue
+  echo "ERROR: machine binary is tracked: $file"
+  fail=1
+done < "$tmpdir/binaries"
 
 # Tracked and ignored at the same time is contradictory: the file is either
 # generated output that slipped in, or the ignore rule is wrong. Root dotfiles
