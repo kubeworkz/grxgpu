@@ -183,6 +183,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Reject committed build artifacts
         run: ./ci/check_tracked_artifacts.sh
+      - name: Reject CRLF blobs in LF-pinned files
+        run: ./ci/check_lf_endings.sh
 
   # ---------------------------------------------------------------------------
   # setup — warm the shared toolchain + third_party caches ONCE (prepare=true),
