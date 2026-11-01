@@ -15,6 +15,9 @@
 
 set -euo pipefail
 
+# Byte semantics: the magic-byte match below compares raw bytes.
+export LC_ALL=C
+
 STAGED=0
 case "${1:-}" in
   --staged) STAGED=1; shift ;;
@@ -71,28 +74,30 @@ fi
 
 # Machine binaries under any name (ELF, PE/COFF, Mach-O): a renamed test
 # executable is still build output. Other binary assets are legitimate, so
-# match magic bytes rather than "is binary".
-git grep --cached -I -l -e '' "${scope[@]}" | sort > "$tmpdir/text" || true
-comm -23 "$tmpdir/tracked" "$tmpdir/text" > "$tmpdir/candidates"
+# match magic bytes rather than "is binary" — and every tracked file is
+# examined, because git's text heuristic calls a short binary text and a
+# text/binary split would let it through. Four bytes per file, read with a
+# builtin, cost about what the grep that used to narrow the set did.
 : > "$tmpdir/binaries"
 
 while IFS= read -r file; do
+  magic=""
   if [ "$STAGED" -eq 1 ]; then
     # Staged content, not the checkout: a partially staged file is judged by
     # the bytes the commit would receive.
-    magic=$(git cat-file blob ":$file" 2>/dev/null | od -An -tx1 -N4 | tr -d ' \n' || true)
+    IFS= read -r -N 4 magic < <(git cat-file blob ":$file" 2>/dev/null) 2>/dev/null || true
   else
     [ -f "$file" ] || continue   # submodule gitlinks and absent entries
-    magic=$(od -An -tx1 -N4 -- "$file" 2>/dev/null | tr -d ' \n' || true)
+    IFS= read -r -N 4 magic < "$file" 2>/dev/null || true
   fi
   case "$magic" in
-    7f454c46|4d5a*|cffaedfe|cefaedfe|feedface|feedfacf|cafebabe)
+    $'\x7f'ELF|MZ*|$'\xcf\xfa\xed\xfe'|$'\xce\xfa\xed\xfe'|$'\xfe\xed\xfa\xce'|$'\xfe\xed\xfa\xcf'|$'\xca\xfe\xba\xbe')
       echo "ERROR: machine binary is tracked: $file"
       echo "$file" >> "$tmpdir/binaries"
       fail=1
       ;;
   esac
-done < "$tmpdir/candidates"
+done < "$tmpdir/tracked"
 
 # Tracked and ignored at the same time is contradictory: the file is either
 # generated output that slipped in, or the ignore rule is wrong. Root dotfiles
