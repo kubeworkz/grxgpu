@@ -217,7 +217,8 @@ core has no debug hooks today.
   SAMPLE/PRELOAD at custom IR codes only if the pad library provides
   boundary-scan cells. The IDCODE is recorded and matches the package. The
   T0-A TAP, DTM, DM, SBA and test SRAM live in `hw/rtl/dbg/` and are simulated
-  by `hw/unittest/t0_dbg`; the silicon transcript is still outstanding.
+  by `hw/unittest/t0_dbg` in the `unittest` CI lane; the silicon transcript is
+  still outstanding.
 - [ ] **DTM and DM.** The RISC-V Debug 0.13 register map is implemented for the
   T0-A subset (DMCONTROL, DMSTATUS, HARTINFO, ABSTRACTCS, COMMAND, SBCS,
   SBADDRESS0, SBDATA0). Halt, resume and abstract register access are T0-B and
@@ -308,7 +309,7 @@ are blocked by a known fault.
 | Scan | No scan ports or chains | No DFT step in `syn/` | Insertion, ATPG, GLS |
 | MBIST | No controller | No generator | Controller, array map, repair decision |
 | ECC | No SECDED or parity | No injection flow | Encoder/decoder, counters, fault injection |
-| JTAG | TAP, DTM, DM, SBA, boot, attachment, arbiter and test SRAM (`hw/rtl/dbg/`) | Verilator TB (`hw/unittest/t0_dbg`) with a toolchain-built image; no DFT or GLS | Gate-level, board |
+| JTAG | TAP, DTM, DM, SBA, boot, attachment, arbiter and test SRAM (`hw/rtl/dbg/`) | CI-run Verilator TB (`hw/unittest/t0_dbg`) with a toolchain-built image; no DFT or GLS | Gate-level, board |
 | Clock/reset | `VX_clockgate`, `VX_reset_relay`, single top-level clock/reset | Synthesis only | Clock tree, reset sequencing, test muxing |
 | Floorplan | — | OpenROAD available | Placement, power grid, pin placement |
 | Package | — | — | Pin list, package selection, test board |

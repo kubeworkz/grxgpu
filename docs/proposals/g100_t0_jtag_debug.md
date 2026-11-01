@@ -399,9 +399,11 @@ load memory but cannot halt or single-step the core.
 **Simulation (Verilator).** `hw/unittest/t0_dbg` drives TCK/TMS/TDI directly and
 passes on Verilator 5.020. From a configured build tree,
 `make -C hw/unittest/t0_dbg run` builds and runs it; the boot image is built
-with `$(RISCV_TOOLCHAIN_PATH)`. The test target uses `-Wno-fatal` for the
-standalone core's pre-existing RTL lint warnings, as `sim/rtlsim` does, so they
-remain visible without failing the build. It covers:
+with `$(RISCV_TOOLCHAIN_PATH)`. CI runs the same target through the `unittest`
+catalog's `hw-t0` lane, pinned to xlen 32, on every push and pull request. The
+test target uses `-Wno-fatal` for the standalone core's pre-existing RTL lint
+warnings, as `sim/rtlsim` does, so they remain visible without failing the
+build. It covers:
 
 - TAP reset: IR=IDCODE, IDCODE value, BYPASS, DTMCS (`version=1`, `abits=7`).
 - DMI: read/write every implemented register; an unimplemented address returns

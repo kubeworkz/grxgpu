@@ -25,7 +25,6 @@ all:
 	$(MAKE) -C fsqrt_unit
 	$(MAKE) -C fcvt_unit
 	$(MAKE) -C fdivsqrt_unit
-	$(MAKE) -C t0_dbg
 
 run:
 	$(MAKE) -C generic_queue run
@@ -54,6 +53,11 @@ run:
 	$(MAKE) -C fsqrt_unit run
 	$(MAKE) -C fcvt_unit run
 	$(MAKE) -C fdivsqrt_unit run
+
+# T0 JTAG debug path. RV32-only: the boot image is RV32 and the SRAM/result
+# map assumes 32-bit addressing, so the catalog lane that runs it is pinned to
+# xlen 32. Kept out of `all`/`run` so a 64-bit tree does not try to build it.
+run-t0:
 	$(MAKE) -C t0_dbg run
 
 # FPU arithmetic units only — executed (not just built) so CI gates correctness.
