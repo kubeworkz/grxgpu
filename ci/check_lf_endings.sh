@@ -20,6 +20,17 @@
 
 set -euo pipefail
 
+STAGED=0
+case "${1:-}" in
+  --staged) STAGED=1; shift ;;
+  "") ;;
+  *) echo "usage: $0 [--staged]" >&2; exit 2 ;;
+esac
+if [ "$#" -ne 0 ]; then
+  echo "usage: $0 [--staged]" >&2
+  exit 2
+fi
+
 # Byte semantics: the blob scan below counts characters while walking content.
 export LC_ALL=C
 
@@ -43,6 +54,18 @@ for probe in configure Makefile; do
   fi
 done
 
+# A pathspec list for the staged case, empty for the full scan: unchanged
+# files were checked when their own commit was made.
+scope=()
+if [ "$STAGED" -eq 1 ]; then
+  mapfile -t changed < <(git diff --cached --name-only --diff-filter=ACMR)
+  if [ "${#changed[@]}" -eq 0 ]; then
+    echo "check_lf_endings: OK — nothing staged"
+    exit 0
+  fi
+  scope=(-- "${changed[@]}")
+fi
+
 tab=$(printf '\t')
 declare -A index_eol=() pinned_lf=() crlf=() unpinned=()
 pinned=0
@@ -55,9 +78,11 @@ while IFS= read -r -d '' record; do
   case "$meta" in
     *"attr/"*"eol=lf"*) pinned_lf["$path"]=1 ;;
   esac
-done < <(git ls-files --eol -z)
+done < <(git ls-files --eol -z "${scope[@]}")
 
-if [ "${#pinned_lf[@]}" -eq 0 ]; then
+# With no pathspec at all, an empty pinned set can only mean the attributes
+# went missing; a staged commit of unpinned files is normal.
+if [ "$STAGED" -eq 0 ] && [ "${#pinned_lf[@]}" -eq 0 ]; then
   echo "ERROR: no tracked file is pinned to LF — .gitattributes is missing or broken." >&2
   exit 1
 fi
@@ -65,18 +90,20 @@ fi
 pinned=${#pinned_lf[@]}
 
 # A pinned blob must be stored LF. `i/none` means the blob holds no line
-# ending at all, which cannot carry a CR.
-while IFS= read -r path; do
+# ending at all, which cannot carry a CR. The guard is not redundant: printf
+# reuses its format with no arguments, so an empty array would emit a blank
+# line and the loop would read an empty path.
+for path in "${!pinned_lf[@]}"; do
   case "${index_eol[$path]:-}" in
     i/crlf|i/mixed) crlf["$path"]=1 ;;
   esac
-done < <(printf '%s\n' "${!pinned_lf[@]}")
+done
 
 # Content decides for scripts. grep narrows the tree to files with a `#!` in
 # column 0 anywhere, then the blob's first two bytes confirm it starts the
 # file. One `git cat-file --batch` serves every candidate: a process per file
 # costs ~20 s on a Windows checkout, and this runs on every push.
-mapfile -t candidates < <(git grep --cached -I -l -e '^#!' || true)
+mapfile -t candidates < <(git grep --cached -I -l -e '^#!' "${scope[@]}" || true)
 scripts=0
 
 if [ "${#candidates[@]}" -gt 0 ]; then
@@ -141,4 +168,6 @@ if [ "$status" -ne 0 ]; then
   exit 1
 fi
 
-echo "check_lf_endings: OK — $pinned pinned files and $scripts shebang scripts stored as LF"
+where="tracked tree"
+[ "$STAGED" -eq 1 ] && where="staged files"
+echo "check_lf_endings: OK — $where: $pinned pinned, $scripts shebang scripts stored as LF"
