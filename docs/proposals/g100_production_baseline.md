@@ -22,10 +22,11 @@ fact.
    tapeout plan, and the discovery run describe 2,048, 16 and 32 threads per SM
    respectively. They cannot share an area estimate or a tapeout schedule until
    one is chosen.
-2. **The 71 mm² die is the small one.** It is internally consistent for a
-   128-core machine at the repository-default 4 warps × 4 threads — 16 threads
-   per SM — with 6 MB of SRAM and no L2. It is not the architecture
-   specification's 128-SM, 2,048-thread flagship.
+2. **The ~72 mm² die is the small one.** Counted with its 512 KB register
+   file, it is internally consistent for a 128-core machine at the
+   repository-default 4 warps × 4 threads — 16 threads per SM — with 6 MB of
+   SRAM and no L2. It is not the architecture specification's 128-SM,
+   2,048-thread flagship.
 3. **The flagship's memory alone is up to 336 mm² at 28 nm.** That is 4.7× the
    tapeout plan's entire die, before logic, pads, or PHY. A 28 nm version would
    need a full reticle and the advanced-node PHYs the design assumes; it is not
@@ -66,7 +67,7 @@ The configuration values below are resolved from `VX_config.toml` with
 | L1 / shared per SM | 256 KB unified carve-out | 16 KB LMEM + 16 KB ICache + 16 KB DCache | same |
 | L2 | 8 MB per cluster, 64 MB total | none | 1 MB total |
 | On-chip memory, all SMs | 160 MB | 6.6 MB | ~1.2 MB |
-| Die area | not estimated | 71 mm² at 28 nm | none |
+| Die area | not estimated | 72 mm² at 28 nm | none |
 
 **Why the tapeout plan is the 4 × 4 machine.** The plan's 434,146 µm² core area
 comes from the blackbox cluster flow in `syn/synth_blackbox_cluster.sh`, which
@@ -91,17 +92,19 @@ share one file or split; today they split, and the table understates the RTL.
 | Design | Caches and scratchpad | Register file | L2 | Graphics caches | Total |
 |---|---|---|---|---|---|
 | Architecture | 32 MB L1/shared | 32 MB (doc) / 64 MB (RTL) | 64 MB | — | 128–160 MB |
-| Tapeout plan | 6 MB (LMEM + ICache + DCache) | 512 KB, omitted from the plan's total | none | 84 KB | 6.6 MB |
+| Tapeout plan | 6 MB (LMEM + ICache + DCache) | 512 KB | none | 84 KB | 6.6 MB |
 | Discovery | 192 KB | 32 KB | 1 MB | — | ~1.2 MB |
 | **G100-T0** | **768 KB** | **64 KB** | none | none | **832 KB** |
 
-Two omissions matter. The tapeout plan's "Total SRAM: ~6.1 MB" counts the three
-per-core arrays and the graphics caches but not the register file; 512 KB is
-small beside six megabytes, and it is still a missing row. Its graphics caches
-are counted although `VX_CFG_EXT_TEX_ENABLE`, `VX_CFG_EXT_RASTER_ENABLE`,
-`VX_CFG_EXT_OM_ENABLE` and `VX_CFG_EXT_RTU_ENABLE` are all false in the
-default configuration, and the sponsor-approved discovery scope is compute-only.
-A compute-only baseline has no reason to carry 84 KB of graphics caches.
+Two omissions mattered. The tapeout plan's "Total SRAM: ~6.1 MB" counted the
+three per-core arrays and the graphics caches but not the register file; 512 KB
+is small beside six megabytes, and it was still a missing row. Its §1.2 and §2.2
+now carry it, and their totals read 6.5 MB embedded and ~6.6 MB overall. Its
+graphics caches are counted although `VX_CFG_EXT_TEX_ENABLE`,
+`VX_CFG_EXT_RASTER_ENABLE`, `VX_CFG_EXT_OM_ENABLE` and `VX_CFG_EXT_RTU_ENABLE`
+are all false in the default configuration, and the sponsor-approved discovery
+scope is compute-only. A compute-only baseline has no reason to carry 84 KB of
+graphics caches.
 
 ---
 
@@ -146,9 +149,10 @@ cluster.
 | Tapeout plan (128 cores, 4 × 4) | 58.2 mm² | 13.8 mm² | **~72 mm²** | 18 |
 | Architecture (128 SMs, 64 × 32) | ≥58 mm² lower bound | 336 mm² | **≥394 mm²** | 99 |
 
-The middle row reproduces the plan's 71 mm². That is the finding, not a
-correction: the plan is right about its own machine and wrong to call that
-machine the architecture specification's G100. The bottom row uses only the
+The middle row reproduces the plan's die: 71 mm² as published, 72 once its
+512 KB register file is counted. That is the finding, not a correction: the
+plan is right about its own machine and wrong to call that machine the
+architecture specification's G100. The bottom row uses only the
 memory, plus the plan's scaled logic as a floor; the flagship SM is eight times
 wider than the measured core, so real logic is larger, not smaller.
 
@@ -168,7 +172,7 @@ and its own die is eighteen of them.
 (~20 mm² @28 nm incl. SRAM)" sentence is the unscaled 45 nm figure
 (18.64 + 1.57 = 20.2); at 28 nm the same cluster is ~8.8 mm². And the "22 mm²
 at 28 nm can handle 15–20 W" in §5.1 and §7 belongs to neither die: §2.3 says
-71 mm², and 22 mm² is not a configuration in the document.
+72 mm², and 22 mm² is not a configuration in the document.
 
 ---
 
@@ -246,11 +250,11 @@ evidence exists.
 | P13 | PDK rights, foundry slot, cost | Not assessed | Controlled supplier evidence |
 | P14 | Evidence review | Discovery runs still `run-passed-pending-review` | Independent reproduction |
 
-Two documentation errors are worth fixing while the numbers are in hand. The
-tapeout plan's §1.1 says "Barriers 128/core"; `VX_CFG_NUM_BARRIERS` is 8 and
-`VX_CFG_MAX_BAR_EVENTS` is 32. Its §2.2 calls 6,144 KB "6 MB" correctly, but neither
-§1.2 nor §2.2 includes the register file: 512 KB is missing from the 6.1 MB
-total.
+Two documentation errors in the tapeout plan are corrected alongside this
+record. Its §1.1 said "Barriers 128/core"; `VX_CFG_NUM_BARRIERS` is 8, the
+barrier unit is cluster-wide (`VX_gbar_unit`, one arrival bit per core), and
+`VX_CFG_MAX_BAR_EVENTS` is 32 in-flight events per core. Neither §1.2 nor §2.2
+included the register file; both now carry its 512 KB and the corrected totals.
 
 ---
 

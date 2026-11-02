@@ -31,7 +31,7 @@ This document outlines the plan to take the GRX G100 — a 128-core GPU with ten
 | **TCU** | 4 blocks/core | WGMMA tensor engine (fp32/bf16/fp16) |
 | **DXA** | 2 cores/cluster | GMEM→LMEM tile fetch engine |
 | **Graphics** | Per-cluster | Rasterizer, texture cache, RTU, output merger |
-| **Barriers** | 128/core | Hardware barrier unit for CTA sync |
+| **Barriers** | 8/cluster | Cluster-wide hardware barrier unit for CTA sync: one arrival bit per core, 32 in-flight events per core |
 
 ### 1.2 Memory Hierarchy
 
@@ -43,7 +43,8 @@ This document outlines the plan to take the GRX G100 — a 128-core GPU with ten
 | **TCACHE** | 8 KB | 2 | 16 KB | ORRAM |
 | **RCACHE** | 4 KB | 1 | 4 KB | ORRAM |
 | **OCACHE** | 16 KB | 2 | 32 KB | ORRAM |
-| **Total SRAM** | — | — | **~6.1 MB** | Hybrid |
+| **Registers** | 4 KB | 128 | 512 KB | Embedded SRAM |
+| **Total SRAM** | — | — | **~6.6 MB** | Hybrid |
 
 ---
 
@@ -68,8 +69,14 @@ These are the performance-critical, area-dominant SRAMs. The foundry provides pr
 | LMEM | 16 KB | 1RW | 128 | TCU reads tiles here — 1-cycle access critical |
 | ICache | 16 KB | 1RW | 128 | Instruction fetch bandwidth |
 | DCache | 16 KB | 1RW | 128 | Data load/store bandwidth |
+| Registers | 4 KB | multi-banked | 128 | 16 threads × 64 registers; §10.10 |
 
-**Total embedded SRAM**: 6,144 KB = **6 MB**
+**Total embedded SRAM**: 6,656 KB = **6.5 MB**
+
+> The register file is 4 KB per core at the baseline 4 warps × 4 threads and 64
+> registers per thread (RV32; 8 KB per core, 1 MB total, on RV64). Unlike the
+> caches it is not in RTL as an SRAM macro today — §10.10 treats the move as a
+> tapeout decision — so its area is a planning allowance, not a measured figure.
 
 #### Small SRAMs — ORRAM (Open-Source, Free)
 
@@ -193,11 +200,12 @@ IPC scales from 3.0 at K=16 to 8.8 at K=512, confirming the double-buffer FSM ef
 |-----------|------------|---------------------|
 | 16-core cluster logic | 18.64 mm² | ~7.2 mm² |
 | G100 logic (8 clusters) | 149.2 mm² | ~57.8 mm² |
-| Embedded SRAM (6 MB) | — | ~13 mm² (0.25 µm²/bit 6T) |
+| Embedded SRAM (6 MB caches) | — | ~13 mm² (0.25 µm²/bit 6T) |
+| Register file (512 KB) | — | ~1.0 mm² (same density) |
 | ORRAM (84 KB) | — | ~0.5 mm² |
-| **Total die estimate** | — | **~71 mm²** |
+| **Total die estimate** | — | **~72 mm²** |
 
-**This is a die-area problem for MPW.** A ~71 mm² G100 does not fit a typical 4 mm² MPW shuttle tile. Options: (a) shrink the tapeout to a single **16-core cluster (~20 mm² @28nm incl. SRAM)** as a first-silicon proof point, or (b) move to a full reticle/wafer share. Revisit with the foundry's shuttle tile size before committing.
+**This is a die-area problem for MPW.** A ~72 mm² G100 does not fit a typical 4 mm² MPW shuttle tile. Options: (a) shrink the tapeout to a single **16-core cluster (~20 mm² @28nm incl. SRAM)** as a first-silicon proof point, or (b) move to a full reticle/wafer share. Revisit with the foundry's shuttle tile size before committing.
 
 ---
 
@@ -798,7 +806,7 @@ Three register file architectures were synthesized on ECP5-85K to compare FF/BRA
 
 **Recommendation:**
 - **FPGA prototyping:** Use time-multiplexed register file (4 cores share 1 register file) + external DDR for large datasets
-- **ASIC tapeout:** Use embedded SRAM macros (32KB per core) — no FF/LUT cost for storage
+- **ASIC tapeout:** Use embedded SRAM macros (4 KB per core at 4 warps × 4 threads × 64 registers) — no FF/LUT cost for storage
 
 ---
 
