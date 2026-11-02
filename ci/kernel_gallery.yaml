@@ -43,12 +43,6 @@ kernels:
   title: Tensor cores, WGMMA fp16, 64×64×64
   about: "The fp16-in, fp32-out WGMMA datapath with both operands from shared memory."
   show: [kernel.cpp, common.h]
-- case: tensor_wg:sgemm_tcu_wg_sp-1
-  title: Tensor cores, 2:4 sparse
-  # Runs on one core, as in its catalog case: on more than one it hangs in SimX.
-  shape: {clusters: 1, cores: 1}
-  about: "Cooperative WGMMA on 2:4 structured-sparse fp16 operands."
-  show: [kernel.cpp, common.h]
 - case: dxa:sgemm_tcu_wg_dxa-1
   title: Tensor cores fed by the DXA
   # Double buffering needs two DXA cores, and there is one per 8 cores.
