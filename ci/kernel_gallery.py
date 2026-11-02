@@ -58,6 +58,15 @@ def trim(text):
     return "\n".join(lines[:LOG_LINES] + ["... [{} lines cut] ...".format(cut)] + lines[-LOG_LINES:]) + "\n"
 
 
+def effective_shape(case, default):
+    """The device shape a case runs at: its own, or the default's clusters
+    and cores when it names neither."""
+    shape = dict(case.shape)
+    if not any(k in shape for k in ("clusters", "cores")):
+        shape.update(default)
+    return shape
+
+
 def run(case, shape, out):
     argv, env = case.run_command(XLEN, driver="simx")
     if not any(k in case.shape for k in ("clusters", "cores")):
@@ -115,10 +124,15 @@ def main():
         instrs, cycles, ipc = (int(perf[-1][0]), int(perf[-1][1]), float(perf[-1][2])) if perf else (None, None, None)
         print("   {} in {}s: instrs={} cycles={} IPC={}".format(
             "PASS" if ok else "FAIL", secs, instrs, cycles, ipc), flush=True)
+        if not ok:  # the job log is often all a reader of a failed run can see
+            print("   exit {}; last lines of its log:".format(rc))
+            for line in text.splitlines()[-40:]:
+                print("   | " + line)
+            sys.stdout.flush()
         kernels.append({
             "slug": name, "case": k["case"], "title": k["title"], "about": k["about"],
             "app": case.app, "args": case.args, "configs": env.get("CONFIGS", ""),
-            "shape": case.shape or spec["default_shape"],
+            "shape": effective_shape(case, spec["default_shape"]),
             "command": " ".join(argv), "status": "pass" if ok else "fail", "exit": rc,
             "seconds": secs, "instrs": instrs, "cycles": cycles, "ipc": ipc,
             "cores": [{"core": int(c), "instrs": int(i), "cycles": int(cy), "ipc": float(p)}
