@@ -173,16 +173,14 @@ tests:
   app: vecadd
   flags: --nohup
 - id: async-gbarrier
-  # Out of isa-1a: at the default 8-cluster device it hits the same known
-  # issue, which would otherwise mark that whole make-run group expected-fail.
-  known_issue: "global barriers do not span clusters: SimX counts arrivals per cluster against the device-wide core count and hangs; the RTL truncates the count to its cluster and releases each cluster on its own"
+  # Its own case rather than part of isa-1a: global barriers across the
+  # default 8-cluster device.
   via: make-run
   drivers:
   - simx
   dir: tests/regression
   target: run-{driver}-async_gbarrier
 - id: async-gbarrier-mc
-  known_issue: "global barriers do not span clusters: SimX counts arrivals per cluster against the device-wide core count and hangs; the RTL truncates the count to its cluster and releases each cluster on its own"
   via: blackbox
   drivers:
   - simx
@@ -190,3 +188,12 @@ tests:
   shape:
     clusters: 2
     cores: 2
+# One core per cluster: the barrier exists only across clusters.
+- id: async-gbarrier-mc1
+  via: blackbox
+  drivers:
+  - simx
+  app: async_gbarrier
+  shape:
+    clusters: 2
+    cores: 1

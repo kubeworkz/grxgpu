@@ -23,10 +23,15 @@ module VX_gbar_unit import VX_gpu_pkg::*; #(
 );
     `UNUSED_SPARAM (INSTANCE_ID)
 
-    reg [`VX_CFG_NUM_BARRIERS-1:0][`VX_CFG_NUM_CORES-1:0] barrier_masks;
-    wire [`CLOG2(`VX_CFG_NUM_CORES+1)-1:0] active_barrier_count;
+    // One unit for the whole device (instantiated in Vortex.sv): a global
+    // barrier releases when the requested number of cores, across every
+    // cluster, has arrived.
+    localparam NUM_GCORES = `VX_CFG_NUM_CLUSTERS * `VX_CFG_NUM_CORES;
+
+    reg [`VX_CFG_NUM_BARRIERS-1:0][NUM_GCORES-1:0] barrier_masks;
+    wire [`CLOG2(NUM_GCORES+1)-1:0] active_barrier_count;
     wire [NB_WIDTH-1:0] req_id = gbar_bus_if.req_data.id;
-    wire [`VX_CFG_NUM_CORES-1:0] curr_barrier_mask = barrier_masks[req_id];
+    wire [NUM_GCORES-1:0] curr_barrier_mask = barrier_masks[req_id];
 
     `POP_COUNT(active_barrier_count, curr_barrier_mask);
     `UNUSED_VAR (active_barrier_count)
@@ -47,7 +52,7 @@ module VX_gbar_unit import VX_gpu_pkg::*; #(
                 rsp_valid <= 0;
             end
             if (req_file) begin
-                if (active_barrier_count[NC_WIDTH-1:0] == gbar_bus_if.req_data.size_m1) begin
+                if (active_barrier_count[NGC_WIDTH-1:0] == gbar_bus_if.req_data.size_m1) begin
                     barrier_masks[req_id] <= '0;
                     rsp_valid  <= 1;
                     rsp_bar_id <= req_id;

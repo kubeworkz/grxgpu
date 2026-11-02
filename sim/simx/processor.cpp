@@ -13,6 +13,8 @@
 
 #include "processor.h"
 #include "processor_impl.h"
+#include "debug.h"
+#include "types.h"
 #include <VX_types.h>
 
 #include <cstdlib>
@@ -35,6 +37,7 @@ static void simx_print_backtrace() {
 
 ProcessorImpl::ProcessorImpl()
   : clusters_(VX_CFG_NUM_CLUSTERS)
+  , gbarriers_(VX_CFG_NUM_BARRIERS)
 {
   SimPlatform::instance().initialize();
 
@@ -260,11 +263,32 @@ void ProcessorImpl::forward_delegated_launch() {
 
 void ProcessorImpl::reset() {
   SimPlatform::instance().reset();
+  for (auto& gbar : gbarriers_) {
+    gbar.reset();
+  }
   perf_mem_reads_ = 0;
   perf_mem_writes_ = 0;
   perf_mem_latency_ = 0;
   perf_mem_pending_reads_ = 0;
   is_cycle_initialized_ = false;
+}
+
+void ProcessorImpl::global_barrier_arrive(uint32_t bar_id, uint32_t count, uint32_t core_id) {
+  auto& gbar = gbarriers_.at(bar_id % gbarriers_.size());
+  gbar.mask.set(core_id);
+
+  DT(4, "*** Global barrier arrive: core #" << core_id << " at barrier #" << bar_id
+         << ", arrived=" << gbar.mask.count() << " of " << count);
+
+  if (gbar.mask.count() == (size_t)count) {
+    uint32_t cores_per_cluster = VX_CFG_NUM_CORES;
+    for (uint32_t i = 0; i < VX_CFG_NUM_CLUSTERS * cores_per_cluster; ++i) {
+      if (gbar.mask.test(i)) {
+        clusters_.at(i / cores_per_cluster)->global_barrier_resume(bar_id, i % cores_per_cluster);
+      }
+    }
+    gbar.mask.reset();
+  }
 }
 
 bool ProcessorImpl::cycle() {

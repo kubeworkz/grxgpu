@@ -36,6 +36,10 @@ package VX_gpu_pkg;
     localparam NB_BITS = `CLOG2(`VX_CFG_NUM_BARRIERS);
 
     localparam NC_WIDTH = `UP(NC_BITS);
+    // Device-wide core index and count (all clusters): global barriers span
+    // the whole device, so their requests carry these.
+    localparam NGC_BITS  = `CLOG2(`VX_CFG_NUM_CLUSTERS * `VX_CFG_NUM_CORES);
+    localparam NGC_WIDTH = `UP(NGC_BITS);
     localparam NW_WIDTH = `UP(NW_BITS);
     localparam NT_WIDTH = `UP(NT_BITS);
     localparam NB_WIDTH = `UP(NB_BITS);
@@ -93,7 +97,7 @@ package VX_gpu_pkg;
     localparam BAR_ADDR_W = `UP(BAR_ADDR_BITS);
     localparam BAR_ID_SHIFT = 8;
 
-    localparam BAR_SIZE_W = `MAX(`MAX(NW_WIDTH, NC_WIDTH), `CLOG2(`VX_CFG_MAX_BAR_EVENTS));
+    localparam BAR_SIZE_W = `MAX(`MAX(NW_WIDTH, NGC_WIDTH), `CLOG2(`VX_CFG_MAX_BAR_EVENTS));
 
     localparam UOP_PACKLD = 0;
     localparam UOP_TCU = UOP_PACKLD + 1;
@@ -639,9 +643,9 @@ package VX_gpu_pkg;
     } barrier_t;
 
     typedef struct packed {
-        logic [NB_WIDTH-1:0] id;
-        logic [NC_WIDTH-1:0] size_m1;
-        logic [NC_WIDTH-1:0] core_id;
+        logic [NB_WIDTH-1:0]  id;
+        logic [NGC_WIDTH-1:0] size_m1;  // participating cores - 1, device-wide
+        logic [NGC_WIDTH-1:0] core_id;  // device-wide core index
     } gbar_req_t;
 
     typedef struct packed {

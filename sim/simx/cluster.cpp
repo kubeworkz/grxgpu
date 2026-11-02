@@ -50,7 +50,6 @@ public:
   Impl(Cluster* simobject)
     : simobject_(simobject)
     , sockets_(NUM_SOCKETS)
-    , gbarriers_(VX_CFG_NUM_BARRIERS)
     , cores_per_socket_(VX_CFG_SOCKET_SIZE)
   {
     const std::string& name = simobject_->name();
@@ -480,9 +479,6 @@ public:
   }
 
   void reset() {
-    for (auto& gbar : gbarriers_) {
-      gbar.reset();
-    }
     // Sockets are SimObjects; reset by SimPlatform.
   }
 
@@ -502,34 +498,17 @@ public:
     return exitcode;
   }
 
+  // Global barriers are device-wide: the processor counts every core's
+  // arrival (ProcessorImpl::global_barrier_arrive) and resumes each core
+  // through its cluster.
   void global_barrier_arrive(uint32_t bar_id, uint32_t count, uint32_t core_id) {
-    auto bar_index = bar_id % gbarriers_.size();
-    auto& gbar = gbarriers_.at(bar_index);
+    simobject_->processor()->global_barrier_arrive(bar_id, count, core_id);
+  }
 
-    auto sockets_per_cluster = sockets_.size();
-    auto cores_per_socket = cores_per_socket_;
-
-    uint32_t cores_per_cluster = sockets_per_cluster * cores_per_socket;
-    uint32_t local_core_id = core_id % cores_per_cluster;
-
-    // set core arrival bit
-    gbar.mask.set(local_core_id);
-
-    DT(4, "*** Global barrier arrive: cluster #" << simobject_->id() << ", core #" << core_id << " at barrier #" << bar_id << ", arrived=" << gbar.mask.count());
-
-    if (gbar.mask.count() == (size_t)count) {
-      // resume all suspended cores
-      for (uint32_t s = 0; s < sockets_per_cluster; ++s) {
-        for (uint32_t c = 0; c < cores_per_socket; ++c) {
-          uint32_t i = s * cores_per_socket + c;
-          if (gbar.mask.test(i)) {
-            sockets_.at(s)->global_barrier_resume(bar_id, c);
-          }
-        }
-      }
-      // reset mask and advance phase
-      gbar.mask.reset();
-    }
+  void global_barrier_resume(uint32_t bar_id, uint32_t local_core_id) {
+    uint32_t s = local_core_id / cores_per_socket_;
+    uint32_t c = local_core_id % cores_per_socket_;
+    sockets_.at(s)->global_barrier_resume(bar_id, c);
   }
 
   Cluster::PerfStats perf_stats() const {
@@ -738,7 +717,6 @@ public:
 private:
   Cluster*                    simobject_;
   std::vector<Socket::Ptr>    sockets_;
-  std::vector<core_barrier_t> gbarriers_;
   Cache::Ptr                  l2cache_;
   uint32_t                    cores_per_socket_;
 #ifdef VX_CFG_EXT_DXA_ENABLE
@@ -814,6 +792,10 @@ int Cluster::get_exitcode() const {
 
 void Cluster::global_barrier_arrive(uint32_t bar_id, uint32_t count, uint32_t core_id) {
   impl_->global_barrier_arrive(bar_id, count, core_id);
+}
+
+void Cluster::global_barrier_resume(uint32_t bar_id, uint32_t local_core_id) {
+  impl_->global_barrier_resume(bar_id, local_core_id);
 }
 
 Cluster::PerfStats Cluster::perf_stats() const {
