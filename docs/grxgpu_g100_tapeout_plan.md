@@ -322,7 +322,7 @@ RTL (SystemVerilog)
 |------|---------|--------|
 | **Yosys** | RTL synthesis | ✅ Installed on server |
 | **OpenROAD** | P&R + STA | ✅ Docker image (26Q3) |
-| **OpenRAM/ORRAM** | SRAM generation | ✅ Validated (512B SRAM) |
+| **OpenRAM/ORRAM** | SRAM generation | ✅ Validated (512-bit SRAM) |
 | **KLayout** | DRC/LVS + GDSII | ⏳ Need to install |
 | **Magic** | DRC/LVS | ⏳ Need to install |
 | **OpenSTA** | Static timing | ✅ Included with OpenROAD |
@@ -423,31 +423,37 @@ Aug 2026          Sep 2026          Oct 2026          Nov 2026          Jan 2027
 
 ## 8. Appendix: Validated ORRAM Results
 
-### 8.1 512-Byte SRAM (sky130nm)
+### 8.1 512-bit SRAM (sky130nm)
 
 | Metric | Value |
 |--------|-------|
 | Macro | RAM16x32 |
 | Size | 462.3 × 46.24 µm |
 | Area | 0.021 mm² |
-| Density | 192 Kbit/mm² |
+| Density | 24 Kbit/mm² |
 | Word size | 32 bits |
 | Words | 16 |
 | Routing time | ~100s (Docker, 8-core) |
 | Technology | sky130hd (130nm) |
 
+The generator configuration in §8.3 asks for `-num_words 16 -word_size 32`, so
+this array holds 512 bits — 64 bytes, not 512 — and 0.021 mm² for it is
+24 Kbit/mm². That is a property of a very small array, where the decoder,
+control and power strapping are most of the area; it does not measure the raw
+cell density §8.2 scales, which is eight times higher and remains an assumption.
+
 ### 8.2 Scaling to 28nm
 
 | Metric | sky130nm | 28nm (estimated) |
 |--------|----------|-----------------|
-| DFF density, raw cells | 192 Kbit/mm² | ~960 Kbit/mm² |
+| DFF density, raw cells (assumed) | 192 Kbit/mm² | ~960 Kbit/mm² |
 | 6 MB at that density | 262 mm² | **~52 mm²** |
-| 16 KB macro, measured with periphery | 1.3 mm² | 0.26 mm² |
+| 16 KB array, with periphery | 1.3 mm² | 0.26 mm² |
 
 The 6 MB row is density × bits and is the one the area model uses: 50,331,648
 bits at 960 Kbit/mm² is 52 mm², the same ~1 µm²/bit behind §2.1's all-ORRAM row
 and §2.3's ORRAM allowance. It assumes one generated array, so the decoder and
-control are paid once. The 16 KB row is a small macro, where that logic takes
+control are paid once. The 16 KB row is a small array, where that logic takes
 about half the area — 1.3 mm² for 16 KB is 100 Kbit/mm² — so tiling 384 of them
 bills the periphery 384 times: that product is the 100 mm² this appendix used to
 quote, and it is the right number only if ORRAM is built that way. Built that

@@ -259,7 +259,7 @@ evidence exists.
 | P13 | PDK rights, foundry slot, cost | Not assessed | Controlled supplier evidence |
 | P14 | Evidence review | Discovery runs still `run-passed-pending-review` | Independent reproduction |
 
-Four documentation errors in the tapeout plan are corrected alongside this
+Five documentation errors in the tapeout plan are corrected alongside this
 record. Its §1.1 said "Barriers 128/core"; `VX_CFG_NUM_BARRIERS` is 8, the
 barrier unit is cluster-wide (`VX_gbar_unit`, one arrival bit per core), and
 `VX_CFG_MAX_BAR_EVENTS` is 32 in-flight events per core. Neither §1.2 nor §2.2
@@ -272,7 +272,10 @@ a chip-wide table, and gave TCACHE and OCACHE twice the per-cluster count that
 four and totals 288 KB = ~2.5 mm² across eight clusters; this baseline disables
 all four, so none of that area is in the figures here. Its §8.2 costed 6 MB of
 ORRAM at 100 mm², twice its own density row; it now reads 52 mm², the same
-1.04 µm²/bit as §2.1.
+1.04 µm²/bit as §2.1. Its §8.1 called the validated macro 512 bytes at
+192 Kbit/mm², but the generator configuration printed in §8.3 asks for 16 words
+of 32 bits: 512 bits, so 24 Kbit/mm², and the density the appendix scales is an
+assumption rather than a measurement.
 
 ---
 
