@@ -12,6 +12,7 @@
 // limitations under the License.
 
 #include "cluster.h"
+#include "processor_impl.h"
 #include "socket.h"
 #include "core.h"
 #include "local_mem.h"
