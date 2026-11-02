@@ -16,9 +16,12 @@ SRCS += $(SRC_DIR)/main.cpp
 DBG_TRACE_FLAGS := -DDBG_TRACE_CACHE
 
 RTL_PKGS := $(RTL_DIR)/VX_gpu_pkg.sv
+RTL_PKGS += $(RTL_DIR)/tcu/VX_tcu_pkg.sv
 
 RTL_INCLUDE := -I$(ROOT_DIR)/sw -I$(ROOT_DIR)/hw -I$(RTL_DIR) -I$(DPI_DIR) -I$(RTL_DIR)/libs
 RTL_INCLUDE += -I$(RTL_DIR)/interfaces -I$(RTL_DIR)/mem -I$(RTL_DIR)/core -I$(SRC_DIR)
+RTL_INCLUDE += -I$(RTL_DIR)/tcu -I$(RTL_DIR)/tcu/tfr -I$(RTL_DIR)/tcu/dpi
+RTL_INCLUDE += -I$(RTL_DIR)/tcu/fpnew -I$(RTL_DIR)/tcu/dsp -I$(RTL_DIR)/tcu/bhf
 
 TOP := VX_issue_top
 

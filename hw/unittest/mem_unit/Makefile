@@ -16,10 +16,20 @@ SRCS += $(SRC_DIR)/main.cpp
 DBG_TRACE_FLAGS :=
 
 RTL_PKGS := $(RTL_DIR)/VX_gpu_pkg.sv
+RTL_PKGS += $(RTL_DIR)/dxa/VX_dxa_pkg.sv
 
 RTL_INCLUDE := -I$(ROOT_DIR)/sw -I$(ROOT_DIR)/hw -I$(RTL_DIR) -I$(DPI_DIR) -I$(RTL_DIR)/libs
 RTL_INCLUDE += -I$(RTL_DIR)/interfaces -I$(RTL_DIR)/mem -I$(RTL_DIR)/core -I$(RTL_DIR)/fpu -I$(SRC_DIR)
+RTL_INCLUDE += -I$(RTL_DIR)/dxa
 
 TOP := VX_mem_unit_top
 
 include ../common.mk
+
+# VX_dxa_pkg's localparams are used by the DXA engine; this bench only
+# imports the package for the LMEM interface widths.
+VL_FLAGS += -Wno-UNUSEDPARAM
+
+# The mem_unit wrapper drives the dcache flush arbiter's interface
+# outputs for its parent, but the bench does not observe them.
+VL_FLAGS += -Wno-UNUSEDSIGNAL

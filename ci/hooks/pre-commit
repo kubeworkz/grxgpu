@@ -1,0 +1,38 @@
+#!/bin/sh
+# Pre-commit: run the repo-hygiene gates on what is about to be committed.
+#
+# Enabled by ci/install_hooks.sh, which points core.hooksPath at ci/hooks.
+# Both gates read the index, so at pre-commit time they judge exactly the
+# pending commit rather than the checkout. Only the staged paths are scanned:
+# unchanged files were checked when their own commit was made, and a full scan
+# costs seconds on a large checkout. Staging .gitignore or .gitattributes
+# changes what is in scope for the whole tree, so that falls back to a full
+# scan.
+#
+# Skip once with: git commit --no-verify
+
+set -eu
+
+root=$(git rev-parse --show-toplevel)
+cd "$root"
+
+full=0
+if git diff --cached --name-only | grep -qxE '\.(gitignore|gitattributes)$'; then
+  echo "pre-commit: .gitignore/.gitattributes staged — scanning the full tree"
+  full=1
+fi
+
+status=0
+for gate in ci/check_tracked_artifacts.sh ci/check_lf_endings.sh; do
+  if [ "$full" -eq 1 ]; then
+    "$gate" || status=1
+  else
+    "$gate" --staged || status=1
+  fi
+done
+
+if [ "$status" -ne 0 ]; then
+  echo
+  echo "pre-commit: fix the findings above, or bypass this once with 'git commit --no-verify'."
+  exit 1
+fi

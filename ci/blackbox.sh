@@ -160,15 +160,20 @@ run_app() {
 main() {
     parse_args "$@"
 
-    # CI_RTL_BOUND: standard runners have 16 GB RAM; Verilating the TOML-default
-    # 128-core model is OOM-killed mid-elaboration ("runner shutdown signal").
-    # Bound unbounded RTL-driver configs to a runner-safe size in CI only.
-    # Testcases that set --clusters/--cores/--warps/--threads are respected.
-    if [ "$CI" = "true" ] && { [ "$DRIVER" = "rtlsim" ] || [ "$DRIVER" = "opae" ]; }; then
-        case "$CONFIGS" in
-            *VX_CFG_NUM_CLUSTERS*|*VX_CFG_NUM_CORES*) ;;
-            *) CONFIGS="$CONFIGS -DVX_CFG_NUM_CLUSTERS=1 -DVX_CFG_NUM_CORES=4" ;;
-        esac
+    # RTL_BOUND: Verilating the TOML-default 8x16 (128 core) model needs several
+    # GB inside a single Verilator process and is OOM-killed even on 16 GB CI
+    # runners, so it is not a usable default for RTL simulation on any ordinary
+    # machine. RTL drivers therefore model a bounded topology unless the caller
+    # names a cluster/core count or opts out with RTL_UNBOUND=1.
+    if [ "$DRIVER" = "rtlsim" ] || [ "$DRIVER" = "opae" ]; then
+        if [ "${RTL_UNBOUND:-0}" != "1" ]; then
+            case "$CONFIGS" in
+                *VX_CFG_NUM_CLUSTERS*|*VX_CFG_NUM_CORES*) ;;
+                *)
+                    CONFIGS="$CONFIGS -DVX_CFG_NUM_CLUSTERS=1 -DVX_CFG_NUM_CORES=4"
+                    echo "RTL model bounded to 1 cluster x 4 cores (pass --clusters/--cores or RTL_UNBOUND=1 to model more)" ;;
+            esac
+        fi
     fi
     set_driver_path
     set_app_path

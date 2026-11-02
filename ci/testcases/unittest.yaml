@@ -31,3 +31,12 @@ tests:
     via: script
     run: "make -C hw/unittest run-tcu-dsp"
     touches: [hw/rtl/tcu, hw/unittest/tcu_fedp]
+  # T0 JTAG debug path: executes the test-SRAM walking and restart/recovery
+  # bench. RV32-only — the boot image and the SRAM/result map assume 32-bit
+  # addressing — so this lane is pinned to xlen 32; the 64-bit cell's generic
+  # `hw` build skips it.
+  - id: hw-t0
+    via: script
+    run: "make -C hw/unittest run-t0"
+    xlen: [32]
+    touches: [hw/rtl, hw/unittest/t0_dbg]

@@ -88,6 +88,15 @@ The G100 sits at H100-class scale with a next-generation memory/interconnect
 budget: 128 SMs at 2.0 GHz (vs 132 at 1.98 GHz), HBM3e at ~2× H100's
 bandwidth, and NVLink-class chip-to-chip bandwidth.
 
+**This table is a paper target for an advanced node, not a 28 nm tapeout
+configuration.** The tapeout plan's "128-core G100" is a different machine:
+16 threads per SM against this table's 2,048, and 6.6 MB of on-chip memory
+against 160 MB here. This table's register files, L1/shared and L2 alone need
+268–336 mm² of bitcells at 0.25 µm²/bit at 28 nm, before logic, pads or PHY —
+4–5× that plan's entire die. See
+[the G100 production baseline](../proposals/g100_production_baseline.md) §2–§5
+for the reconciliation.
+
 ---
 
 ## 3. Chip-level architecture

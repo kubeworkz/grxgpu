@@ -1,7 +1,7 @@
 # G100 Source / Configuration / Workload Evidence Manifest
 
 **Status:** Source/config/workload reproduction specification for discovery. The proposed RV32 1×4 experiment was built and run locally on the pinned source; eight host-reference invocations passed—four original variant-specific checks plus four additional same-kernel comparison checks—pending independent review. This is not a sponsor-ratified product configuration or acceptance result.
-**Version:** 0.7 — 2026-10-13
+**Version:** 0.8 — 2026-11-02
 **Reproducibility state:** Source identity, submodule identities, resolved configuration, original single-buffered rtlsim and double-buffered SimX logs, plus same-kernel double-buffered SimX/rtlsim comparison logs are recorded. Independent review, generated input/output hashes, exact dependency/tool bundle closure, a supported parity tolerance, and FPGA implementation evidence remain open. The resolved settings are experiment parameters, not ratified product requirements.
 **Execution disposition:** All eight local correctness invocations (K=64/K=512 across SimX and rtlsim, for single-buffered rtlsim and same-kernel double-buffered builds) exited 0 and printed `PASSED!`; see the [dated run record](evidence/g100-discovery-2026-10-13/run-record.md), raw logs and checksums. For the double-buffered same-kernel comparison, retired instruction counts match but cycles differ; this is not a parity pass. The runs are pending independent review. Historical reports remain separately classified and are not evidence for these invocations.
 **Scope approval:** [G100 Product Brief](grxgpu_g100_product_brief.md) — Kubeworkz approved compute-only discovery scope on 2026-10-13 only. This manifest does not authorize funding, purchases, tapeout, or production claims.
@@ -129,11 +129,83 @@ Each app target compiles the host app and kernel and rebuilds the requested runt
 
 The [G100 tapeout plan](grxgpu_g100_tapeout_plan.md) describes K=64/K=512 rtlsim results and a 128-core SimX K=16…512 sweep. Those remain **historical report claims** until exact source/config/tool/input identities and raw logs are independently pinned and reproduced. They are not reruns under this commit's manifest, not FPGA closure, and not customer acceptance evidence.
 
-## 5. E-301 / E-302 completion checklist
+## 5. Physical-design evidence — 16 KB ORRAM macro
+
+This is an adjunct record, not an E-302 run: it pins the layout behind the
+tapeout plan's §8.2 macro row. A placed array and its abstract view exist; a
+routed macro does not — no DRC, no LVS, no GDS, no timing.
+
+| Field | Value |
+|---|---|
+| Flow | [`syn/gen_16kb_sram.tcl`](../syn/gen_16kb_sram.tcl), blob `de66637d…`, SHA-256 `cd33a7c3…` over the committed bytes; stopped after filler insertion and before routing |
+| Array | 4096 words × 32 bits = 131,072 bits; 1 read/write port; column mux 4 |
+| Cells | `sky130_fd_sc_hd__dfxtp_1` storage, `ebufn_4` tristate read buffer, `inv_1`, `a22oi_1`, `dlclkp_1`, `tap_1`, `fill_1/2/4/8` |
+| PDK | sky130hd — `sky130hd.tlef`, `sky130_fd_sc_hd_merged.lef`, `sky130_fd_sc_hd__tt_025C_1v80.lib` |
+| Tool | OpenROAD `26Q4-1108-g6f3f28cc85`, image `openroad/ubuntu22.04:latest` (`sha256:aff5463912da42782f1093ea015b3248d9d65adb4946cd4f3a7a234a896534bc`), built `-GPU +GUI -Python` and run `-no_init -threads 6` |
+| Host | Docker Desktop VM, 6 cores allocated |
+| Generated | 2026-11-02 |
+| Status | `generated — floorplan only`; routability, DRC, LVS, GDS, timing and independent review **OPEN** |
+
+| Artifact | Path | Bytes | SHA-256 |
+|---|---|---|---|
+| Placed DEF | `build_ram16k/out/sram_32x4096_placed.def` | 106,291,621 | `6ccce37e72dc0bbe21c92d428ebed578ba2bb5eb927df25c40eab8ff688d8011` |
+| Abstract LEF | `build_ram16k/out/sram_32x4096_placed.lef` | 132,809 | `36424ee1103b5fd8d596f05e8a2d9bb7332d357ca3a5d79144588a9fee657db4` |
+
+Both are gitignored build output (`/build*`) and are not committed: the
+SHA-256 values above are over the raw generated files and are the artifact
+identity; the path is not durable. Archive them to the engineering
+evidence store before this worktree is discarded.
+
+Contents, read from the files: the DEF declares `DESIGN RAM4096x32`, 100 DBU/µm,
+`DIEAREA ( 0 0 ) ( 183816 278800 )`, 1025 rows, 425,849 components, 80 pins and
+154,942 nets; the LEF declares `MACRO RAM4096x32`, `CLASS BLOCK`,
+`SIZE 1838.16 BY 2788` and the same 80 pins.
+
+**Measured geometry.** 1838.16 × 2788.00 µm = 5.1248 mm², or 39.10 µm²/bit over
+131,072 bits — the 5.12 mm² and 39.1 µm²/bit the plan's §8.2 quotes. The area is
+fixed before routing: `DIEAREA` is written with the netlist and detailed routing
+places wires inside it, so a routed rerun can move routability, not area.
+
+**Floorplan stop**, against the pinned script — the same first stage, without the
+routing and `write_verilog` tail:
+
+```tcl
+generate_ram_netlist -word_size 32 -num_words 4096 -rw_ports 1 -column_mux_ratio 4 \
+  -storage_cell sky130_fd_sc_hd__dfxtp_1 -tristate_cell sky130_fd_sc_hd__ebufn_4 \
+  -inv_cell sky130_fd_sc_hd__inv_1 -tapcell sky130_fd_sc_hd__tap_1 -max_tap_dist 15
+ord::design_created
+set w  [ord::microns_to_dbu 0.48]
+set pv [ord::microns_to_dbu 40]
+set ph [ord::microns_to_dbu 20]
+ram::ram_pdngen VDD VSS met1 $w met2 $w $pv met3 $w $ph
+make_tracks -x_offset 0 -y_offset 0
+ram::ram_pinplacer met2 met3
+ram::ram_filler {sky130_fd_sc_hd__fill_1 sky130_fd_sc_hd__fill_2 sky130_fd_sc_hd__fill_4 sky130_fd_sc_hd__fill_8}
+write_def /out/sram_32x4096_placed.def
+write_abstract_lef /out/sram_32x4096_placed.lef
+```
+
+**What this establishes:** the plan's 16 KB row is a generated sky130hd layout of
+the parameters it names, not a scaling assumption, and its area is reproducible
+from a tracked script.
+
+**What it does not establish:** that the array routes. There are no routing
+channels at the placed occupancy, and closing detailed routing on 425 k
+instances is the multi-hour job the plan lists as an ORRAM risk. DRC/LVS
+cleanliness, timing, power, GDS, and the 28 nm column — still a per-bit scaling
+estimate off the 130 nm number — remain unsupported by this record.
+
+A full `syn/gen_16kb_sram.tcl` run, through detailed routing, was started on
+2026-11-02 and had not exited when this section was written. Its `SIZE` should
+repeat 1838.16 × 2788.00 µm; its violation count is the routability evidence
+this record lacks, and until it exists the geometry above is
+placed-but-unrouted.
+
+## 6. E-301 / E-302 completion checklist
 
 Before E-301 can close, record named product/engineering owners, approved discovery requirements versus TBD values, source/config/workload identities, risk/feasibility classification, and a separate fund/defer decision for any work beyond the currently approved discovery boundary.
 
-The local run record is linked above and is marked `run-passed-pending-review`, not an E-302 closeout. Before any E-302 pass is recorded, independently review/reproduce the relevant claims and complete remaining evidence using the copyable template in §6, including:
+The local run record is linked above and is marked `run-passed-pending-review`, not an E-302 closeout. Before any E-302 pass is recorded, independently review/reproduce the relevant claims and complete remaining evidence using the copyable template in §7, including:
 
 - exact source commit and clean-tree/archive identity, plus any overlay/test-only source hashes;
 - resolved config/macros, driver/backend, `CONFIGS`, `ARGS`, compiler flags, and whether WGMMA double buffering is enabled;
@@ -145,7 +217,7 @@ The local run record is linked above and is marked `run-passed-pending-review`, 
 
 Use supported Vortex regressions and model-parity gates; a successful build alone does not prove the requested behavior. The attached local run record documents eight correctness passes and one same-kernel cycle comparison with measured divergence; this manifest asserts **no independently reproduced, accepted, parity, FPGA, or production pass** until the applicable artifacts are reviewed and approved.
 
-## 6. E-302 run-record template
+## 7. E-302 run-record template
 
 Copy this record once per independently invoked `(source snapshot, resolved configuration, workload/inputs, execution target)` tuple. Do not combine SimX and RTL/FPGA into one run record; link comparable records with a shared parity or comparison ID. Use `N/A — reason` for inapplicable fields and `OPEN` when evidence is not yet available. Preserve failed, timed-out, and superseded attempts as separate records rather than overwriting them. `run-passed-pending-review` means only that the recorded commands exited and stated checks met their criteria; it is not an accepted/reproduced claim before independent review. `reviewed-reproduced` must identify exactly which claim the reviewer accepted.
 

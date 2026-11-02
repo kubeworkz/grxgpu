@@ -107,7 +107,7 @@ module VX_dxa_core_top import VX_gpu_pkg::*, VX_dxa_pkg::*; #(
 
     VX_mem_bus_if #(
         .DATA_SIZE   (DXA_LMEM_WORD_SIZE),
-        .TAG_WIDTH   (DXA_LMEM_TAG_W),
+        .TAG_WIDTH   (DXA_LMEM_OUT_TAG_W),
         .ATTR_WIDTH (DXA_LMEM_ATTR_W),
         .ADDR_WIDTH  (DXA_LMEM_ADDR_W)
     ) lmem_bus_if[`VX_CFG_SOCKET_SIZE]();
@@ -122,6 +122,10 @@ module VX_dxa_core_top import VX_gpu_pkg::*, VX_dxa_pkg::*; #(
         assign lmem_bus_if[i].req_ready  = lmem_req_ready[i];
         assign lmem_bus_if[i].rsp_valid  = 1'b0;
         assign lmem_bus_if[i].rsp_data   = '0;
+        // Nothing behind this port models LMEM banks, so the request tag and
+        // the write-response backpressure have no consumer.
+        `UNUSED_VAR (lmem_bus_if[i].req_data.tag)
+        `UNUSED_VAR (lmem_bus_if[i].rsp_ready)
     end
 
     VX_mem_bus_if #(

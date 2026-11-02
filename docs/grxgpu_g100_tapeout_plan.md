@@ -1,5 +1,14 @@
 # GRX G100 ASIC Tapeout Plan
 
+> **Revision note (2026-10-31):** The area, memory and cost figures below are
+> the September 2026 planning estimates and are kept as a historical record.
+> They describe a 128-core machine at 4 warps × 4 threads — 16 threads per SM —
+> not the 2,048-thread SM in [the architecture specification](designs/gpu_chip_design.md).
+> The two share a name and not a configuration; see
+> [the G100 production baseline](proposals/g100_production_baseline.md) §2–§5 for
+> the reconciled inventory and arithmetic. Do not use these figures as
+> requirements, commitments or acceptance limits.
+
 ## Executive Summary
 
 This document outlines the plan to take the GRX G100 — a 128-core GPU with tensor compute (TCU), data transfer engine (DXA), and graphics pipeline — from RTL to working silicon on TSMC 28nm HPC+.
@@ -22,7 +31,7 @@ This document outlines the plan to take the GRX G100 — a 128-core GPU with ten
 | **TCU** | 4 blocks/core | WGMMA tensor engine (fp32/bf16/fp16) |
 | **DXA** | 2 cores/cluster | GMEM→LMEM tile fetch engine |
 | **Graphics** | Per-cluster | Rasterizer, texture cache, RTU, output merger |
-| **Barriers** | 128/core | Hardware barrier unit for CTA sync |
+| **Barriers** | 8/cluster | Cluster-wide hardware barrier unit for CTA sync: one arrival bit per core, 32 in-flight events per core |
 
 ### 1.2 Memory Hierarchy
 
@@ -31,10 +40,22 @@ This document outlines the plan to take the GRX G100 — a 128-core GPU with ten
 | **LMEM** (shared mem) | 16 KB | 128 | 2,048 KB | Embedded SRAM |
 | **ICache** | 16 KB | 128 | 2,048 KB | Embedded SRAM |
 | **DCache** | 16 KB | 128 | 2,048 KB | Embedded SRAM |
-| **TCACHE** | 8 KB | 2 | 16 KB | ORRAM |
-| **RCACHE** | 4 KB | 1 | 4 KB | ORRAM |
-| **OCACHE** | 16 KB | 2 | 32 KB | ORRAM |
-| **Total SRAM** | — | — | **~6.1 MB** | Hybrid |
+| **TCACHE** | 8 KB | 8 | 64 KB | ORRAM |
+| **RCACHE** | 4 KB | 8 | 32 KB | ORRAM |
+| **RTCACHE** | 8 KB | 8 | 64 KB | ORRAM |
+| **OCACHE** | 16 KB | 8 | 128 KB | ORRAM |
+| **Registers** | 4 KB | 128 | 512 KB | Embedded SRAM |
+| **Total SRAM** | — | — | **~6.8 MB** | Hybrid |
+
+The graphics caches live inside a cluster, so their counts above are 8-cluster
+totals of one cache each per cluster — what `NUM_TCACHES`, `NUM_RCACHES`,
+`NUM_RTCACHES` and `NUM_OCACHES` resolve to at a 16-core socket. The core arrays
+and the register file are per core and already chip-wide.
+
+The compute-only G100 baseline in
+[the production baseline](proposals/g100_production_baseline.md) disables all
+four graphics blocks and carries none of this 288 KB, which puts its 128-core
+die at ~72 mm² for the same logic and core arrays.
 
 ---
 
@@ -42,11 +63,20 @@ This document outlines the plan to take the GRX G100 — a 128-core GPU with ten
 
 ### 2.1 Why Hybrid?
 
+The areas below cover the 6 MB of cache arrays only, at the densities §2.3 uses;
+the register file and all logic sit outside this table.
+
 | Approach | Area (28nm) | Cost | Risk |
 |----------|------------|------|------|
-| **All ORRAM (DFF-based)** | ~50 mm² | $0 license | High area, slow DRT routing |
-| **All custom 6T SRAM** | ~13 mm² | $150K–$200K license | SRAM compiler dependency |
-| **Hybrid (recommended)** | ~25 mm² | $0 license | Balanced |
+| **All ORRAM (DFF-based)** | ~47 mm² cell floor; ~91 mm² measured (§8.2) | $0 license | High area, slow DRT routing |
+| **All foundry 6T SRAM** | ~13 mm² | $0 with PDK macros; $150K–$200K only if a commercial compiler is needed | SRAM compiler dependency |
+| **Hybrid (recommended)** | ~25 mm² (September estimate; ~17 mm² by §2.3) | $0 license | Balanced |
+
+The hybrid row's 25 mm² assumed ~0.5 µm²/bit across all six megabytes. Costed
+the way §2.3 does it — 12.6 mm² for 6 MB of foundry 6T plus 4.3 mm² for the
+288 KB of DFF ORRAM the graphics caches need — the same configuration is
+~17 mm². A compute-only build disables those caches, so it has no ORRAM and
+lands on the all-6T row at ~13 mm².
 
 ### 2.2 SRAM Assignment
 
@@ -59,23 +89,30 @@ These are the performance-critical, area-dominant SRAMs. The foundry provides pr
 | LMEM | 16 KB | 1RW | 128 | TCU reads tiles here — 1-cycle access critical |
 | ICache | 16 KB | 1RW | 128 | Instruction fetch bandwidth |
 | DCache | 16 KB | 1RW | 128 | Data load/store bandwidth |
+| Registers | 4 KB | multi-banked | 128 | 16 threads × 64 registers; §10.10 |
 
-**Total embedded SRAM**: 6,144 KB = **6 MB**
+**Total embedded SRAM**: 6,656 KB = **6.5 MB**
+
+> The register file is 4 KB per core at the baseline 4 warps × 4 threads and 64
+> registers per thread (RV32; 8 KB per core, 1 MB total, on RV64). Unlike the
+> caches it is not in RTL as an SRAM macro today — §10.10 treats the move as a
+> tapeout decision — so its area is a planning allowance, not a measured figure.
 
 #### Small SRAMs — ORRAM (Open-Source, Free)
 
-These are shared caches with lower access frequency. ORRAM's DFF-based approach is acceptable here because:
-- Area overhead is small (32 KB total = ~0.5 mm²)
+These are the graphics caches, with lower access frequency. ORRAM's DFF-based approach is acceptable here because:
+- Area overhead is modest (288 KB total = ~4.3 mm²)
 - Access latency is 1–2 cycles (acceptable for texture/raster)
 - No license cost, no NDA
 
 | SRAM | Size | Ports | Count | Why ORRAM |
 |------|------|-------|-------|----------|
-| TCACHE | 8 KB | 1RW | 2 | Shared, lower bandwidth need |
-| RCACHE | 4 KB | 1RW | 1 | Shared, minimal |
-| OCACHE | 16 KB | 1RW | 2 | Shared, write-heavy |
+| TCACHE | 8 KB | 1RW | 8 | Shared, lower bandwidth need |
+| RCACHE | 4 KB | 1RW | 8 | Shared, minimal |
+| RTCACHE | 8 KB | 1RW | 8 | RTU BVH/scene reuse across rays |
+| OCACHE | 16 KB | 1RW | 8 | Shared, write-heavy |
 
-**Total ORRAM**: 84 KB = **~0.5 mm² at 28nm**
+**Total ORRAM**: 288 KB = **~4.3 mm² at 28nm**
 
 ### 2.3 Area Estimate
 
@@ -184,11 +221,12 @@ IPC scales from 3.0 at K=16 to 8.8 at K=512, confirming the double-buffer FSM ef
 |-----------|------------|---------------------|
 | 16-core cluster logic | 18.64 mm² | ~7.2 mm² |
 | G100 logic (8 clusters) | 149.2 mm² | ~57.8 mm² |
-| Embedded SRAM (6 MB) | — | ~13 mm² (0.25 µm²/bit 6T) |
-| ORRAM (84 KB) | — | ~0.5 mm² |
-| **Total die estimate** | — | **~71 mm²** |
+| Embedded SRAM (6 MB caches) | — | ~13 mm² (0.25 µm²/bit 6T) |
+| Register file (512 KB) | — | ~1.0 mm² (same density) |
+| ORRAM (288 KB) | — | ~4.3 mm² |
+| **Total die estimate** | — | **~76 mm²** |
 
-**This is a die-area problem for MPW.** A ~71 mm² G100 does not fit a typical 4 mm² MPW shuttle tile. Options: (a) shrink the tapeout to a single **16-core cluster (~20 mm² @28nm incl. SRAM)** as a first-silicon proof point, or (b) move to a full reticle/wafer share. Revisit with the foundry's shuttle tile size before committing.
+**This is a die-area problem for MPW.** A ~76 mm² G100 does not fit a typical 4 mm² MPW shuttle tile. Options: (a) shrink the tapeout to a single **16-core cluster (~20 mm² @28nm incl. SRAM)** as a first-silicon proof point, or (b) move to a full reticle/wafer share. Revisit with the foundry's shuttle tile size before committing.
 
 ---
 
@@ -284,7 +322,7 @@ RTL (SystemVerilog)
 |------|---------|--------|
 | **Yosys** | RTL synthesis | ✅ Installed on server |
 | **OpenROAD** | P&R + STA | ✅ Docker image (26Q3) |
-| **OpenRAM/ORRAM** | SRAM generation | ✅ Validated (512B SRAM) |
+| **OpenRAM/ORRAM** | SRAM generation | ✅ 512-bit routed; 16 KB floorplan measured |
 | **KLayout** | DRC/LVS + GDSII | ⏳ Need to install |
 | **Magic** | DRC/LVS | ⏳ Need to install |
 | **OpenSTA** | Static timing | ✅ Included with OpenROAD |
@@ -299,7 +337,7 @@ RTL (SystemVerilog)
 4. Import as black boxes in RTL (Verilog behavioral model for sim, LEF/GDS for P&R)
 5. Place SRAMs in floorplan near their consumer cores
 
-#### ORRAM (TCACHE, RCACHE, OCACHE)
+#### ORRAM (TCACHE, RCACHE, RTCACHE, OCACHE)
 
 1. Use OpenROAD Docker container (already validated)
 2. Generate 4–16 KB macros for each configuration
@@ -385,26 +423,56 @@ Aug 2026          Sep 2026          Oct 2026          Nov 2026          Jan 2027
 
 ## 8. Appendix: Validated ORRAM Results
 
-### 8.1 512-Byte SRAM (sky130nm)
+### 8.1 512-bit SRAM (sky130nm)
 
 | Metric | Value |
 |--------|-------|
 | Macro | RAM16x32 |
 | Size | 462.3 × 46.24 µm |
 | Area | 0.021 mm² |
-| Density | 192 Kbit/mm² |
+| Density | 24 Kbit/mm² |
 | Word size | 32 bits |
 | Words | 16 |
 | Routing time | ~100s (Docker, 8-core) |
 | Technology | sky130hd (130nm) |
 
+The generator configuration in §8.3 asks for `-num_words 16 -word_size 32`, so
+this array holds 512 bits — 64 bytes, not 512 — and 0.021 mm² for it is
+24 Kbit/mm². That is a property of a very small array, where the decoder,
+control and power strapping are most of the area; it does not measure the cell
+area §8.2 scales, which the PDK liberty gives directly at 20.0 µm²/bit — less
+than half what this macro spends per bit.
+
 ### 8.2 Scaling to 28nm
 
 | Metric | sky130nm | 28nm (estimated) |
 |--------|----------|-----------------|
-| DFF density | 192 Kbit/mm² | ~960 Kbit/mm² |
-| 16 KB SRAM area | 1.3 mm² | 0.26 mm² |
-| 6 MB total | 502 mm² | 100 mm² |
+| DFF cell (`dfxtp_1`), PDK area | 20.0 µm²/bit | 0.93 µm²/bit |
+| 16 KB array (4096 × 32), generated | 5.12 mm² | **0.24 mm²** |
+| 6 MB at the same per-bit cost | 1,968 mm² | **91 mm²** |
+
+Generated by `syn/gen_16kb_sram.tcl` — 4096 words of 32 bits, column mux 4 — a
+16 KB array, the OCACHE size, lays out at 1838.16 × 2788.00 µm: 5.12 mm², or
+39.1 µm²/bit. That is 1.95× the PDK flip-flop area, and the cell inventory says
+where the second 1× goes. 51.2 % of the die is storage flops, 41.6 % is one
+`ebufn_4` tristate read buffer per bit (16.3 µm², 0.81 of a flop), 3.5 % is row
+decode and clock gating, 3.4 % is tap cells and 0.2 % filler; the rows are filled
+to 100 %, so there is no whitespace to reclaim.
+
+The overhead is structural, not peripheral: a per-bit read mux does not
+amortize as the array grows. Six megabytes at this cost is 1,968 mm² at 130 nm
+and 91 mm² at 28 nm, against a 47 mm² cell floor — which is why §2.1's
+all-ORRAM row now quotes both. The 512-bit macro in §8.1 shows the same
+structure plus the periphery a small array cannot amortize: 41.8 µm²/bit, 2.09×
+its cells.
+
+The floorplan is also the routing budget. At 96.5 % logic occupancy there are no
+channels, and detailed routing of the full array is a multi-hour job where the
+512-bit macro closed in ~100 s — the "slow DRT routing" risk §2.1 carries.
+
+The 28 nm column scales the sky130 area by (28/130)², the same scaling §2.3
+applies to logic. Earlier revisions scaled it by 5× instead of 21.6×, which put
+16 KB at 1.3 mm² — less than its flip-flops alone occupy.
 
 ### 8.3 ORRAM Configuration Used
 
@@ -789,7 +857,7 @@ Three register file architectures were synthesized on ECP5-85K to compare FF/BRA
 
 **Recommendation:**
 - **FPGA prototyping:** Use time-multiplexed register file (4 cores share 1 register file) + external DDR for large datasets
-- **ASIC tapeout:** Use embedded SRAM macros (32KB per core) — no FF/LUT cost for storage
+- **ASIC tapeout:** Use embedded SRAM macros (4 KB per core at 4 warps × 4 threads × 64 registers) — no FF/LUT cost for storage
 
 ---
 
