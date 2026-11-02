@@ -92,7 +92,7 @@ share one file or split; today they split, and the table understates the RTL.
 | Design | Caches and scratchpad | Register file | L2 | Graphics caches | Total |
 |---|---|---|---|---|---|
 | Architecture | 32 MB L1/shared | 32 MB (doc) / 64 MB (RTL) | 64 MB | — | 128–160 MB |
-| Tapeout plan | 6 MB (LMEM + ICache + DCache) | 512 KB | none | 84 KB | 6.6 MB |
+| Tapeout plan | 6 MB (LMEM + ICache + DCache) | 512 KB | none | 60 KB | 6.6 MB |
 | Discovery | 192 KB | 32 KB | 1 MB | — | ~1.2 MB |
 | **G100-T0** | **768 KB** | **64 KB** | none | none | **832 KB** |
 
@@ -103,7 +103,7 @@ now carry it, and their totals read 6.5 MB embedded and ~6.6 MB overall. Its
 graphics caches are counted although `VX_CFG_EXT_TEX_ENABLE`,
 `VX_CFG_EXT_RASTER_ENABLE`, `VX_CFG_EXT_OM_ENABLE` and `VX_CFG_EXT_RTU_ENABLE`
 are all false in the default configuration, and the sponsor-approved discovery
-scope is compute-only. A compute-only baseline has no reason to carry 84 KB of
+scope is compute-only. A compute-only baseline has no reason to carry 60 KB of
 graphics caches.
 
 ---
@@ -122,7 +122,7 @@ not four estimates of one quantity; they use different storage densities.
 
 The §2.3 die estimate uses the first, and it should: the large arrays are
 foundry 6T macros. The hybrid row is then ~13 mm², not 25, because 6 MB of 6T
-plus 84 KB of ORRAM is 12.6 + 0.09. The §8.2 figure is twice even the plan's own
+plus 60 KB of ORRAM is 12.6 + 0.5. The §8.2 figure is twice even the plan's own
 ORRAM density (960 Kbit/mm² at 28 nm, which is 1.04 µm²/bit). It should be
 deleted or marked as a 130 nm measurement, not a 28 nm estimate.
 
@@ -238,7 +238,7 @@ evidence exists.
 | P01 | Three configurations share the name | Reconciled in §2; T0 proposed in §6 | Sponsor ratifies one |
 | P02 | Memory inventory and die arithmetic | Closed in §3–§5 | — |
 | P03 | MPW tile and budget | Closed in §5: 18 tiles, not one | Supplier quote for the actual tile shape |
-| P04 | SRAM strategy | 6T for the large arrays, ORRAM for the 84 KB only if graphics returns | PDK confirms the compiler and macros |
+| P04 | SRAM strategy | 6T for the large arrays, ORRAM for the 60 KB only if graphics returns | PDK confirms the compiler and macros |
 | P05 | Clock target | 400 MHz for T0, 800 MHz stretch | Target-library STA on the placed netlist |
 | P06 | Power and thermal | 10 W envelope only; no switching activity | VCD-based estimate on the target library |
 | P07 | Host interface | Absent from RTL and the plan; T0 is JTAG-only | PCIe controller + PHY selected and integrated |
@@ -250,11 +250,15 @@ evidence exists.
 | P13 | PDK rights, foundry slot, cost | Not assessed | Controlled supplier evidence |
 | P14 | Evidence review | Discovery runs still `run-passed-pending-review` | Independent reproduction |
 
-Two documentation errors in the tapeout plan are corrected alongside this
+Three documentation errors in the tapeout plan are corrected alongside this
 record. Its §1.1 said "Barriers 128/core"; `VX_CFG_NUM_BARRIERS` is 8, the
 barrier unit is cluster-wide (`VX_gbar_unit`, one arrival bit per core), and
 `VX_CFG_MAX_BAR_EVENTS` is 32 in-flight events per core. Neither §1.2 nor §2.2
 included the register file; both now carry its 512 KB and the corrected totals.
+Its graphics-cache inventory listed three of the four arrays —
+`VX_CFG_RTCACHE_SIZE` was missing — and reconciled at three different totals:
+52 KB of rows, 32 KB in prose, 84 KB stated. It now lists all four and totals
+60 KB, which is what its ~0.5 mm² allowance always implied.
 
 ---
 

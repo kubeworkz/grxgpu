@@ -42,6 +42,7 @@ This document outlines the plan to take the GRX G100 — a 128-core GPU with ten
 | **DCache** | 16 KB | 128 | 2,048 KB | Embedded SRAM |
 | **TCACHE** | 8 KB | 2 | 16 KB | ORRAM |
 | **RCACHE** | 4 KB | 1 | 4 KB | ORRAM |
+| **RTCACHE** | 8 KB | 1 | 8 KB | ORRAM |
 | **OCACHE** | 16 KB | 2 | 32 KB | ORRAM |
 | **Registers** | 4 KB | 128 | 512 KB | Embedded SRAM |
 | **Total SRAM** | — | — | **~6.6 MB** | Hybrid |
@@ -80,8 +81,8 @@ These are the performance-critical, area-dominant SRAMs. The foundry provides pr
 
 #### Small SRAMs — ORRAM (Open-Source, Free)
 
-These are shared caches with lower access frequency. ORRAM's DFF-based approach is acceptable here because:
-- Area overhead is small (32 KB total = ~0.5 mm²)
+These are the graphics caches, with lower access frequency. ORRAM's DFF-based approach is acceptable here because:
+- Area overhead is small (60 KB total = ~0.5 mm²)
 - Access latency is 1–2 cycles (acceptable for texture/raster)
 - No license cost, no NDA
 
@@ -89,9 +90,10 @@ These are shared caches with lower access frequency. ORRAM's DFF-based approach 
 |------|------|-------|-------|----------|
 | TCACHE | 8 KB | 1RW | 2 | Shared, lower bandwidth need |
 | RCACHE | 4 KB | 1RW | 1 | Shared, minimal |
+| RTCACHE | 8 KB | 1RW | 1 | RTU BVH/scene reuse across rays |
 | OCACHE | 16 KB | 1RW | 2 | Shared, write-heavy |
 
-**Total ORRAM**: 84 KB = **~0.5 mm² at 28nm**
+**Total ORRAM**: 60 KB = **~0.5 mm² at 28nm**
 
 ### 2.3 Area Estimate
 
@@ -202,7 +204,7 @@ IPC scales from 3.0 at K=16 to 8.8 at K=512, confirming the double-buffer FSM ef
 | G100 logic (8 clusters) | 149.2 mm² | ~57.8 mm² |
 | Embedded SRAM (6 MB caches) | — | ~13 mm² (0.25 µm²/bit 6T) |
 | Register file (512 KB) | — | ~1.0 mm² (same density) |
-| ORRAM (84 KB) | — | ~0.5 mm² |
+| ORRAM (60 KB) | — | ~0.5 mm² |
 | **Total die estimate** | — | **~72 mm²** |
 
 **This is a die-area problem for MPW.** A ~72 mm² G100 does not fit a typical 4 mm² MPW shuttle tile. Options: (a) shrink the tapeout to a single **16-core cluster (~20 mm² @28nm incl. SRAM)** as a first-silicon proof point, or (b) move to a full reticle/wafer share. Revisit with the foundry's shuttle tile size before committing.
@@ -316,7 +318,7 @@ RTL (SystemVerilog)
 4. Import as black boxes in RTL (Verilog behavioral model for sim, LEF/GDS for P&R)
 5. Place SRAMs in floorplan near their consumer cores
 
-#### ORRAM (TCACHE, RCACHE, OCACHE)
+#### ORRAM (TCACHE, RCACHE, RTCACHE, OCACHE)
 
 1. Use OpenROAD Docker container (already validated)
 2. Generate 4–16 KB macros for each configuration
