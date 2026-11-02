@@ -107,7 +107,8 @@ def main():
         case = find_case(cases, k["case"])
         name = slug(k["case"])
         print("== {} ({})".format(k["title"], k["case"]), flush=True)
-        argv, env, rc, secs, text, perf, cores, ok = run(case, spec["default_shape"], out)
+        default = k.get("shape", spec["default_shape"])
+        argv, env, rc, secs, text, perf, cores, ok = run(case, default, out)
         with open(os.path.join(out, "logs", name + ".log"), "w") as fh:
             fh.write("$ {}{}\n".format(
                 "CONFIGS=\"{}\" ".format(env["CONFIGS"]) if env.get("CONFIGS") else "", " ".join(argv)))
@@ -132,7 +133,7 @@ def main():
         kernels.append({
             "slug": name, "case": k["case"], "title": k["title"], "about": k["about"],
             "app": case.app, "args": case.args, "configs": env.get("CONFIGS", ""),
-            "shape": effective_shape(case, spec["default_shape"]),
+            "shape": effective_shape(case, default),
             "command": " ".join(argv), "status": "pass" if ok else "fail", "exit": rc,
             "seconds": secs, "instrs": instrs, "cycles": cycles, "ipc": ipc,
             "cores": [{"core": int(c), "instrs": int(i), "cycles": int(cy), "ipc": float(p)}
