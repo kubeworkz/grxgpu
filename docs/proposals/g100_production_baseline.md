@@ -22,7 +22,7 @@ fact.
    tapeout plan, and the discovery run describe 2,048, 16 and 32 threads per SM
    respectively. They cannot share an area estimate or a tapeout schedule until
    one is chosen.
-2. **The ~76 mm² die is the small one.** Counted chip-wide — its 512 KB
+2. **The ~74 mm² die is the small one.** Counted chip-wide — its 512 KB
    register file and all eight clusters' graphics caches — it is internally
    consistent for a 128-core machine at the repository-default 4 warps ×
    4 threads, 16 threads per SM, with 6 MB of core caches and no L2. It is not
@@ -66,8 +66,8 @@ The configuration values below are resolved from `VX_config.toml` with
 | Register file per SM | 256 KB specified, 512 KB as the RTL sizes it | 4 KB | 8 KB |
 | L1 / shared per SM | 256 KB unified carve-out | 16 KB LMEM + 16 KB ICache + 16 KB DCache | same |
 | L2 | 8 MB per cluster, 64 MB total | none | 1 MB total |
-| On-chip memory, all SMs | 160 MB | 7.0 MB | ~1.2 MB |
-| Die area | not estimated | 76 mm² at 28 nm | none |
+| On-chip memory, all SMs | 160 MB | 6.8 MB | ~1.2 MB |
+| Die area | not estimated | 74 mm² at 28 nm | none |
 
 **Why the tapeout plan is the 4 × 4 machine.** The plan's 434,146 µm² core area
 comes from the blackbox cluster flow in `syn/synth_blackbox_cluster.sh`, which
@@ -92,18 +92,18 @@ share one file or split; today they split, and the table understates the RTL.
 | Design | Caches and scratchpad | Register file | L2 | Graphics caches | Total |
 |---|---|---|---|---|---|
 | Architecture | 32 MB L1/shared | 32 MB (doc) / 64 MB (RTL) | 64 MB | — | 128–160 MB |
-| Tapeout plan | 6 MB (LMEM + ICache + DCache) | 512 KB | none | 480 KB | 7.0 MB |
+| Tapeout plan | 6 MB (LMEM + ICache + DCache) | 512 KB | none | 288 KB | 6.8 MB |
 | Discovery | 192 KB | 32 KB | 1 MB | — | ~1.2 MB |
 | **G100-T0** | **768 KB** | **64 KB** | none | none | **832 KB** |
 
 Two omissions mattered. The tapeout plan's "Total SRAM: ~6.1 MB" counted the
 three per-core arrays and the graphics caches but not the register file; 512 KB
 is small beside six megabytes, and it was still a missing row. Its §1.2 and §2.2
-now carry it, and their totals read 6.5 MB embedded and ~7.0 MB overall. Its
+now carry it, and their totals read 6.5 MB embedded and ~6.8 MB overall. Its
 graphics caches are counted although `VX_CFG_EXT_TEX_ENABLE`,
 `VX_CFG_EXT_RASTER_ENABLE`, `VX_CFG_EXT_OM_ENABLE` and `VX_CFG_EXT_RTU_ENABLE`
 are all false in the default configuration, and the sponsor-approved discovery
-scope is compute-only. A compute-only baseline has no reason to carry 480 KB of
+scope is compute-only. A compute-only baseline has no reason to carry 288 KB of
 graphics caches.
 
 ---
@@ -121,8 +121,8 @@ not four estimates of one quantity; they use different storage densities.
 | §8.2, "6 MB total" | 100 mm² | 1.99 µm²/bit | 100.2 mm² |
 
 The §2.3 die estimate uses the first, and it should: the large arrays are
-foundry 6T macros. The hybrid row is then ~17 mm², not 25, because 6 MB of 6T
-plus 480 KB of ORRAM is 12.6 + 4.1. The §8.2 figure is twice even the plan's own
+foundry 6T macros. The hybrid row is then ~15 mm², not 25, because 6 MB of 6T
+plus 288 KB of ORRAM is 12.6 + 2.5. The §8.2 figure is twice even the plan's own
 ORRAM density (960 Kbit/mm² at 28 nm, which is 1.04 µm²/bit). It should be
 deleted or marked as a 130 nm measurement, not a 28 nm estimate.
 
@@ -146,12 +146,12 @@ cluster.
 | Design | Logic @28 nm | Memory @28 nm | Total | 4 mm² tiles |
 |---|---|---|---|---|
 | G100-T0 (16 cores, 4 × 4) | 7.3 mm² | 1.7 mm² | **~9.0 mm²** | 3 |
-| Tapeout plan (128 cores, 4 × 4) | 58.2 mm² | 17.7 mm² | **~76 mm²** | 19 |
+| Tapeout plan (128 cores, 4 × 4) | 58.2 mm² | 16.1 mm² | **~74 mm²** | 19 |
 | Architecture (128 SMs, 64 × 32) | ≥58 mm² lower bound | 336 mm² | **≥394 mm²** | 99 |
 
-The middle row reproduces the plan's die: 71 mm² as published, 76 once the
-register file and the cluster-multiplied graphics caches are counted. That is
-the finding, not a correction: the plan is right about its own machine and
+The middle row reproduces the plan's die: 71 mm² as published, 74 once the
+register file and the full eight-cluster graphics inventory are counted. That
+is the finding, not a correction: the plan is right about its own machine and
 wrong to call that machine the architecture specification's G100. The bottom
 row uses only the memory, plus the plan's scaled logic as a floor; the flagship
 SM is eight times wider than the measured core, so real logic is larger, not
@@ -173,7 +173,7 @@ and its own die is nineteen of them.
 (~20 mm² @28 nm incl. SRAM)" sentence is the unscaled 45 nm figure
 (18.64 + 1.57 = 20.2); at 28 nm the same cluster is ~8.8 mm². And the "22 mm²
 at 28 nm can handle 15–20 W" in §5.1 and §7 belongs to neither die: §2.3 says
-76 mm², and 22 mm² is not a configuration in the document.
+74 mm², and 22 mm² is not a configuration in the document.
 
 ---
 
@@ -220,7 +220,7 @@ at a scale larger than the discovery runs. What it does not prove: a product
 workload, a host path, DRAM, graphics, or any frequency above the one STA
 closes.
 
-The 128-core, 4 × 4 configuration is a second candidate at ~76 mm² and 19
+The 128-core, 4 × 4 configuration is a second candidate at ~74 mm² and 19
 tiles. It has eight times the cores and no additional evidence behind it; its
 cluster fabric was synthesized, but a 128-core die has never been placed,
 routed or timed. T0 is the cheaper way to find out whether the flow closes
@@ -239,7 +239,7 @@ evidence exists.
 | P01 | Three configurations share the name | Reconciled in §2; T0 proposed in §6 | Sponsor ratifies one |
 | P02 | Memory inventory and die arithmetic | Closed in §3–§5 | — |
 | P03 | MPW tile and budget | Closed in §5: 19 tiles, not one | Supplier quote for the actual tile shape |
-| P04 | SRAM strategy | 6T for the large arrays, ORRAM for the 480 KB only if graphics returns | PDK confirms the compiler and macros |
+| P04 | SRAM strategy | 6T for the large arrays, ORRAM for the 288 KB only if graphics returns | PDK confirms the compiler and macros |
 | P05 | Clock target | 400 MHz for T0, 800 MHz stretch | Target-library STA on the placed netlist |
 | P06 | Power and thermal | 10 W envelope only; no switching activity | VCD-based estimate on the target library |
 | P07 | Host interface | Absent from RTL and the plan; T0 is JTAG-only | PCIe controller + PHY selected and integrated |
@@ -258,10 +258,11 @@ barrier unit is cluster-wide (`VX_gbar_unit`, one arrival bit per core), and
 included the register file; both now carry its 512 KB and the corrected totals.
 Its graphics-cache inventory listed three of the four arrays —
 `VX_CFG_RTCACHE_SIZE` was missing — reconciled at three different totals
-(52 KB of rows, 32 KB in prose, 84 KB stated), and counted one cluster's
-caches in a chip-wide table. It now lists all four, counts them across eight
-clusters and totals 480 KB = ~4.1 mm², against a ~0.5 mm² allowance that only
-ever covered one cluster.
+(52 KB of rows, 32 KB in prose, 84 KB stated), counted one cluster's caches in
+a chip-wide table, and gave TCACHE and OCACHE twice the per-cluster count that
+`NUM_TCACHES` and `NUM_OCACHES` resolve to at a 16-core socket. It now lists all
+four, counts one of each per cluster across eight clusters, and totals 288 KB =
+~2.5 mm².
 
 ---
 
