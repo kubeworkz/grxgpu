@@ -84,7 +84,7 @@ E-302 remains in progress: independently review/reproduce the local correctness 
 | Ratify whether to use the proposed workload dimensions, reference/tolerance, and separate driver-specific kernel variants as acceptance criteria | Product/software + verification leads | Open; the current tests are discovery experiments only |
 | Define host, memory, runtime/API and buffer-ownership boundary | System/software leads | Open |
 | Ratify area/power/thermal/frequency requirements or record TBD | Product + system + FPGA/physical-design leads | Open |
-| Reconcile G100 tapeout-plan area/memory estimates and classify claims | Physical-design + RTL/verification reviewers | Open |
+| Reconcile G100 tapeout-plan area/memory estimates and classify claims | Physical-design + RTL/verification reviewers | Arithmetic closed 2026-10-31: [production baseline](proposals/g100_production_baseline.md) §2–§5. Configuration ratification remains open |
 | Obtain current restricted supplier/PDK/IP/package facts if ASIC work is funded | Sourcing/legal + physical-design leads | Not assessed; controlled records required |
 | Decide whether to allocate resources beyond the approved discovery baseline; record next gate | Named sponsor | Pending; no funding or tapeout implied |
 

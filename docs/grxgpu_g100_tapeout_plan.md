@@ -1,5 +1,14 @@
 # GRX G100 ASIC Tapeout Plan
 
+> **Revision note (2026-10-31):** The area, memory and cost figures below are
+> the September 2026 planning estimates and are kept as a historical record.
+> They describe a 128-core machine at 4 warps × 4 threads — 16 threads per SM —
+> not the 2,048-thread SM in [the architecture specification](designs/gpu_chip_design.md).
+> The two share a name and not a configuration; see
+> [the G100 production baseline](proposals/g100_production_baseline.md) §2–§5 for
+> the reconciled inventory and arithmetic. Do not use these figures as
+> requirements, commitments or acceptance limits.
+
 ## Executive Summary
 
 This document outlines the plan to take the GRX G100 — a 128-core GPU with tensor compute (TCU), data transfer engine (DXA), and graphics pipeline — from RTL to working silicon on TSMC 28nm HPC+.
