@@ -52,6 +52,11 @@ totals of one cache each per cluster — what `NUM_TCACHES`, `NUM_RCACHES`,
 `NUM_RTCACHES` and `NUM_OCACHES` resolve to at a 16-core socket. The core arrays
 and the register file are per core and already chip-wide.
 
+The compute-only G100 baseline in
+[the production baseline](proposals/g100_production_baseline.md) disables all
+four graphics blocks and carries none of this 288 KB, which puts its 128-core
+die at ~72 mm² for the same logic and core arrays.
+
 ---
 
 ## 2. SRAM Strategy
