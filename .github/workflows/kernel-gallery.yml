@@ -1,0 +1,130 @@
+# Copyright © 2019-2026
+#
+# Licensed under the Apache License, Version 2.0 (the "License").
+#
+# Kernel gallery: run the kernels ci/kernel_gallery.yaml lists on SimX, each as
+# its catalog case runs it, and publish the cycles, instructions, IPC, logs and
+# kernel sources to the orphan branch `kernel-gallery`, which gridworkz.com
+# reads (raw.githubusercontent.com, no token). On main a run is published even
+# if a kernel fails, with that kernel marked failed, and the job then fails.
+# Pull requests run the gallery as a check and publish nothing.
+
+name: Kernel gallery
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'sim/simx/**'
+      - 'hw/**'
+      - 'sw/**'
+      - 'tests/regression/**'
+      - 'ci/kernel_gallery.*'
+      - 'ci/testcases/**'
+      - 'ci/blackbox.sh'
+      - 'VX_config.toml'
+      - 'VX_types.toml'
+      - '.github/workflows/kernel-gallery.yml'
+  pull_request:
+    paths:
+      - 'ci/kernel_gallery.*'
+      - '.github/workflows/kernel-gallery.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write         # push the kernel-gallery branch
+
+concurrency:
+  group: kernel-gallery-${{ github.event_name == 'pull_request' && github.ref || 'main' }}
+  cancel-in-progress: true
+
+env:
+  CCACHE_DISABLE: 1
+
+jobs:
+  gallery:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Vortex
+        uses: ./.github/actions/setup-vortex
+        with:
+          profile: lite
+          prepare: true
+
+      - name: Configure + build software
+        run: |
+          mkdir -p build32 && cd build32
+          ../configure --tooldir=$PWD/../tools --xlen=32
+          make software -s
+
+      - name: Run the gallery on SimX
+        id: run
+        continue-on-error: true
+        run: |
+          cd build32
+          python3 ci/kernel_gallery.py "$RUNNER_TEMP/kernel-gallery"
+
+      - name: Summary
+        if: always()
+        run: |
+          f="$RUNNER_TEMP/kernel-gallery/results.json"
+          [ -f "$f" ] || { echo "no results.json written" >> "$GITHUB_STEP_SUMMARY"; exit 0; }
+          {
+            echo "| kernel | status | instrs | cycles | IPC | seconds |"
+            echo "|---|---|---|---|---|---|"
+            jq -r '.kernels[] | "| \(.title) | \(.status) | \(.instrs) | \(.cycles) | \(.ipc) | \(.seconds) |"' "$f"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Keep the run
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-gallery
+          retention-days: 30
+          if-no-files-found: ignore
+          path: ${{ runner.temp }}/kernel-gallery
+
+      - name: Publish to the kernel-gallery branch
+        if: always() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: |
+          set -eu
+          out="$RUNNER_TEMP/kernel-gallery"
+          test -f "$out/results.json" || { echo "::error::no results.json was written"; exit 1; }
+          cat > "$out/README.md" <<MD
+          # kernel-gallery
+
+          Written by \`.github/workflows/kernel-gallery.yml\`, force-pushed on every run on main.
+          \`results.json\` lists each kernel's catalog case, command, status, and the runtime's
+          PERF summary on SimX; \`logs/\` and \`src/\` hold each run's log and the kernel sources.
+          Source commit: ${GITHUB_SHA}. Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+          MD
+          cd "$out"
+          git init -q -b kernel-gallery
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Kernel gallery for ${GITHUB_SHA::7}"
+          git push -q --force "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" kernel-gallery
+          echo "published $(jq '.kernels | length' results.json) kernels to kernel-gallery"
+
+      - name: Ask Netlify to rebuild gridworkz.com
+        if: always() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        env:
+          HOOK: ${{ secrets.NETLIFY_BUILD_HOOK }}
+        run: |
+          if [ -z "${HOOK:-}" ]; then echo "NETLIFY_BUILD_HOOK not set; the site updates on its next deploy"; exit 0; fi
+          curl --silent --show-error --fail -X POST -d '{}' "$HOOK" && echo "Netlify rebuild requested"
+
+      - name: Verdict
+        if: always()
+        run: |
+          if [ "${{ steps.run.outcome }}" != "success" ]; then
+            echo "::error::at least one gallery kernel failed, or the gallery did not run -- see the log above and the kernel-gallery artifact"
+            exit 1
+          fi
+          echo "every gallery kernel passed"

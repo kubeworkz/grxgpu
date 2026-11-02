@@ -1,0 +1,51 @@
+# Kernel gallery: catalog cases that ci/kernel_gallery.py runs on SimX and
+# publishes (see .github/workflows/kernel-gallery.yml). Each entry names a case
+# in ci/testcases/ by category and id, so a gallery kernel runs exactly the
+# app, args, configs and shape the catalog already tests; this file adds only
+# what a reader needs: a title, a line on what the kernel exercises, and which
+# of the app's files to show.
+#
+# A case with no device shape of its own runs at `default_shape`, the bound CI
+# puts on its RTL-driver runs (ci/blackbox.sh, CI_RTL_BOUND), so the gallery's
+# numbers are for a small, stated device rather than the TOML's 128 cores.
+# An entry's own `shape` replaces the default for a kernel that needs more.
+default_shape: {clusters: 1, cores: 4}
+kernels:
+- case: model_parity:vecadd
+  title: Vector add
+  about: "One thread per element, a load-load-add-store stream. The ALU, LSU and branch pipeline at steady state."
+  show: [kernel.cpp, common.h]
+- case: model_parity:sgemm
+  title: SGEMM
+  about: "FP32 matrix multiply in plain RISC-V: the FPU and LSU under multi-warp reuse."
+  show: [kernel.cpp, common.h]
+- case: model_parity:sgemmx
+  title: SGEMM, shared-memory tiles
+  about: "The same GEMM with tiles staged in local memory by the kernel, synchronised with barriers."
+  show: [kernel.cpp, common.h]
+- case: model_parity:softmax
+  title: Softmax
+  about: "Elementwise exp and a reduction per row: FPU work plus reduction traffic."
+  show: [kernel.cpp, common.h]
+- case: model_parity:stencil3d
+  title: 3D stencil
+  about: "Each point averages its neighbours: strided, neighbour-heavy loads feeding the FPU."
+  show: [kernel.cpp, common.h]
+- case: model_parity:raycast
+  title: Software raycaster
+  about: "A BVH raycaster in plain code: divergent control flow and mixed ALU/FPU work per pixel."
+  show: [kernel.cpp, tracer.cpp]
+- case: tensor_wg:model_parity-wgmma-int8
+  title: Tensor cores, WGMMA int8
+  about: "Warp-group matrix multiply-accumulate on the tensor cores, int8 in and int32 out."
+  show: [kernel.cpp, common.h]
+- case: tensor_wg:perf_gate-wgmma-fp16-ss
+  title: Tensor cores, WGMMA fp16, 64×64×64
+  about: "The fp16-in, fp32-out WGMMA datapath with both operands from shared memory."
+  show: [kernel.cpp, common.h]
+- case: dxa:sgemm_tcu_wg_dxa-1
+  title: Tensor cores fed by the DXA
+  # Double buffering needs two DXA cores, and there is one per 8 cores.
+  shape: {clusters: 1, cores: 16}
+  about: "WGMMA with the data transfer accelerator fetching 2D tiles from global into shared memory asynchronously, double-buffered."
+  show: [kernel.cpp, common.h]
