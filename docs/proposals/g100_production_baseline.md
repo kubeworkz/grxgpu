@@ -119,17 +119,18 @@ not four estimates of one quantity; they use different storage densities.
 | §2.1, "all foundry 6T SRAM" | ~13 mm² | 0.25 µm²/bit | 12.6 mm² |
 | §2.1, "hybrid" (now annotated with its recomputation) | ~25 mm² | ~0.50 µm²/bit | 25.2 mm² |
 | §2.1, "all ORRAM" | ~50 mm² | 1.04 µm²/bit | 52.3 mm² |
-| §8.2, "6 MB total" (now corrected) | 100 mm² | 1.99 µm²/bit | 100.2 mm² |
+| §8.2, "6 MB total" | 100 mm² | 1.99 µm²/bit | 100.2 mm² |
 
 The §2.3 die estimate uses the first, and it should: the large arrays are
 foundry 6T macros. The plan's hybrid row now carries the recomputed ~15 mm²
 beside its September 25 — 12.6 mm² of 6T plus 2.5 mm² for the graphics ORRAM.
 A compute-only build drops that ORRAM, so the hybrid and all-6T rows are then
-the same 12.6 mm², which is ~13 mm². §8.2's 100 mm² was the fourth density:
-1.99 µm²/bit, twice the 960 Kbit/mm² row directly above it. It came from tiling
-the measured 16 KB macro 384 times and billing that macro's decoder and control
-per tile; at the same 1.04 µm²/bit as the all-ORRAM row it is 52 mm², which is
-what the plan now says.
+the same 12.6 mm², which is ~13 mm². §8.2's 100 mm² is 1.99 µm²/bit, twice the
+all-ORRAM row, and the gap is the macro overhead rather than a second density:
+the PDK's `dfxtp_1` is 0.93 µm²/bit at 28 nm, so 6 MB of cells is 47 mm² and
+100 mm² is that array with the 2.1× its decode, clock gating and muxing cost,
+which is what the one measured macro (a 512-bit array at 41.8 µm²/bit) spends.
+Use 100 mm² for planning and 47 mm² as the floor.
 
 The adopted model for this proposal:
 
@@ -270,12 +271,12 @@ Its graphics-cache inventory listed three of the four arrays —
 a chip-wide table, and gave TCACHE and OCACHE twice the per-cluster count that
 `NUM_TCACHES` and `NUM_OCACHES` resolve to at a 16-core socket. It now lists all
 four and totals 288 KB = ~2.5 mm² across eight clusters; this baseline disables
-all four, so none of that area is in the figures here. Its §8.2 costed 6 MB of
-ORRAM at 100 mm², twice its own density row; it now reads 52 mm², the same
-1.04 µm²/bit as §2.1. Its §8.1 called the validated macro 512 bytes at
-192 Kbit/mm², but the generator configuration printed in §8.3 asks for 16 words
-of 32 bits: 512 bits, so 24 Kbit/mm², and the density the appendix scales is an
-assumption rather than a measurement.
+all four, so none of that area is in the figures here. Its §8.1 called the
+validated macro 512 bytes at 192 Kbit/mm², but the generator configuration
+printed in §8.3 asks for 16 words of 32 bits: 512 bits, so 24 Kbit/mm². Its
+§8.2 then scaled the sky130 column by 5× instead of 21.6×, which put 16 KB at
+1.3 mm² when the flip-flops alone occupy 2.6; it now scales the PDK cell area
+and carries both the cell floor and the overhead the measured macro spends.
 
 ---
 

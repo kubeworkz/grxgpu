@@ -68,7 +68,7 @@ the register file and all logic sit outside this table.
 
 | Approach | Area (28nm) | Cost | Risk |
 |----------|------------|------|------|
-| **All ORRAM (DFF-based)** | ~50 mm² | $0 license | High area, slow DRT routing |
+| **All ORRAM (DFF-based)** | ~50 mm² cell floor; ~100 mm² with macro overhead (§8.2) | $0 license | High area, slow DRT routing |
 | **All foundry 6T SRAM** | ~13 mm² | $0 with PDK macros; $150K–$200K only if a commercial compiler is needed | SRAM compiler dependency |
 | **Hybrid (recommended)** | ~25 mm² (September estimate; ~15 mm² by §2.3) | $0 license | Balanced |
 
@@ -439,25 +439,27 @@ Aug 2026          Sep 2026          Oct 2026          Nov 2026          Jan 2027
 The generator configuration in §8.3 asks for `-num_words 16 -word_size 32`, so
 this array holds 512 bits — 64 bytes, not 512 — and 0.021 mm² for it is
 24 Kbit/mm². That is a property of a very small array, where the decoder,
-control and power strapping are most of the area; it does not measure the raw
-cell density §8.2 scales, which is eight times higher and remains an assumption.
+control and power strapping are most of the area; it does not measure the cell
+area §8.2 scales, which the PDK liberty gives directly at 20.0 µm²/bit — less
+than half what this macro spends per bit.
 
 ### 8.2 Scaling to 28nm
 
 | Metric | sky130nm | 28nm (estimated) |
 |--------|----------|-----------------|
-| DFF density, raw cells (assumed) | 192 Kbit/mm² | ~960 Kbit/mm² |
-| 6 MB at that density | 262 mm² | **~52 mm²** |
-| 16 KB array, with periphery | 1.3 mm² | 0.26 mm² |
+| DFF cell (`dfxtp_1`), PDK area | 20.0 µm²/bit | 0.93 µm²/bit |
+| 6 MB at the measured macro overhead | 2,117 mm² | **98 mm²** |
+| 16 KB array, same overhead | 5.5 mm² | 0.26 mm² |
 
-The 6 MB row is density × bits and is the one the area model uses: 50,331,648
-bits at 960 Kbit/mm² is 52 mm², the same ~1 µm²/bit behind §2.1's all-ORRAM row
-and §2.3's ORRAM allowance. It assumes one generated array, so the decoder and
-control are paid once. The 16 KB row is a small array, where that logic takes
-about half the area — 1.3 mm² for 16 KB is 100 Kbit/mm² — so tiling 384 of them
-bills the periphery 384 times: that product is the 100 mm² this appendix used to
-quote, and it is the right number only if ORRAM is built that way. Built that
-way, the density row is ~500 Kbit/mm², not 960.
+The cell area is the PDK liberty's `sky130_fd_sc_hd__dfxtp_1` at 20.02 µm²; the
+28 nm column scales it by (28/130)², the same area scaling §2.3 applies to
+logic. Both area rows then apply the factor the one measured macro shows: the
+512-bit array in §8.1 spends 41.8 µm²/bit, 2.1× its cells, on decode, clock
+gating, muxing and routing whitespace, and a larger array carries the same kind
+of logic. Without that overhead 6 MB is 47 mm² at 28 nm, which is what §2.1's
+~50 mm² all-ORRAM row costs; plan on ~100 mm², because no DFF array avoids the
+overhead. Earlier revisions scaled the sky130 column by 5× instead of 21.6×,
+which put 16 KB at 1.3 mm² — less than its flip-flops alone occupy.
 
 ### 8.3 ORRAM Configuration Used
 
