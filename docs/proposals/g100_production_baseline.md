@@ -119,15 +119,17 @@ not four estimates of one quantity; they use different storage densities.
 | §2.1, "all foundry 6T SRAM" | ~13 mm² | 0.25 µm²/bit | 12.6 mm² |
 | §2.1, "hybrid" (now annotated with its recomputation) | ~25 mm² | ~0.50 µm²/bit | 25.2 mm² |
 | §2.1, "all ORRAM" | ~50 mm² | 1.04 µm²/bit | 52.3 mm² |
-| §8.2, "6 MB total" | 100 mm² | 1.99 µm²/bit | 100.2 mm² |
+| §8.2, "6 MB total" (now corrected) | 100 mm² | 1.99 µm²/bit | 100.2 mm² |
 
 The §2.3 die estimate uses the first, and it should: the large arrays are
 foundry 6T macros. The plan's hybrid row now carries the recomputed ~15 mm²
 beside its September 25 — 12.6 mm² of 6T plus 2.5 mm² for the graphics ORRAM.
 A compute-only build drops that ORRAM, so the hybrid and all-6T rows are then
-the same 12.6 mm², which is ~13 mm². The §8.2 figure is twice even the plan's
-own ORRAM density (960 Kbit/mm² at 28 nm, which is 1.04 µm²/bit). It should be
-deleted or marked as a 130 nm measurement, not a 28 nm estimate.
+the same 12.6 mm², which is ~13 mm². §8.2's 100 mm² was the fourth density:
+1.99 µm²/bit, twice the 960 Kbit/mm² row directly above it. It came from tiling
+the measured 16 KB macro 384 times and billing that macro's decoder and control
+per tile; at the same 1.04 µm²/bit as the all-ORRAM row it is 52 mm², which is
+what the plan now says.
 
 The adopted model for this proposal:
 
@@ -257,7 +259,7 @@ evidence exists.
 | P13 | PDK rights, foundry slot, cost | Not assessed | Controlled supplier evidence |
 | P14 | Evidence review | Discovery runs still `run-passed-pending-review` | Independent reproduction |
 
-Three documentation errors in the tapeout plan are corrected alongside this
+Four documentation errors in the tapeout plan are corrected alongside this
 record. Its §1.1 said "Barriers 128/core"; `VX_CFG_NUM_BARRIERS` is 8, the
 barrier unit is cluster-wide (`VX_gbar_unit`, one arrival bit per core), and
 `VX_CFG_MAX_BAR_EVENTS` is 32 in-flight events per core. Neither §1.2 nor §2.2
@@ -268,7 +270,9 @@ Its graphics-cache inventory listed three of the four arrays —
 a chip-wide table, and gave TCACHE and OCACHE twice the per-cluster count that
 `NUM_TCACHES` and `NUM_OCACHES` resolve to at a 16-core socket. It now lists all
 four and totals 288 KB = ~2.5 mm² across eight clusters; this baseline disables
-all four, so none of that area is in the figures here.
+all four, so none of that area is in the figures here. Its §8.2 costed 6 MB of
+ORRAM at 100 mm², twice its own density row; it now reads 52 mm², the same
+1.04 µm²/bit as §2.1.
 
 ---
 

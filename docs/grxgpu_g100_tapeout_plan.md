@@ -440,9 +440,18 @@ Aug 2026          Sep 2026          Oct 2026          Nov 2026          Jan 2027
 
 | Metric | sky130nm | 28nm (estimated) |
 |--------|----------|-----------------|
-| DFF density | 192 Kbit/mm² | ~960 Kbit/mm² |
-| 16 KB SRAM area | 1.3 mm² | 0.26 mm² |
-| 6 MB total | 502 mm² | 100 mm² |
+| DFF density, raw cells | 192 Kbit/mm² | ~960 Kbit/mm² |
+| 6 MB at that density | 262 mm² | **~52 mm²** |
+| 16 KB macro, measured with periphery | 1.3 mm² | 0.26 mm² |
+
+The 6 MB row is density × bits and is the one the area model uses: 50,331,648
+bits at 960 Kbit/mm² is 52 mm², the same ~1 µm²/bit behind §2.1's all-ORRAM row
+and §2.3's ORRAM allowance. It assumes one generated array, so the decoder and
+control are paid once. The 16 KB row is a small macro, where that logic takes
+about half the area — 1.3 mm² for 16 KB is 100 Kbit/mm² — so tiling 384 of them
+bills the periphery 384 times: that product is the 100 mm² this appendix used to
+quote, and it is the right number only if ORRAM is built that way. Built that
+way, the density row is ~500 Kbit/mm², not 960.
 
 ### 8.3 ORRAM Configuration Used
 
