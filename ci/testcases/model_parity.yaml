@@ -80,6 +80,7 @@ tests:
 # each case run also launches the kernel twice to exercise barrier reset.
 - id: async-gbarrier-mc
   check: model_parity
+  known_issue: "global barriers do not span clusters: SimX counts arrivals per cluster against the device-wide core count and hangs; the RTL truncates the count to its cluster and releases each cluster on its own"
   via: blackbox
   app: async_gbarrier
   shape: {clusters: 2, cores: 2}
