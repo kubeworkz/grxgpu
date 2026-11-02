@@ -13,7 +13,12 @@
 
 `include "VX_define.vh"
 
-module VX_mem_unit_top import VX_gpu_pkg::*; #(
+module VX_mem_unit_top import VX_gpu_pkg::*;
+`ifdef VX_CFG_EXT_DXA_ENABLE
+    import VX_dxa_pkg::*;
+`endif
+#(
+
     parameter `STRING INSTANCE_ID = "",
     parameter LSU_WORD_WIDTH = LSU_WORD_SIZE * 8
 ) (
@@ -112,6 +117,38 @@ module VX_mem_unit_top import VX_gpu_pkg::*; #(
     VX_cache_pkg::cache_perf_t lmem_perf = '0;
 `endif
 
+`ifdef VX_CFG_EXT_DXA_ENABLE
+    VX_mem_bus_if #(
+        .DATA_SIZE  (DXA_LMEM_WORD_SIZE),
+        .TAG_WIDTH  (DXA_LMEM_OUT_TAG_W),
+        .ATTR_WIDTH (DXA_LMEM_ATTR_W),
+        .ADDR_WIDTH (DXA_LMEM_ADDR_W)
+    ) dxa_lmem_bus_if();
+    assign dxa_lmem_bus_if.req_valid = 1'b0;
+    assign dxa_lmem_bus_if.req_data  = '0;
+    assign dxa_lmem_bus_if.rsp_ready = 1'b1;
+    `UNUSED_VAR (dxa_lmem_bus_if.req_ready)
+    `UNUSED_VAR (dxa_lmem_bus_if.rsp_valid)
+    `UNUSED_VAR (dxa_lmem_bus_if.rsp_data)
+
+    VX_txbar_bus_if dxa_txbar_bus_if();
+    assign dxa_txbar_bus_if.ready = 1'b1;
+    `UNUSED_VAR (dxa_txbar_bus_if.valid)
+    `UNUSED_VAR (dxa_txbar_bus_if.data)
+`endif
+
+`ifdef VX_CFG_TCU_WGMMA_ENABLE
+    VX_mem_bus_if #(
+        .DATA_SIZE  (`VX_CFG_LMEM_NUM_BANKS * LSU_WORD_SIZE),
+        .TAG_WIDTH  (TCU_LMEM_TAG_W),
+        .ATTR_WIDTH (LMEM_DMA_ATTR_W),
+        .ADDR_WIDTH (`VX_CFG_LMEM_LOG_SIZE - `CLOG2(LSU_WORD_SIZE) - `CLOG2(`VX_CFG_LMEM_NUM_BANKS))
+    ) tcu_lmem_if();
+    assign tcu_lmem_if.req_valid = 1'b0;
+    assign tcu_lmem_if.req_data  = '0;
+    assign tcu_lmem_if.rsp_ready = 1'b1;
+`endif
+
     VX_dcr_flush_if dcr_flush_if();
     assign dcr_flush_if.req = 1'b0;
     `UNUSED_VAR (dcr_flush_if.done)
@@ -124,6 +161,14 @@ module VX_mem_unit_top import VX_gpu_pkg::*; #(
     ) mem_unit (
         .clk           (clk),
         .reset         (reset),
+    `ifdef VX_CFG_EXT_DXA_ENABLE
+        .dxa_lmem_bus_if  (dxa_lmem_bus_if),
+        .dxa_txbar_bus_if (dxa_txbar_bus_if),
+    `endif
+    `ifdef VX_CFG_TCU_WGMMA_ENABLE
+        .tcu_lmem_if      (tcu_lmem_if),
+    `endif
+
     `ifdef PERF_ENABLE
         .lmem_perf     (lmem_perf),
     `endif

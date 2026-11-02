@@ -42,7 +42,7 @@ module VX_dxa_unit import VX_gpu_pkg::*, VX_dxa_pkg::*; #(
     wire [`VX_CFG_XLEN-1:0] lane0_rs2 = execute_if.data.rs2_data[0];
     wire [`VX_CFG_XLEN-1:0] lane1_rs2 = execute_if.data.rs2_data[1];
     wire [`VX_CFG_XLEN-1:0] lane2_rs2 = execute_if.data.rs2_data[2];
-    wire [`VX_CFG_XLEN-1:0] lane3_rs2 = execute_if.data.rs2_data[3];
+    wire [`VX_CFG_NUM_WARPS-1:0] lane3_rs2 = execute_if.data.rs2_data[3][`VX_CFG_NUM_WARPS-1:0];
 
     // meta[31] = fused A+B pair flag (exclusive: pack_meta only uses bits
     // [30:0] = (barrier_id << 4) | desc_slot).
@@ -61,6 +61,7 @@ module VX_dxa_unit import VX_gpu_pkg::*, VX_dxa_pkg::*; #(
     // when the kernel uses `__local_mem()` derivatives.
     wire [`VX_CFG_XLEN-1:0] lmem_rel_byte_addr =
         lane0_rs1 - `VX_CFG_XLEN'(`VX_MEM_LMEM_BASE_ADDR);
+    `UNUSED_VAR (lmem_rel_byte_addr[`VX_CFG_XLEN-1:DXA_SMEM_ADDR_W])
 
     // ── Request A: the legacy single-tile mapping ────────────────────────
     // In pair mode the rs2 lanes carry B's fields (not coords[2..4] / the
@@ -87,6 +88,7 @@ module VX_dxa_unit import VX_gpu_pkg::*, VX_dxa_pkg::*; #(
     // ── Request B: the pair's B tile (captured rs2 lanes) ────────────────
     dxa_req_data_t req_b_data;
     wire [`VX_CFG_XLEN-1:0] b_rel_byte_addr = cap_rs2[0] - `VX_CFG_XLEN'(`VX_MEM_LMEM_BASE_ADDR);
+    `UNUSED_VAR (b_rel_byte_addr[`VX_CFG_XLEN-1:DXA_SMEM_ADDR_W])
     assign req_b_data.core_id   = NC_WIDTH'(CORE_ID);
     assign req_b_data.uuid      = cap_hdr.uuid;
     assign req_b_data.wid       = cap_hdr.wid;

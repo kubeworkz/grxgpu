@@ -89,12 +89,11 @@ module VX_tcu_unit_top import VX_gpu_pkg::*, VX_tcu_pkg::*; (
     `STATIC_ASSERT (`VX_CFG_ISSUE_WIDTH == 1, ("tcu_unit_top: only ISSUE_WIDTH=1 is supported"))
 
 `ifdef VX_CFG_TCU_WGMMA_ENABLE
-    localparam TCU_LMEM_BANK_ADDR_W = `VX_CFG_LMEM_LOG_SIZE - `CLOG2(LSU_WORD_SIZE) - `CLOG2(`VX_CFG_LMEM_NUM_BANKS);
-
     VX_mem_bus_if #(
-        .DATA_SIZE  (`VX_CFG_LMEM_NUM_BANKS * (`VX_CFG_XLEN / 8)),
-        .TAG_WIDTH  (UUID_WIDTH),
-        .ADDR_WIDTH (TCU_LMEM_BANK_ADDR_W)
+        .DATA_SIZE  (LMEM_DMA_DATA_SIZE),
+        .TAG_WIDTH  (TCU_LMEM_TAG_W),
+        .ATTR_WIDTH (LMEM_DMA_ATTR_W),
+        .ADDR_WIDTH (LMEM_DMA_ADDR_WIDTH)
     ) tcu_lmem_if();
 
     assign tcu_lmem_req_valid         = tcu_lmem_if.req_valid;
@@ -103,6 +102,10 @@ module VX_tcu_unit_top import VX_gpu_pkg::*, VX_tcu_pkg::*; (
     assign tcu_lmem_if.rsp_valid      = tcu_lmem_rsp_valid;
     assign tcu_lmem_if.rsp_data.data  = tcu_lmem_rsp_data;
     assign tcu_lmem_if.rsp_data.tag   = '0;
+    // The bench answers LMEM reads itself and ignores the request tag, so the
+    // tag and the master's response backpressure have no consumer.
+    `UNUSED_VAR (tcu_lmem_if.req_data.tag)
+    `UNUSED_VAR (tcu_lmem_if.rsp_ready)
 `endif
 
 `ifdef TCU_META_ENABLE
