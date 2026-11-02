@@ -57,6 +57,7 @@ module VX_mem_bus_arb import VX_gpu_pkg::*; #(
     wire [SEL_COUNT-1:0][`UP(LOG_NUM_REQS)-1:0] req_sel_out;
     wire [NUM_OUTPUTS-1:0]                req_ready_out;
 
+
     for (genvar i = 0; i < NUM_INPUTS; ++i) begin : g_req_data_in
         assign req_valid_in[i] = bus_in_if[i].req_valid;
         assign req_data_in[i]  = bus_in_if[i].req_data;
@@ -107,10 +108,10 @@ module VX_mem_bus_arb import VX_gpu_pkg::*; #(
             .reset     (reset),
             .sel_in    (req_sel_out),
             .valid_in  (req_valid_in),
-            .ready_in  (/* unused: arb governs flow */),
+            `UNUSED_PIN (ready_in),
             .data_in   (req_dplane_in),
             .data_out  (req_dplane_out),
-            .valid_out (/* unused */),
+            `UNUSED_PIN (valid_out),
             .ready_out (req_ready_out)
         );
 

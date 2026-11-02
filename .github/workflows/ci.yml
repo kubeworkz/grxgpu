@@ -37,13 +37,6 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-# One pipeline per branch: a new push cancels any in-flight run of the same
-# branch instead of queueing behind it. Prevents a large stale backlog from
-# starving fresh runs on capacity-constrained (self-hosted) runners.
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
-
 env:
   CCACHE_DISABLE: 1
 
@@ -165,6 +158,30 @@ jobs:
           # full toolchain (SST build + gem5) only when sst/gem5 are selected
           if echo "$cells" | grep -qE '"(sst|gem5)"'; then echo "profile=full" >> "$GITHUB_OUTPUT"; else echo "profile=lite" >> "$GITHUB_OUTPUT"; fi
           python3 ci/testcase.py lint
+
+  # ---------------------------------------------------------------------------
+  # checks — repo hygiene gates that need no toolchain. Runs on every event,
+  # including ones plan marks test-free: a docs-only commit can still add a
+  # binary, and the gate is cheap enough to never skip.
+  # ---------------------------------------------------------------------------
+  checks:
+    runs-on: ubuntu-22.04
+    steps:
+      # Self-hosted runners share one workspace across jobs and workflows; a
+      # previous recursive checkout can leave submodule gitlinks whose gitdirs
+      # are gone after a workspace wipe, breaking checkout. Wipe first so
+      # actions/checkout always does a fresh clone.
+      - name: Clean workspace
+        run: rm -rf $GITHUB_WORKSPACE/* $GITHUB_WORKSPACE/.[!.]* 2>/dev/null || true
+      - uses: actions/checkout@v4
+      - name: Reject committed build artifacts
+        run: ./ci/check_tracked_artifacts.sh
+      - name: Reject CRLF blobs in scripts and LF-pinned files
+        run: ./ci/check_lf_endings.sh
+      - name: Test the repo gates
+        run: |
+          python3 -m pip install --quiet pytest
+          python3 -m pytest ci/test_repo_gates.py -q
 
   # ---------------------------------------------------------------------------
   # setup — warm the shared toolchain + third_party caches ONCE (prepare=true),
@@ -312,7 +329,7 @@ jobs:
 
   complete:
     runs-on: ubuntu-22.04
-    needs: [plan, setup, build, tests]
+    needs: [plan, setup, build, tests, checks]
     if: always()
     steps:
       - name: Gate

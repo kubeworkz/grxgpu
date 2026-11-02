@@ -91,6 +91,9 @@ module VX_issue_top import VX_gpu_pkg::*; #(
     assign decode_if.data.rs2 = decode_rs2;
     assign decode_if.data.rs3 = decode_rs3;
     assign decode_ready = decode_if.ready;
+    if (`VX_CFG_NUM_WARPS > 1) begin : g_ibuf_pop_unused
+        `UNUSED_VAR (decode_if.ibuf_pop[`VX_CFG_NUM_WARPS-1:1])
+    end
 
     for (genvar i = 0; i < `VX_CFG_ISSUE_WIDTH; ++i) begin : g_writeback_if
         assign writeback_if[i].valid = writeback_valid[i];

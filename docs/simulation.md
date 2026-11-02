@@ -31,6 +31,29 @@ Running tests under specific drivers (rtlsim,simx,fpga) is done using the script
 - *App* - used to specify which test/benchmark to run in the Vortex simulation. The main choices are vecadd, sgemm, basic, demo, and dogfood. Other tests/benchmarks are located in the `/benchmarks/opencl` folder though not all of them work wit the current version of Vortex.
 - *Args* - used to pass additional arguments to the application.
 
+### RTL Simulation Memory Footprint
+
+Verilating the design scales with the modeled topology: the `VX_config.toml`
+default (8 clusters x 16 cores) needs several GB in a single Verilator process,
+which exceeds ordinary machines and even 16 GB CI runners. `blackbox.sh`
+therefore bounds RTL drivers (`rtlsim`, `opae`) to 1 cluster x 4 cores unless a
+topology is named explicitly, so the command below builds and runs on a
+low-memory machine.
+
+| Goal | Invocation |
+|------|------------|
+| Bounded model (default) | `./ci/blackbox.sh --driver=rtlsim --app=demo` |
+| Specific topology | `./ci/blackbox.sh --driver=rtlsim --clusters=2 --cores=2 --app=demo` |
+| TOML default model | `RTL_UNBOUND=1 ./ci/blackbox.sh --driver=rtlsim --app=demo` |
+
+Verilator compiles the generated C++ with one job per CPU; on a machine with
+many cores but little RAM, `THREADS=<n>` caps that parallelism, e.g.
+`THREADS=2 ./ci/blackbox.sh --driver=rtlsim --app=demo`.
+
+Building a simulator directly (`make -C sim/rtlsim`) uses the `VX_config.toml`
+topology; pass explicit `CONFIGS` for a smaller model, e.g.
+`make -C sim/rtlsim CONFIGS="-DVX_CFG_NUM_CLUSTERS=1 -DVX_CFG_NUM_CORES=4"`.
+
 ### Configuring Cache Sizes
 
 By default, Vortex uses fixed cache sizes (L1 = 16KB, L2 = 1MB, L3 = 2MB).  

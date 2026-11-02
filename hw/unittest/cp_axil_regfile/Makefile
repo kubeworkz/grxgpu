@@ -16,7 +16,7 @@ SRCS := $(SRC_DIR)/main.cpp
 DBG_TRACE_FLAGS :=
 
 # Regfile pulls in VX_cp_pkg + VX_cp_axil_s_if + VX_cp_axil_regfile.
-RTL_PKGS := $(RTL_DIR)/VX_gpu_pkg.sv $(RTL_DIR)/VX_trace_pkg.sv \
+RTL_PKGS := $(RTL_DIR)/VX_gpu_pkg.sv \
             $(RTL_DIR)/cp/VX_cp_pkg.sv
 
 RTL_INCLUDE := -I$(ROOT_DIR)/sw -I$(ROOT_DIR)/hw -I$(RTL_DIR) -I$(DPI_DIR) \

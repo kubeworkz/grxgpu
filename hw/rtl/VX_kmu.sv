@@ -13,7 +13,11 @@
 
 `include "VX_define.vh"
 
-module VX_kmu import VX_gpu_pkg::*; import VX_trace_pkg::*; #(
+module VX_kmu import VX_gpu_pkg::*;
+`ifdef DBG_TRACE_PIPELINE
+    import VX_trace_pkg::*;
+`endif
+#(
     parameter `STRING INSTANCE_ID = ""
 ) (
     input wire clk,

@@ -16,7 +16,7 @@ SRCS := $(SRC_DIR)/main.cpp
 DBG_TRACE_FLAGS :=
 
 # VX_cp_launch is self-contained (plain scalar ports, no package types).
-RTL_PKGS := $(RTL_DIR)/VX_gpu_pkg.sv $(RTL_DIR)/VX_trace_pkg.sv
+RTL_PKGS := $(RTL_DIR)/VX_gpu_pkg.sv
 
 RTL_INCLUDE := -I$(ROOT_DIR)/sw -I$(ROOT_DIR)/hw -I$(RTL_DIR) -I$(DPI_DIR) \
                -I$(RTL_DIR)/libs -I$(VORTEX_HOME)/hw/unittest/$(PROJECT)
