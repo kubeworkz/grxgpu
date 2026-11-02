@@ -31,7 +31,7 @@ fact.
    tapeout plan's entire die, before logic, pads, or PHY. A 28 nm version would
    need a full reticle and the advanced-node PHYs the design assumes; it is not
    a shuttle part, and the flagship remains an advanced-node target.
-4. **The same 6 MB is costed four ways.** The plan's own sections give ~13 mm²,
+4. **The same 6 MB is costed four ways.** The plan's own sections gave ~13 mm²,
    ~25 mm², ~50 mm² and 100 mm² for the same six megabytes. Only the first is
    consistent with the 0.25 µm²/bit 6T SRAM assumption the die estimate uses.
 5. **The tapeout plan has no host or DRAM interface.** A die with no PCIe, no
@@ -116,17 +116,18 @@ not four estimates of one quantity; they use different storage densities.
 
 | Where | What it says | Implied density | Area for 6 MB |
 |---|---|---|---|
-| §2.1, "all custom 6T SRAM" | ~13 mm² | 0.25 µm²/bit | 12.6 mm² |
-| §2.1, "hybrid" | ~25 mm² | ~0.50 µm²/bit | 25.2 mm² |
+| §2.1, "all foundry 6T SRAM" | ~13 mm² | 0.25 µm²/bit | 12.6 mm² |
+| §2.1, "hybrid" (now annotated with its recomputation) | ~25 mm² | ~0.50 µm²/bit | 25.2 mm² |
 | §2.1, "all ORRAM" | ~50 mm² | 1.04 µm²/bit | 52.3 mm² |
 | §8.2, "6 MB total" | 100 mm² | 1.99 µm²/bit | 100.2 mm² |
 
 The §2.3 die estimate uses the first, and it should: the large arrays are
-foundry 6T macros. With the graphics blocks disabled there is no ORRAM at all,
-so the hybrid row and the all-6T row are the same 12.6 mm², which is ~13 mm²,
-not 25. The §8.2 figure is twice even the plan's own ORRAM density
-(960 Kbit/mm² at 28 nm, which is 1.04 µm²/bit). It should be deleted or marked
-as a 130 nm measurement, not a 28 nm estimate.
+foundry 6T macros. The plan's hybrid row now carries the recomputed ~15 mm²
+beside its September 25 — 12.6 mm² of 6T plus 2.5 mm² for the graphics ORRAM.
+A compute-only build drops that ORRAM, so the hybrid and all-6T rows are then
+the same 12.6 mm², which is ~13 mm². The §8.2 figure is twice even the plan's
+own ORRAM density (960 Kbit/mm² at 28 nm, which is 1.04 µm²/bit). It should be
+deleted or marked as a 130 nm measurement, not a 28 nm estimate.
 
 The adopted model for this proposal:
 

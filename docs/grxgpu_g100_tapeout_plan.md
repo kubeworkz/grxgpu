@@ -63,11 +63,20 @@ die at ~72 mm² for the same logic and core arrays.
 
 ### 2.1 Why Hybrid?
 
+The areas below cover the 6 MB of cache arrays only, at the densities §2.3 uses;
+the register file and all logic sit outside this table.
+
 | Approach | Area (28nm) | Cost | Risk |
 |----------|------------|------|------|
 | **All ORRAM (DFF-based)** | ~50 mm² | $0 license | High area, slow DRT routing |
-| **All custom 6T SRAM** | ~13 mm² | $150K–$200K license | SRAM compiler dependency |
-| **Hybrid (recommended)** | ~25 mm² | $0 license | Balanced |
+| **All foundry 6T SRAM** | ~13 mm² | $0 with PDK macros; $150K–$200K only if a commercial compiler is needed | SRAM compiler dependency |
+| **Hybrid (recommended)** | ~25 mm² (September estimate; ~15 mm² by §2.3) | $0 license | Balanced |
+
+The hybrid row's 25 mm² assumed ~0.5 µm²/bit across all six megabytes. Costed
+the way §2.3 does it — 12.6 mm² for 6 MB of foundry 6T plus 2.5 mm² for the
+288 KB of DFF ORRAM the graphics caches need — the same configuration is
+~15 mm². A compute-only build disables those caches, so it has no ORRAM and
+lands on the all-6T row at ~13 mm².
 
 ### 2.2 SRAM Assignment
 
