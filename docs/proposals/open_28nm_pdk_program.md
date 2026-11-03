@@ -113,7 +113,9 @@ at 28 nm, and buying one means owning a process, not shipping a chip.
 `syn/pdk/*.pdk` already carries one technology's liberty, LEF, cell set, layer
 stack and readiness flag, and `ci/check_pdk_descriptors.sh` enforces its shape.
 That file is the kit's interface: one descriptor per technology, independent of
-which foundry produced it, with `PDK_READY=0` marking a skeleton.
+which foundry produced it, with `PDK_READY=0` marking a skeleton. The descriptor
+contract lands on its own branch; until that merges, this section describes the
+interface it establishes rather than a tree already on `main`.
 
 ### 5.2 The conformance harness
 
@@ -152,7 +154,7 @@ reports; the data stays with the fab.
 | Stage | Deliverable | Exit criterion | Kill criterion |
 |---|---|---|---|
 | **0** (0–3 mo) | Descriptor contract, harness skeleton, sky130 round-trip | DRC diff empty on 100 layouts; LVS 100 % on 100 cells; PEX within 5 % on 20 blocks | Harness cannot reproduce sky130 within a quarter |
-| **1** (3–9 mo) | Fab engagement: NDA PDK, open-flow permission, first port | The 16 KB ORRAM macro DRC-clean under both decks, accepted by the fab's pre-tapeout check | No NDA plus open-flow permission within 12 months |
+| **1** (3–9 mo) | Fab engagement: signed participation agreement, NDA PDK with open-flow permission, first port | The clauses in §12.7 signed, and the 16 KB ORRAM macro DRC-clean under both decks and accepted by the fab's pre-tapeout check | No signed agreement within 12 months |
 | **2** (9–18 mo) | Starter library (200–400 cells) characterized with open tools, cross-checked | Characterization within 5 % of commercial on a 50-cell sample | Deviation persists past 5 % after two char iterations |
 | **3** (18–30 mo) | Test chip: PCM, ring oscillators, SRAM block, one small GPU tile | Silicon within model prediction; deck signoff repeated end-to-end | Two silicon spins without correlation to models |
 | **4** (fab-led) | Optional: fab publishes an open PDK built from this work | The fab's legal and business decision | Never a decision we can make |
@@ -234,8 +236,10 @@ numbers; this program adds:
 
 1. **Is the target 28 nm or 55 nm?** ICS55 is open, has silicon, and carries
    none of the 28 nm unknowns. 28 nm has no open PDK anywhere.
-2. **Which fab is approached, and by whom?** The NDA and the open-flow
-   permission are commercial negotiations, not engineering tasks.
+2. **Which fab is approached first, and by whom?** §12.8 orders it: IHP or
+   SkyWater at 90 nm, then ICS55 at 55 nm, then 28 nm only with a committed
+   partner. The agreement and the open-flow permission are commercial
+   negotiations with named owners, not engineering tasks.
 3. **What is the budget envelope for two test-chip spins?**
 4. **Does a predictive 28 nm kit have enough internal value** (G100 PPA studies
    before silicon) to justify authoring it while a fab partner is sought? If
@@ -253,7 +257,154 @@ numbers; this program adds:
 
 ---
 
-## 12. Related documents
+## 12. Route A in practice: what a foundry actually agrees to
+
+§4 lists goal A — designing at 28 nm with open tools — as the buildable
+objective. This section is the commercial half of it. §7 says the trigger for a
+production PDK is a fab's decision, which is true but passive; what follows is
+the record of how that decision has actually been obtained, what the ask looks
+like in contract terms, and which link in the chain breaks.
+
+### 12.1 No open PDK paid for itself
+
+| PDK | Who paid | Who fabbed | Terms | What bought the yes |
+|---|---|---|---|---|
+| SKY130 | Google: release cost plus shuttle sponsorship | SkyWater | Apache-2.0 | A hyperscaler defending an ecosystem it designs into |
+| GF180MCU | Google, with Efabless aggregating access | GlobalFoundries | Apache-2.0 | The same payer; the aggregator layer proved thin (§12.6) |
+| SG13G2 | German BMBF projects 16ME0852, 16ME0831, 16KIS1339K | IHP, a Leibniz institute with a pilot line | Apache-2.0, tagged alpha | Research-ministry money |
+| ICS55 | Zhejiang province and Zhejiang University | ICsprout pilot line | Apache-2.0, commercial production prohibited | Province-scale industrial policy |
+
+None of these was released because the PDK paid for itself. A foundry
+monetises wafers; someone else buys the giveaway. The question is therefore not
+whether a fab will hand over 28 nm, but **who plays Google for us**. If nobody
+does, the program is not underfunded — it is unpriced, and no amount of
+engineering closes that.
+
+### 12.2 The nearest template is a structure, not a node: IHP
+
+IHP is the closest working example of what to copy. It is not the node — 130 nm
+SiGe — but the arrangement: a Leibniz institute with a pilot line, an
+Apache-2.0 PDK, and over a hundred fabricated designs on it. Its
+[MPW price list](https://www.ihp-microelectronics.com/services/research-and-prototyping-service/mpw-prototyping-service/schedule-price-list)
+carries a standard tier at €7,300/mm² and an open-source tier at €2,800/mm²
+once cumulative area passes 100 mm², both under a signed **Open Silicon MPW
+Program Participation Agreement**, with non-commercial work subsidised through
+the FMD-QNC project.
+
+The artefact worth copying is that agreement, not the licence file. It names
+the recipient, screens end use and export status, caps area per design, sets two
+prices, obliges publication, and leaves deck ownership with the fab. That is the
+shape of a first yes. "Give us the PDK" is not.
+
+### 12.3 The 28 nm channel is closed even for *using* it
+
+Every 28 nm route sold through Europractice, MOSIS or CIME-P delivers a
+foundry PDK under a controlled licence and expects Calibre/PVS/StarRC signoff.
+No 28 nm programme lists OpenROAD or KLayout as a supported flow. The
+[Europractice 2026 schedule](https://europractice-ic.com/schedules-prices-2026/)
+is the useful price anchor:
+
+| Route | Price | Minimum | Entry cost |
+|---|---|---|---|
+| GF 28SLPe | €12,430/mm² | 4 mm² | ~€50k |
+| ST P28 | €12,150/mm² | 1.25 mm² | ~€15k |
+| TSMC 28HPC+ academic mini@sic | €8,509 first mm² | - | ~€8.5k |
+
+Two readings matter here. First, the cheapest genuine 28 nm entry is roughly
+€15k for one 1.25 mm² design — cheap enough that "28 nm is out of reach" is not
+the objection. Second, nothing on that list sells an open-flow permission or a
+redistribution right. Route B needs neither; route A needs both, and has to
+negotiate them bilaterally.
+
+### 12.4 Export control is a delay, not the wall
+
+The EAR's advanced-node controls key off 16/14 nm and below, so 28 nm planar
+technology is not caught on node grounds. What is caught is the recipient:
+Entity List status, end use, and ownership/affiliate rules — and those move. At
+the time of writing the Affiliates Rule suspension runs only to 9 November
+2026, so the screening has to be re-run at signature rather than planned around
+a snapshot. Treat this as a legal line item and a schedule risk, not a reason to
+abandon the route.
+
+### 12.5 The wall is third-party encumbrance, not secrecy
+
+A 28 nm deck is largely Cadence SKILL and Calibre-format, with encrypted and
+tool-locked device models. It cannot be relicensed Apache-2.0 while the tooling
+that consumes it stays proprietary, and the fab cannot grant that tooling away
+because it does not own it. The NDA norm is not a foundry quirk either: EU
+publicly funded pilot lines require an NDA and a Design Kit Licence Agreement
+even for their [open-access kits](https://fames-pilot-line.eu/open-access/).
+
+So "open" in this industry means Apache-2.0 *after* the fab publishes. It has
+never meant "no agreement". That is why §5.4 splits the deliverables: the fab
+publishes the data it owns, we publish only the tooling, contracts, test vectors
+and reports we authored. Our re-expressions have to be tool-neutral by
+construction — KLayout decks, open LEF/Liberty/GDS — or there is nothing to
+publish even with permission.
+
+### 12.6 The fragile link is the aggregator
+
+Efabless, whose shuttle model made both SKY130 and GF180MCU reachable for small
+teams, [shut down in February 2025](https://www.eenewseurope.com/en/tiny-tapeout-hit-as-efabless-closes/).
+The assets were later acquired and the flow continues under a new owner, but the
+on-ramp was gone for months and GF180MCU shuttle access is now intermittent. The
+PDKs survived because a fab owned them; the access layer did not.
+
+A program that depends on one intermediary inherits its balance sheet. The
+consequence for this one: negotiate directly with the fab or institute, keep a
+second route warm, and never let the G100 schedule depend on either.
+
+### 12.7 The ask, in contract terms
+
+Before Stage 1 can close, these have to be in writing, not inferred from a
+public download:
+
+1. **Recipient and screening** — who signs, on what end use, and who runs export
+   screening on each design.
+2. **Tool independence** — permission to re-express the PDK for an open flow,
+   with signoff remaining on the fab's own decks.
+3. **Publication split** — the fab publishes the open package; we publish only
+   what we authored. No NDA data, ever.
+4. **Price and payer** — a two-tier list with the open tier's subsidy named, as
+   IHP does, rather than a discounted quote.
+5. **Limits** — area cap, design count and shuttle cadence per period.
+6. **Deliverable and deadline** — DRC-clean GDS, publication within an agreed
+   period of each shuttle, no sublicensing of the PDK.
+7. **Status tag** — preview or production, stated in writing. ICS55 and SG13G2
+   are both Apache-2.0 and both exclude production use, so the licence and the
+   warranty are separate documents and only the second one matters for G100.
+
+### 12.8 Sequence: the first yes is not 28 nm
+
+The first realistic yes is at an easier node:
+
+- **SKY90FD (90 nm)** — cheapest validation of the kit against a fab that has
+  already attempted an open release; finishing someone else's stalled effort is
+  a smaller ask than starting one.
+- **ICS55 (55 nm)** — open, silicon-backed, and preview-tagged, which is exactly
+  the gap our Stage 1 is built to close. Its foundry, university and provincial
+  funding is the precedent a 28 nm conversation would cite.
+
+Either produces the track record the 28 nm ask needs: *we validated this kit at
+55 nm; here it is applied to 28*. Starting at 28 nm asks a fab to subsidise a
+first-of-kind release with no precedent; starting at 90 or 55 asks it to repeat
+something it has already done. Only the second question is answerable in a
+quarter.
+
+### 12.9 What this section changes
+
+- **§6 Stage 1** now exits on a signed participation agreement carrying the
+  §12.7 clauses, not on "NDA plus permission", which is a clause inside it.
+- **§8** gains its anchor: the cheapest genuine 28 nm entry is a ~€15k ST P28
+  slot, a 4 mm² GF slot is ~€50k, and neither includes a publication right.
+- **§10 decision 2** is answered in sequence rather than in the abstract.
+- **Policy fit:** the [production plan](../grxgpu_production_plan.md) §1.1
+  already keeps restricted PDK and signoff collateral in access-controlled
+  records, and gate G4 requires *written* confirmation of PDK rights. An
+  engagement signed this way satisfies G4 rather than bypassing it, and no NDA
+  data enters this repository.
+
+## 13. Related documents
 
 - [G100 tapeout plan](../grxgpu_g100_tapeout_plan.md) — fabrication path, cost
   rows, and the 28 nm area scaling this program would have to validate.
@@ -262,3 +413,5 @@ numbers; this program adds:
   whose area figures a real 28 nm PDK would replace.
 - [G100 evidence manifest](../grxgpu_g100_evidence_manifest.md) — where a
   silicon-calibrated result would have to be recorded.
+- [GRXGPU production plan](../grxgpu_production_plan.md) — the portfolio gate
+  table (G4) that a signed engagement feeds evidence into.
