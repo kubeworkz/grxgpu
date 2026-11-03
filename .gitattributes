@@ -1,4 +1,4 @@
-# Keep shell and build files LF in every checkout. A CRLF shebang or make
+# Keep shell, build and flow-descriptor files LF in every checkout. A CRLF shebang or make
 # recipe fails on Linux (`./configure: bad interpreter: /bin/bash^M`,
 # `$'\r': command not found`) when a Windows checkout is built in WSL or a
 # container. Sources keep the platform default.
@@ -10,4 +10,5 @@ ci/hooks/pre-commit text eol=lf
 *.mk       text eol=lf
 *.sh       text eol=lf
 *.py       text eol=lf
+*.pdk      text eol=lf
 *.csh      text eol=lf

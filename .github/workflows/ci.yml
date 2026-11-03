@@ -184,6 +184,8 @@ jobs:
         run: ./ci/check_tracked_artifacts.sh
       - name: Reject CRLF blobs in scripts and LF-pinned files
         run: ./ci/check_lf_endings.sh
+      - name: Reject incomplete or non-LF PDK descriptors
+        run: ./ci/check_pdk_descriptors.sh
       # The runner's Python is externally managed (PEP 668) and has no
       # ensurepip, so both a system install and `python3 -m venv` fail. A
       # throwaway --target directory needs neither root nor a venv.

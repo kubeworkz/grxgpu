@@ -1,6 +1,10 @@
-read_liberty /OpenROAD/test/sky130hd/sky130_fd_sc_hd__tt_025C_1v80.lib
-read_lef /OpenROAD/test/sky130hd/sky130hd.tlef
-read_lef /OpenROAD/test/sky130hd/sky130_fd_sc_hd_merged.lef
+source [file join [file dirname [file normalize [info script]]] pdk pdk.tcl]
+
+pdk_load
+pdk_require_orram
+
+read_liberty [pdk PDK_LIBERTY]
+foreach lef [pdk_lefs] { read_lef $lef }
 
 puts "=== Generating 16KB SRAM (32-bit x 4096 words) ==="
 set t0 [clock seconds]
@@ -9,17 +13,17 @@ generate_ram \
   -num_words 4096 \
   -rw_ports 1 \
   -column_mux_ratio 4 \
-  -storage_cell sky130_fd_sc_hd__dfxtp_1 \
-  -tristate_cell sky130_fd_sc_hd__ebufn_4 \
-  -inv_cell sky130_fd_sc_hd__inv_1 \
-  -power_net_name VDD \
-  -ground_net_name VSS \
-  -routing_layer {met1 0.48} \
-  -ver_layer {met2 0.48 40} \
-  -hor_layer {met3 0.48 20} \
-  -filler_cells {sky130_fd_sc_hd__fill_1 sky130_fd_sc_hd__fill_2 sky130_fd_sc_hd__fill_4 sky130_fd_sc_hd__fill_8} \
-  -tapcell sky130_fd_sc_hd__tap_1 \
-  -max_tap_dist 15
+  -storage_cell [pdk PDK_STORAGE_CELL] \
+  -tristate_cell [pdk PDK_TRISTATE_CELL] \
+  -inv_cell [pdk PDK_INV_CELL] \
+  -power_net_name [pdk PDK_POWER_NET] \
+  -ground_net_name [pdk PDK_GROUND_NET] \
+  -routing_layer [pdk PDK_ROUTING_LAYER] \
+  -ver_layer [pdk PDK_VER_LAYER] \
+  -hor_layer [pdk PDK_HOR_LAYER] \
+  -filler_cells [pdk PDK_FILLER_CELLS] \
+  -tapcell [pdk PDK_TAP_CELL] \
+  -max_tap_dist [pdk PDK_MAX_TAP_DIST]
 set t1 [clock seconds]
 puts "=== RAM generated in [expr {$t1 - $t0}] seconds ==="
 
