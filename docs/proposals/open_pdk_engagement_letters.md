@@ -192,5 +192,7 @@ Yours sincerely,
 
 - [Open 28 nm PDK program proposal](open_28nm_pdk_program.md) — §12.7 clauses and
   §12.8 sequence these letters implement.
+- [Harness specification](open_pdk_harness_spec.md) — the attachment both letters
+  offer to send in advance.
 - [GRXGPU production plan](../grxgpu_production_plan.md) — §1.1 ownership rule
   for restricted PDK collateral, and gate G4.

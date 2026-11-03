@@ -420,3 +420,5 @@ quarter.
   table (G4) that a signed engagement feeds evidence into.
 - [Engagement letters](open_pdk_engagement_letters.md) — the IHP and SkyWater
   drafts that put §12.7 in front of a recipient.
+- [Harness specification](open_pdk_harness_spec.md) — the attachable form of the
+  §5.2 tests and tolerances.
