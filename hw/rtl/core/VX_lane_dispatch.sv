@@ -134,7 +134,7 @@ module VX_lane_dispatch import VX_gpu_pkg::*; #(
 
         wire valid_p, ready_p;
 
-        if (`VX_CFG_SIMD_WIDTH != NUM_LANES) begin : g_partial_simd
+        if (NUM_PACKETS > 1) begin : g_partial_simd
 
             packet_t [NUM_PACKETS-1:0] packets;
 
@@ -181,8 +181,21 @@ module VX_lane_dispatch import VX_gpu_pkg::*; #(
             assign block_done[block_idx]  = (fire_p && is_last_p) || ~dispatch_valid[issue_idx];
         end else begin : g_full_simd
             assign valid_p = dispatch_valid[issue_idx];
-            assign block_tmask[block_idx] = dispatch_tmask;
-            assign block_rsdata[block_idx] = dispatch_rsdata;
+            // One issue slot feeds one block. A block wider than the slot
+            // (NUM_LANES > SIMD_WIDTH) has no work for its extra lanes.
+            for (genvar j = 0; j < NUM_LANES; ++j) begin : g_lane
+                if (j < `VX_CFG_SIMD_WIDTH) begin : g_present
+                    assign block_tmask[block_idx][j]     = dispatch_tmask[j];
+                    assign block_rsdata[block_idx][0][j] = dispatch_rsdata[0][j];
+                    assign block_rsdata[block_idx][1][j] = dispatch_rsdata[1][j];
+                    assign block_rsdata[block_idx][2][j] = dispatch_rsdata[2][j];
+                end else begin : g_absent
+                    assign block_tmask[block_idx][j]     = 1'b0;
+                    assign block_rsdata[block_idx][0][j] = '0;
+                    assign block_rsdata[block_idx][1][j] = '0;
+                    assign block_rsdata[block_idx][2][j] = '0;
+                end
+            end
             assign block_pid[block_idx]   = 0;
             assign block_sop[block_idx]   = 1;
             assign block_eop[block_idx]   = 1;
