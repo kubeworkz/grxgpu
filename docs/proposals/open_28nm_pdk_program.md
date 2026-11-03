@@ -374,6 +374,9 @@ public download:
    are both Apache-2.0 and both exclude production use, so the licence and the
    warranty are separate documents and only the second one matters for G100.
 
+The letters that carry these clauses are drafted in the [engagement
+letters](open_pdk_engagement_letters.md); they are correspondence, not evidence.
+
 ### 12.8 Sequence: the first yes is not 28 nm
 
 The first realistic yes is at an easier node:
@@ -381,8 +384,8 @@ The first realistic yes is at an easier node:
 - **SKY90FD (90 nm)** — cheapest validation of the kit against a fab that has
   already attempted an open release; finishing someone else's stalled effort is
   a smaller ask than starting one.
-- **ICS55 (55 nm)** — open, silicon-backed, and preview-tagged, which is exactly
-  the gap our Stage 1 is built to close. Its foundry, university and provincial
+- **ICS55 (55 nm)** — open, silicon-backed, and preview-tagged, which is the
+  kind of gap the kit is meant to narrow. Its foundry, university and provincial
   funding is the precedent a 28 nm conversation would cite.
 
 Either produces the track record the 28 nm ask needs: *we validated this kit at
@@ -415,3 +418,5 @@ quarter.
   silicon-calibrated result would have to be recorded.
 - [GRXGPU production plan](../grxgpu_production_plan.md) — the portfolio gate
   table (G4) that a signed engagement feeds evidence into.
+- [Engagement letters](open_pdk_engagement_letters.md) — the IHP and SkyWater
+  drafts that put §12.7 in front of a recipient.
