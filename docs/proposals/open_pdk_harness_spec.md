@@ -21,7 +21,7 @@ asserting equivalence.
 |---|---|---|---|
 | Reference PDK | Decks, golden PEX, Liberty, layer map, revision string | Foundry, under NDA | Stays in the harness workspace; never copied into the public tree |
 | Open re-expression | KLayout DRC/LVS rules, open LEF/Liberty/GDS, PEX rules | Us | Publishable only after partner review |
-| Corpus | GDS/OASIS plus a manifest of what each layout exercises | Us; partner may add cases | Public where the layout is ours, held where it is not |
+| Corpus | GDS/OASIS plus `pdk_corpus_manifest.yaml`, which records what each layout exercises and whether it must be flagged | Us; partner may add cases | Public where the layout is ours, held where it is not |
 | Tool container | Pinned image with KLayout, Netgen, ngspice, OpenROAD, CharLib | Us | Digest recorded in every report |
 
 ## 3. Tests and pass criteria

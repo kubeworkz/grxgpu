@@ -422,3 +422,5 @@ quarter.
   drafts that put §12.7 in front of a recipient.
 - [Harness specification](open_pdk_harness_spec.md) — the attachable form of the
   §5.2 tests and tolerances.
+- [Corpus manifest](pdk_corpus_manifest.yaml) — the 104 layouts behind the DRC
+  and LVS criteria, with the 14 that must be flagged.
