@@ -1,0 +1,28 @@
+{
+  "_placeholder": true,
+  "_comment": "Illustrative limits only. They are grid-aligned convenience values for exercising the generators, not any deck's rules; the harness supplies the real table for the PDK under test.",
+  "grid_um": 0.005,
+  "rules": {
+    "min_width": 0.14,
+    "min_space": 0.14,
+    "min_area": 0.05,
+    "notch": 0.10,
+    "width_dep_space": 0.35,
+    "via_size": 0.10,
+    "enclose": 0.05,
+    "contact": 0.09,
+    "contact_space": 0.09,
+    "poly_width": 0.10,
+    "poly_space": 0.14,
+    "endcap": 0.12,
+    "nwell_space": 0.30,
+    "nwell_enclosure": 0.12,
+    "tap_space": 0.30,
+    "rail_width": 0.17,
+    "cell_height": 1.20,
+    "cell_width": 0.50,
+    "pad_size": 50.0,
+    "density_min": 0.20,
+    "density_max": 0.80
+  }
+}
