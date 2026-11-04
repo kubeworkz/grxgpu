@@ -35,18 +35,29 @@ module VX_dxa_unit import VX_gpu_pkg::*, VX_dxa_pkg::*; #(
     //   Fused pair (meta[31] = 1, set by vx_dxa_issue_2d_wg_pair):
     //             rs1 lanes carry A (smem_a, meta|PAIR, coord_a0, coord_a1);
     //             rs2 lanes carry B (smem_b, meta_b, coord_b0, coord_b1).
-    wire [`VX_CFG_XLEN-1:0] lane0_rs1 = execute_if.data.rs1_data[0];
-    wire [`VX_CFG_XLEN-1:0] lane1_rs1 = execute_if.data.rs1_data[1];
-    wire [`VX_CFG_XLEN-1:0] lane2_rs1 = execute_if.data.rs1_data[2];
-    wire [`VX_CFG_XLEN-1:0] lane3_rs1 = execute_if.data.rs1_data[3];
-    wire [`VX_CFG_XLEN-1:0] lane0_rs2 = execute_if.data.rs2_data[0];
-    wire [`VX_CFG_XLEN-1:0] lane1_rs2 = execute_if.data.rs2_data[1];
-    wire [`VX_CFG_XLEN-1:0] lane2_rs2 = execute_if.data.rs2_data[2];
-    wire [`VX_CFG_NUM_WARPS-1:0] lane3_rs2 = execute_if.data.rs2_data[3][`VX_CFG_NUM_WARPS-1:0];
+    // The engine reads 32-bit descriptor fields, one per lane. At XLEN=64 the
+    // upper half of each lane register carries nothing it consumes, and a
+    // narrow SIMD config can present fewer than the four lanes a wgather
+    // covers, so slice explicitly and tie off the lanes that do not exist.
+    localparam DXA_NUM_LANES = 4;
+    localparam DXA_OPD_W     = 32;
+
+    wire [DXA_NUM_LANES-1:0][DXA_OPD_W-1:0] dxa_rs1;
+    wire [DXA_NUM_LANES-1:0][DXA_OPD_W-1:0] dxa_rs2;
+
+    for (genvar i = 0; i < DXA_NUM_LANES; ++i) begin : g_dxa_opds
+        if (i < `VX_CFG_NUM_SFU_LANES) begin : g_lane
+            assign dxa_rs1[i] = execute_if.data.rs1_data[i][DXA_OPD_W-1:0];
+            assign dxa_rs2[i] = execute_if.data.rs2_data[i][DXA_OPD_W-1:0];
+        end else begin : g_no_lane
+            assign dxa_rs1[i] = '0;
+            assign dxa_rs2[i] = '0;
+        end
+    end
 
     // meta[31] = fused A+B pair flag (exclusive: pack_meta only uses bits
     // [30:0] = (barrier_id << 4) | desc_slot).
-    wire pair_iss = lane1_rs1[31];
+    wire pair_iss = dxa_rs1[1][31];
 
     // Cluster-contiguous LMEM placement guarantees receiver bases are
     // `issuer_base + r × smem_stride`, so the bus carries the issuer's
@@ -56,12 +67,12 @@ module VX_dxa_unit import VX_gpu_pkg::*, VX_dxa_pkg::*; #(
     // per-receiver translation in VX_mem_unit.
 
     // Strip the global LMEM base prefix to land in LMEM's own byte-address
-    // space. Equivalently: `lane0_rs1[LMEM_BYTE_W-1:0]`, since `lane0_rs1`
+    // space. Equivalently: `dxa_rs1[0][LMEM_BYTE_W-1:0]`, since dxa_rs1[0]
     // is a kernel-supplied LMEM pointer whose high bits ARE VX_MEM_LMEM_BASE
     // when the kernel uses `__local_mem()` derivatives.
-    wire [`VX_CFG_XLEN-1:0] lmem_rel_byte_addr =
-        lane0_rs1 - `VX_CFG_XLEN'(`VX_MEM_LMEM_BASE_ADDR);
-    `UNUSED_VAR (lmem_rel_byte_addr[`VX_CFG_XLEN-1:DXA_SMEM_ADDR_W])
+    wire [DXA_OPD_W-1:0] lmem_rel_byte_addr =
+        dxa_rs1[0] - DXA_OPD_W'(`VX_MEM_LMEM_BASE_ADDR);
+    `UNUSED_VAR (lmem_rel_byte_addr[DXA_OPD_W-1:DXA_SMEM_ADDR_W])
 
     // ── Request A: the legacy single-tile mapping ────────────────────────
     // In pair mode the rs2 lanes carry B's fields (not coords[2..4] / the
@@ -72,30 +83,30 @@ module VX_dxa_unit import VX_gpu_pkg::*, VX_dxa_pkg::*; #(
     assign req_a_data.uuid      = execute_if.data.header.uuid;
     assign req_a_data.wid       = execute_if.data.header.wid;
     assign req_a_data.smem_addr = lmem_rel_byte_addr[DXA_SMEM_ADDR_W-1:0];
-    assign req_a_data.meta      = pair_iss ? {1'b0, lane1_rs1[30:0]} : lane1_rs1[31:0];
-    assign req_a_data.coords[0] = lane2_rs1[31:0];
-    assign req_a_data.coords[1] = lane3_rs1[31:0];
-    assign req_a_data.coords[2] = pair_iss ? '0 : lane0_rs2[31:0];
-    assign req_a_data.coords[3] = pair_iss ? '0 : lane1_rs2[31:0];
-    assign req_a_data.coords[4] = pair_iss ? '0 : lane2_rs2[31:0];
-    assign req_a_data.cta_mask  = pair_iss ? '0 : lane3_rs2[`VX_CFG_NUM_WARPS-1:0];
+    assign req_a_data.meta      = pair_iss ? {1'b0, dxa_rs1[1][30:0]} : dxa_rs1[1];
+    assign req_a_data.coords[0] = dxa_rs1[2];
+    assign req_a_data.coords[1] = dxa_rs1[3];
+    assign req_a_data.coords[2] = pair_iss ? '0 : dxa_rs2[0];
+    assign req_a_data.coords[3] = pair_iss ? '0 : dxa_rs2[1];
+    assign req_a_data.coords[4] = pair_iss ? '0 : dxa_rs2[2];
+    assign req_a_data.cta_mask  = pair_iss ? '0 : dxa_rs2[3][`VX_CFG_NUM_WARPS-1:0];
 
     // Captured payload — needed after the accept cycle for the pair's B
     // request and the single SFU writeback.
-    reg [3:0][`VX_CFG_XLEN-1:0] cap_rs2;
+    reg [DXA_NUM_LANES-1:0][DXA_OPD_W-1:0] cap_rs2;
     sfu_header_t                cap_hdr;
 
     // ── Request B: the pair's B tile (captured rs2 lanes) ────────────────
     dxa_req_data_t req_b_data;
-    wire [`VX_CFG_XLEN-1:0] b_rel_byte_addr = cap_rs2[0] - `VX_CFG_XLEN'(`VX_MEM_LMEM_BASE_ADDR);
-    `UNUSED_VAR (b_rel_byte_addr[`VX_CFG_XLEN-1:DXA_SMEM_ADDR_W])
+    wire [DXA_OPD_W-1:0] b_rel_byte_addr = cap_rs2[0] - DXA_OPD_W'(`VX_MEM_LMEM_BASE_ADDR);
+    `UNUSED_VAR (b_rel_byte_addr[DXA_OPD_W-1:DXA_SMEM_ADDR_W])
     assign req_b_data.core_id   = NC_WIDTH'(CORE_ID);
     assign req_b_data.uuid      = cap_hdr.uuid;
     assign req_b_data.wid       = cap_hdr.wid;
     assign req_b_data.smem_addr = b_rel_byte_addr[DXA_SMEM_ADDR_W-1:0];
-    assign req_b_data.meta      = cap_rs2[1][31:0];
-    assign req_b_data.coords[0] = cap_rs2[2][31:0];
-    assign req_b_data.coords[1] = cap_rs2[3][31:0];
+    assign req_b_data.meta      = cap_rs2[1];
+    assign req_b_data.coords[0] = cap_rs2[2];
+    assign req_b_data.coords[1] = cap_rs2[3];
     assign req_b_data.coords[2] = '0;
     assign req_b_data.coords[3] = '0;
     assign req_b_data.coords[4] = '0;
@@ -142,7 +153,7 @@ module VX_dxa_unit import VX_gpu_pkg::*, VX_dxa_pkg::*; #(
             cap_rs2 <= '0;
             cap_hdr <= '0;
         end else if (issue_single || issue_pair_a) begin
-            cap_rs2 <= execute_if.data.rs2_data;
+            cap_rs2 <= dxa_rs2;
             cap_hdr <= execute_if.data.header;
         end
     end

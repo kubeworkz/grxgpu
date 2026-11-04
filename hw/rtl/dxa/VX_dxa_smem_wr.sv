@@ -288,13 +288,14 @@ module VX_dxa_smem_wr import VX_gpu_pkg::*, VX_dxa_pkg::*; #(
     //   and a byteen of `elem_bytes` contiguous ones at that offset.
     wire is_first_word = (fb_word_addr_r == fb_start_word_r);
 
-    // Per-beat element bytes: the 64-bit window at km_rd_off_r (a moving read
-    // pointer, not a shifted register), then scattered to km_in_word_off below.
-    // elem_bytes ≤ 8, so a 64-bit window covers the live element.
+    // Per-beat element bytes: the SMEM-word window at km_rd_off_r (a moving
+    // read pointer, not a shifted register), then scattered to km_in_word_off
+    // below. Bytes shifted past the word are emitted by the next beat, so a
+    // word-wide window covers every byte this beat can place.
     wire [$clog2(FILL_CAP*8)-1:0] km_rd_bit = ($clog2(FILL_CAP*8))'({km_rd_off_r, 3'b000});
-    wire [63:0] km_elem_bytes_slice = fb_data_r[km_rd_bit +: 64];
+    wire [SMEM_DATAW-1:0] km_elem_bytes_slice = fb_data_r[km_rd_bit +: SMEM_DATAW];
     wire [SMEM_DATAW-1:0] km_elem_data_shifted =
-        SMEM_DATAW'(km_elem_bytes_slice) << ({3'b000, km_in_word_off} << 3);
+        km_elem_bytes_slice << ({3'b000, km_in_word_off} << 3);
 
     wire [SMEM_DATAW-1:0] fb_word_data = scatter ? km_elem_data_shifted
                                                  : fb_data_r[SMEM_DATAW-1:0];

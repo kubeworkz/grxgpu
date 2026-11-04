@@ -119,9 +119,19 @@ module VX_lane_gather import VX_gpu_pkg::*; #(
                 end
             end
         end else begin : g_no_lpid
-            assign commit_sid_w   = SIMD_IDX_W'(result_tmp_if.data.header.pid);
-            assign commit_tmask_w = result_tmp_if.data.header.tmask;
-            assign commit_data_w  = result_tmp_if.data.data;
+            assign commit_sid_w = SIMD_IDX_W'(result_tmp_if.data.header.pid);
+            // One packet per commit slot. A block wider than the slot
+            // (NUM_LANES > SIMD_WIDTH) contributes only its first lanes.
+            always @(*) begin
+                commit_tmask_w = '0;
+                commit_data_w  = 'x;
+                for (integer j = 0; j < `VX_CFG_SIMD_WIDTH; ++j) begin
+                    if (j < NUM_LANES) begin
+                        commit_tmask_w[j] = result_tmp_if.data.header.tmask[j];
+                        commit_data_w[j]  = result_tmp_if.data.data[j];
+                    end
+                end
+            end
         end
 
         assign commit_if[i].valid = result_tmp_if.valid;
