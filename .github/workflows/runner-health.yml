@@ -14,6 +14,11 @@
 # queued past the threshold while zero jobs run anywhere. A merely busy fleet
 # always has jobs in progress, so it cannot trip this.
 #
+# "Running" here means a step is executing. A cell killed by a cancel request
+# that never applied keeps reporting in_progress with every step finished, and
+# holds a concurrency slot until GitHub reaps it; a fleet of those starves
+# dispatch exactly like an idle one and must not read as healthy work.
+#
 # Known blind spot: if dispatch stops account-wide this job queues too, so the
 # check reports the window afterwards rather than during it. It is a
 # post-recovery and partial-outage detector, not an in-band alarm.
@@ -38,8 +43,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
           API: ${{ github.api_url }}
           WEDGED_MINUTES: "15"
+          IDLE_GRACE_MINUTES: "5"
         run: |
           python3 - <<'PYEOF'
           import http.client, json, os, time, urllib.request, urllib.error
@@ -49,6 +56,8 @@ jobs:
           repo = os.environ["GITHUB_REPOSITORY"]
           tok = os.environ["GH_TOKEN"]
           threshold = float(os.environ.get("WEDGED_MINUTES", "15"))
+          grace = float(os.environ.get("IDLE_GRACE_MINUTES", "5"))
+          self_run = os.environ.get("GITHUB_RUN_ID", "")
 
           def req(path, attempts=2):
               url = path if path.startswith("http") else api + path
@@ -82,10 +91,26 @@ jobs:
               return (now - datetime.strptime(stamp, "%Y-%m-%dT%H:%M:%SZ")
                       .replace(tzinfo=timezone.utc)).total_seconds() / 60.0
 
+          # A job is only working while one of its steps runs. Between steps a
+          # job has no live step for a second or two, so an idle job still counts
+          # as running until it passes the grace window; an unknown timeline is
+          # treated as fresh rather than stuck.
+          def work_state(job):
+              steps = job.get("steps") or []
+              if any(s.get("status") == "in_progress" for s in steps):
+                  return "running", 0.0
+              done = [s.get("completed_at") for s in steps if s.get("completed_at")]
+              idle = age_minutes(max(done) if done else job.get("started_at"))
+              return ("running" if idle < grace else "zombie"), idle
+
           # ---- runs that still have work to place ----------------------------
           # Filtered by status and swept to the end: stopping at the first page
           # older than the threshold would miss a long run that started hours
           # ago and is still going, which looks identical to a stall.
+          #
+          # This run is skipped: its own job is in_progress for the whole scan,
+          # so counting it would make "a job is running" true by construction and
+          # the stall test unreachable.
           run_meta = {}
           for status in ("in_progress", "queued", "pending", "waiting", "requested"):
               page = 1
@@ -96,13 +121,15 @@ jobs:
                       raise SystemExit(1)
                   rs = batch.get("workflow_runs", [])
                   for r in rs:
+                      if self_run and str(r["id"]) == self_run:
+                          continue
                       run_meta[r["id"]] = r
                   if len(rs) < 100 or page >= 20:
                       break
                   page += 1
 
           # ---- where that work actually is -----------------------------------
-          queued, running, unreadable = [], [], []
+          queued, running, zombie, unreadable = [], [], [], []
           for rid in sorted(run_meta):
               page = 1
               while True:
@@ -113,9 +140,15 @@ jobs:
                       break
                   for j in part.get("jobs", []):
                       j["run_id"] = rid
-                      if j.get("status") == "in_progress":
-                          running.append(j)
-                      elif j.get("status") in ("queued", "pending", "waiting", "requested"):
+                      j_status = j.get("status")
+                      if j_status == "in_progress":
+                          state, idle = work_state(j)
+                          if state == "running":
+                              running.append(j)
+                          else:
+                              j["idle_minutes"] = idle
+                              zombie.append(j)
+                      elif j_status in ("queued", "pending", "waiting", "requested"):
                           queued.append(j)
                   if len(part.get("jobs", [])) < 100:
                       break
@@ -138,8 +171,9 @@ jobs:
               if waiting:
                   waiting.sort(key=lambda j: j.get("created_at", ""))
                   stalled = waiting
+          zombie.sort(key=lambda j: j["idle_minutes"], reverse=True)
 
-          if not stalled and not stale_unreadable:
+          if not stalled and not stale_unreadable and not zombie:
               print("runner-health: %d job(s) queued, %d running — no stall"
                     % (len(queued), len(running)))
               raise SystemExit(0)
@@ -155,6 +189,12 @@ jobs:
               lines.append(
                   "the queue spans %d run(s); oldest waiting job created %s"
                   % (len({j.get("run_id") for j in stalled}), oldest.get("created_at")))
+          if zombie:
+              worst = zombie[0]
+              lines.append(
+                  "%d job(s) report in_progress with every step finished, idle up to "
+                  "%.0f min (run %s, %s); they hold concurrency without doing work"
+                  % (len(zombie), worst["idle_minutes"], worst.get("run_id"), worst.get("name")))
           for rid in stale_unreadable:
               # Unreadable state is reported, never assumed healthy: the runs
               # that wedge a worker are the same ones whose job list stops
@@ -177,5 +217,10 @@ jobs:
                               "anywhere. Restart the actions runner service on the host, then "
                               "cancel the runs stuck in queued: a worker that still reports "
                               "busy with nothing attributed blocks dispatch entirely.\n")
+                  if zombie:
+                      f.write("\nSome cells report in_progress with no step running. Their "
+                              "cancel never applied and they hold a concurrency slot until "
+                              "GitHub reaps them; re-send the cancel until the run reaches "
+                              "cancelled.\n")
           raise SystemExit(1)
           PYEOF
