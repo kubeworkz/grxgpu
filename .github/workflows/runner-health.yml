@@ -1,0 +1,175 @@
+# Runner health — fails when a busy runner has no in-progress job to show for
+# it while work sits queued, and reports runs whose job list will not answer
+# (the runs that wedge a worker are the ones that stop answering).
+#
+# A wedged actions worker is invisible from the PR view: the runner reports
+# busy, every run stays queued, cancel requests never apply, and no job is ever
+# attributed to the worker holding it. That state cost an afternoon of manual
+# polling once, so it is checked here on a schedule instead. The check is
+# deliberately hosted: it is worthless if it queues behind the runner it is
+# meant to diagnose.
+
+name: Runner health
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  wedged-runner:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Fail when a busy runner has nothing running
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          API: ${{ github.api_url }}
+          WEDGED_MINUTES: "15"
+        run: |
+          python3 - <<'PYEOF'
+          import http.client, json, os, time, urllib.request, urllib.error
+          from datetime import datetime, timezone
+
+          api = os.environ["API"].rstrip("/")
+          repo = os.environ["GITHUB_REPOSITORY"]
+          tok = os.environ["GH_TOKEN"]
+          threshold = float(os.environ.get("WEDGED_MINUTES", "15"))
+
+          def req(path, attempts=2):
+              url = path if path.startswith("http") else api + path
+              for attempt in range(1, attempts + 1):
+                  r = urllib.request.Request(url)
+                  r.add_header("Authorization", "Bearer " + tok)
+                  r.add_header("Accept", "application/vnd.github+json")
+                  try:
+                      with urllib.request.urlopen(r, timeout=15) as resp:
+                          return json.loads(resp.read() or b"{}")
+                  except urllib.error.HTTPError as e:
+                      # 5xx is GitHub's side and is often momentary; 4xx will not
+                      # improve with a retry.
+                      if e.code < 500 or attempt == attempts:
+                          print("runner-health: GET %s -> %s" % (path, e.code))
+                          return None
+                  except (urllib.error.URLError, http.client.HTTPException, OSError, ValueError) as e:
+                      # Truncated bodies arrive as IncompleteRead, and a reset
+                      # arrives as OSError; neither is an HTTPError.
+                      if attempt == attempts:
+                          print("runner-health: GET %s -> %s" % (path, e))
+                          return None
+                  time.sleep(3)
+              return None
+
+          now = datetime.now(timezone.utc)
+
+          def age_minutes(stamp):
+              if not stamp or not stamp.endswith("Z"):
+                  return 0.0
+              return (now - datetime.strptime(stamp, "%Y-%m-%dT%H:%M:%SZ")
+                      .replace(tzinfo=timezone.utc)).total_seconds() / 60.0
+
+          # ---- busy runners --------------------------------------------------
+          got = req("/repos/%s/actions/runners" % repo)
+          if got is None:
+              raise SystemExit(1)
+          busy = [r for r in got.get("runners", []) if r.get("busy")]
+          if not busy:
+              print("runner-health: no busy runner — nothing to check")
+              raise SystemExit(0)
+
+          # ---- jobs, and the runner each one sits on -------------------------
+          # A run's status says nothing about where its jobs run, so every
+          # queued or running run has to be opened. That is a handful of calls
+          # in practice: one per in-flight pipeline.
+          run_meta = {}
+          for status in ("in_progress", "queued"):
+              page = 1
+              while True:
+                  runs = req("/repos/%s/actions/runs?status=%s&per_page=100&page=%d"
+                             % (repo, status, page))
+                  if runs is None:
+                      raise SystemExit(1)
+                  batch = runs.get("workflow_runs", [])
+                  run_meta.update({r["id"]: r for r in batch})
+                  if len(batch) < 100:
+                      break
+                  page += 1
+
+          jobs, unreadable = [], []
+          for rid in sorted(run_meta):
+              page = 1
+              while True:
+                  part = req("/repos/%s/actions/runs/%d/jobs?filter=latest&per_page=100&page=%d"
+                             % (repo, rid, page))
+                  if part is None:
+                      unreadable.append(rid)
+                      break
+                  jobs.extend(part.get("jobs", []))
+                  if len(part.get("jobs", [])) < 100:
+                      break
+                  page += 1
+
+          in_progress = [j for j in jobs if j.get("status") == "in_progress"]
+          waiting = [j for j in jobs if j.get("status") in ("queued", "pending")]
+
+          # ---- classify ------------------------------------------------------
+          problems = []
+          for runner in busy:
+              labels = {l.get("name") for l in runner.get("labels", [])}
+              if any(j.get("runner_name") == runner["name"] for j in in_progress):
+                  continue
+              stuck = [j for j in waiting
+                       if (j.get("labels") or [])
+                       and set(j["labels"]) <= labels
+                       and age_minutes(j.get("created_at")) >= threshold]
+              if stuck:
+                  stuck.sort(key=lambda j: j.get("created_at", ""))
+                  problems.append((runner, stuck))
+
+          # A run younger than the threshold proves nothing yet: its job list may
+          # still be materialising, and a single 5xx can look the same as a stuck
+          # run. Only unreadable runs that are already old enough to be blocking
+          # are reported.
+          stale_unreadable = [rid for rid in unreadable
+                              if age_minutes(run_meta.get(rid, {}).get("created_at")) >= threshold]
+
+          if not problems and not stale_unreadable:
+              print("runner-health: %d busy runner(s), each with a job in flight" % len(busy))
+              raise SystemExit(0)
+
+          lines = []
+          for runner, stuck in problems:
+              oldest = stuck[0]
+              lines.append(
+                  "runner %s is busy with no in-progress job while %d job(s) wait; "
+                  "oldest queued %.0f min (run %s, %s)"
+                  % (runner["name"], len(stuck), age_minutes(oldest.get("created_at")),
+                     oldest.get("run_id"), oldest.get("name")))
+          for rid in stale_unreadable:
+              # Unreadable state is reported, never assumed healthy: the runs
+              # that wedge a worker are the same ones whose job list stops
+              # answering, so silence here would hide exactly what this checks.
+              meta = run_meta.get(rid, {})
+              lines.append("run %s (%s, %s) has no readable job list after retries; cancel "
+                           "or re-run it if it is stuck"
+                           % (rid, meta.get("head_branch", "?"), meta.get("status", "?")))
+
+          for line in lines:
+              print("::error::" + line)
+
+          summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary_path:
+              with open(summary_path, "a") as f:
+                  f.write("## Runner health\n\n")
+                  f.write("\n".join("- " + line for line in lines) + "\n")
+                  if problems:
+                      f.write("\nA busy runner with no attributable in-progress job is wedged: "
+                              "queued work cannot dispatch and cancellation does not apply. "
+                              "Restart the actions runner service on the host.\n")
+          raise SystemExit(1)
+          PYEOF
