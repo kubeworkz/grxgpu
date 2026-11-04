@@ -12,7 +12,8 @@ SRAM is loaded and read back over the five JTAG pins, with no host or DRAM
 interface. Running the loaded image uses the boot sequencer and the core-side
 attachment of §5.6; simulation runs the image on the real `VX_core`.
 **What it is not:** trace, triggers, authentication, secure debug, or multi-hart
-run control.
+run control. A security review of the path as built is
+[g100_t0_debug_security_review.md](g100_t0_debug_security_review.md).
 
 ---
 
