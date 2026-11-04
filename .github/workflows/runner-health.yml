@@ -129,15 +129,29 @@ jobs:
                   page += 1
 
           # ---- where that work actually is -----------------------------------
-          queued, running, zombie, unreadable = [], [], [], []
+          # A run whose first job page answers is readable enough to judge: the
+          # jobs on it are real, only the tail is missing. A 5xx on page two of a
+          # hundred-job matrix is a GitHub-side hiccup, not evidence of a wedge,
+          # and treating it as one turns a live matrix into a false alarm. Only a
+          # run with no readable page at all is genuinely unknown.
+          queued, running, zombie = [], [], []
+          unreadable, partial = [], []
           for rid in sorted(run_meta):
               page = 1
+              pages_read = 0
               while True:
                   part = req("/repos/%s/actions/runs/%d/jobs?filter=latest&per_page=100&page=%d"
                              % (repo, rid, page))
                   if part is None:
-                      unreadable.append(rid)
+                      if pages_read == 0:
+                          unreadable.append(rid)
+                      else:
+                          partial.append((rid, pages_read))
+                          print("::warning::runner-health: run %s job list stopped answering "
+                                "after %d page(s); jobs past it are not counted"
+                                % (rid, pages_read))
                       break
+                  pages_read += 1
                   for j in part.get("jobs", []):
                       j["run_id"] = rid
                       j_status = j.get("status")
@@ -222,5 +236,9 @@ jobs:
                               "cancel never applied and they hold a concurrency slot until "
                               "GitHub reaps them; re-send the cancel until the run reaches "
                               "cancelled.\n")
+                  if partial:
+                      f.write("\n%d run(s) answered only part of their job list; jobs beyond "
+                              "the last readable page are excluded from this verdict.\n"
+                              % len(partial))
           raise SystemExit(1)
           PYEOF
