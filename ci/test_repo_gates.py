@@ -8,9 +8,10 @@ the tests drive them through real git state rather than mocking it:
 
   ci/check_tracked_artifacts.sh  build output and machine binaries
   ci/check_lf_endings.sh         CRLF blobs in scripts and pinned files
+  ci/check_pdk_descriptors.sh    descriptor completeness and line endings
   ci/check_config_boundary.sh    sw/ never includes the hardware config
   ci/check_sw_sim_boundary.sh    sw/ and sim/+hw/ stay isolated
-  ci/hooks/pre-commit            both hygiene gates on the staged paths
+  ci/hooks/pre-commit            the hygiene gates on the staged paths
   ci/install_hooks.sh            core.hooksPath enablement
   ci/binary_magic.py             the batch parser behind the staged scan
 
@@ -32,6 +33,7 @@ pytestmark = pytest.mark.skipif(BASH is None, reason="the gates need a POSIX she
 COPIED = (
     "ci/check_tracked_artifacts.sh",
     "ci/check_lf_endings.sh",
+    "ci/check_pdk_descriptors.sh",
     "ci/check_config_boundary.sh",
     "ci/check_sw_sim_boundary.sh",
     "ci/binary_magic.py",
@@ -104,6 +106,10 @@ def _artifacts(repo, *args):
 
 def _lf(repo, *args):
     return _run([BASH, str(Path(repo) / "ci/check_lf_endings.sh"), *args], repo)
+
+
+def _pdk(repo, *args):
+    return _run([BASH, str(Path(repo) / "ci/check_pdk_descriptors.sh"), *args], repo)
 
 
 def _hook(repo):
@@ -433,3 +439,152 @@ def test_sw_sim_boundary_rejects_a_cross_layer_makefile_flag(repo):
 
     assert result.returncode == 1
     assert "Makefile" in result.stderr
+
+
+# --------------------------------------------------------------------------- #
+# PDK descriptors
+# --------------------------------------------------------------------------- #
+
+def _descriptor(**overrides):
+    """A complete, ready descriptor; `None` drops a field, "" empties a value."""
+    fields = {
+        "PDK_NAME": "testpdk",
+        "PDK_DESCRIPTION": '"test process"',
+        "PDK_NODE_NM": "28",
+        "PDK_READY": "1",
+        "PDK_LIBERTY": "/pdk/28/lib.lib",
+        "PDK_TECH_LEF": "/pdk/28/tech.lef",
+        "PDK_CELL_LEF": "/pdk/28/cells.lef",
+        "PDK_POWER_NET": "VDD",
+        "PDK_GROUND_NET": "VSS",
+        "PDK_STORAGE_CELL": "dff_x1",
+        "PDK_TRISTATE_CELL": "tbuf_x4",
+        "PDK_INV_CELL": "inv_x1",
+        "PDK_TAP_CELL": "tap_x1",
+        "PDK_FILLER_CELLS": '"fill_1 fill_2"',
+        "PDK_MAX_TAP_DIST": "15",
+        "PDK_HAS_ORRAM": "1",
+        "PDK_ROUTING_LAYER": '"met1 0.1"',
+        "PDK_VER_LAYER": '"met2 0.1 4"',
+        "PDK_HOR_LAYER": '"met3 0.1 2"',
+    }
+    fields.update(overrides)
+    return "".join("{}={}\n".format(k, v) for k, v in fields.items() if v is not None)
+
+
+def _skeleton(**overrides):
+    """A descriptor for a process whose libraries have not been delivered."""
+    empty = {key: "" for key in ("PDK_LIBERTY", "PDK_TECH_LEF", "PDK_CELL_LEF",
+                                 "PDK_POWER_NET", "PDK_GROUND_NET",
+                                 "PDK_STORAGE_CELL", "PDK_TRISTATE_CELL",
+                                 "PDK_INV_CELL", "PDK_TAP_CELL", "PDK_FILLER_CELLS",
+                                 "PDK_MAX_TAP_DIST", "PDK_ROUTING_LAYER",
+                                 "PDK_VER_LAYER", "PDK_HOR_LAYER")}
+    empty.update(PDK_READY="0", PDK_HAS_ORRAM="0")
+    empty.update(overrides)
+    return _descriptor(**empty)
+
+
+def _stage_descriptor(repo, name, text):
+    _write(repo, "syn/pdk/{}".format(name), text)
+    _git(repo, "add", "syn/pdk/{}".format(name))
+
+
+def test_pdk_pass_with_a_complete_descriptor(repo):
+    _stage_descriptor(repo, "test.pdk", _descriptor())
+
+    result = _pdk(repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "1 descriptors, 1 ready, 0 skeleton" in result.stdout
+
+
+def test_pdk_pass_without_descriptors(repo):
+    result = _pdk(repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "no descriptors" in result.stdout
+
+
+def test_pdk_reject_crlf_blob(repo):
+    _stage_blob(repo, "syn/pdk/crlf.pdk", _descriptor().replace("\n", "\r\n").encode())
+
+    result = _pdk(repo, "--staged")
+
+    assert result.returncode == 1
+    assert "CRLF" in result.stdout
+
+
+def test_pdk_reject_empty_ready_field(repo):
+    _stage_descriptor(repo, "empty.pdk", _descriptor(PDK_LIBERTY=""))
+
+    result = _pdk(repo)
+
+    assert result.returncode == 1
+    assert "PDK_READY=1 but PDK_LIBERTY is empty" in result.stdout
+
+
+def test_pdk_reject_missing_field(repo):
+    _stage_descriptor(repo, "short.pdk", _descriptor(PDK_VER_LAYER=None))
+
+    result = _pdk(repo)
+
+    assert result.returncode == 1
+    assert "missing field PDK_VER_LAYER" in result.stdout
+
+
+def test_pdk_reject_misspelled_field(repo):
+    """A typo must not read as a filled field: both halves are reported."""
+    _stage_descriptor(repo, "typo.pdk",
+                      _descriptor(PDK_LIBERTY=None) + "PDK_LIBERTTY=/pdk/lib.lib\n")
+
+    result = _pdk(repo)
+
+    assert result.returncode == 1
+    assert "unknown field PDK_LIBERTTY" in result.stdout
+    assert "missing field PDK_LIBERTY" in result.stdout
+
+
+def test_pdk_reject_duplicate_field(repo):
+    _stage_descriptor(repo, "dup.pdk", _descriptor() + "PDK_NAME=again\n")
+
+    result = _pdk(repo)
+
+    assert result.returncode == 1
+    assert "duplicate field PDK_NAME" in result.stdout
+
+
+def test_pdk_reject_empty_macro_cell_when_the_flag_is_set(repo):
+    _stage_descriptor(repo, "cells.pdk", _descriptor(PDK_INV_CELL=""))
+
+    result = _pdk(repo)
+
+    assert result.returncode == 1
+    assert "PDK_HAS_ORRAM=1 but PDK_INV_CELL is empty" in result.stdout
+
+
+def test_pdk_skeleton_may_leave_libraries_empty(repo):
+    _stage_descriptor(repo, "skeleton.pdk", _skeleton())
+
+    result = _pdk(repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "1 descriptors, 0 ready, 1 skeleton" in result.stdout
+
+
+def test_pdk_skeleton_still_needs_its_identity(repo):
+    _stage_descriptor(repo, "nameless.pdk", _skeleton(PDK_NAME=""))
+
+    result = _pdk(repo)
+
+    assert result.returncode == 1
+    assert "PDK_NAME is empty" in result.stdout
+
+
+def test_pdk_staged_scan_judges_only_the_staged_paths(repo):
+    _stage_descriptor(repo, "bad.pdk", _descriptor(PDK_NODE_NM=""))
+    _git(repo, "commit", "-q", "-m", "committed before the gate existed")
+    _stage_descriptor(repo, "good.pdk", _descriptor())
+
+    assert _pdk(repo).returncode == 1
+    assert _pdk(repo, "--staged").returncode == 0

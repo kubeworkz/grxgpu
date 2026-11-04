@@ -2,7 +2,7 @@
 # Pre-commit: run the repo-hygiene gates on what is about to be committed.
 #
 # Enabled by ci/install_hooks.sh, which points core.hooksPath at ci/hooks.
-# Both gates read the index, so at pre-commit time they judge exactly the
+# All three gates read the index, so at pre-commit time they judge exactly the
 # pending commit rather than the checkout. Only the staged paths are scanned:
 # unchanged files were checked when their own commit was made, and a full scan
 # costs seconds on a large checkout. Staging .gitignore or .gitattributes
@@ -23,7 +23,7 @@ if git diff --cached --name-only | grep -qxE '\.(gitignore|gitattributes)$'; the
 fi
 
 status=0
-for gate in ci/check_tracked_artifacts.sh ci/check_lf_endings.sh; do
+for gate in ci/check_tracked_artifacts.sh ci/check_lf_endings.sh ci/check_pdk_descriptors.sh; do
   if [ "$full" -eq 1 ]; then
     "$gate" || status=1
   else
