@@ -1,13 +1,22 @@
-# Runner health — fails when a busy runner has no in-progress job to show for
-# it while work sits queued, and reports runs whose job list will not answer
-# (the runs that wedge a worker are the ones that stop answering).
+# Runner health — fails when work waits while nothing is running.
 #
-# A wedged actions worker is invisible from the PR view: the runner reports
-# busy, every run stays queued, cancel requests never apply, and no job is ever
-# attributed to the worker holding it. That state cost an afternoon of manual
-# polling once, so it is checked here on a schedule instead. The check is
-# deliberately hosted: it is worthless if it queues behind the runner it is
-# meant to diagnose.
+# A wedged actions worker is invisible from the PR view: every run stays queued,
+# cancel requests never apply, and no job is ever attributed to the worker
+# holding it. That state cost an afternoon of manual polling once, so it is
+# checked here on a schedule instead.
+#
+# Why the signal is "nothing running" rather than "a busy runner with no job":
+# the self-hosted runner inherits the same `ubuntu-22.04` label as the hosted
+# pool, so a queued job does not say which of the two it is waiting for, and
+# runner inventory (`/actions/runners`) needs repository admin, which the
+# workflow token cannot hold. What is left, and what actually distinguishes the
+# wedge from an ordinary busy queue, is that dispatch has stopped: jobs sit
+# queued past the threshold while zero jobs run anywhere. A merely busy fleet
+# always has jobs in progress, so it cannot trip this.
+#
+# Known blind spot: if dispatch stops account-wide this job queues too, so the
+# check reports the window afterwards rather than during it. It is a
+# post-recovery and partial-outage detector, not an in-band alarm.
 
 name: Runner health
 
@@ -21,11 +30,11 @@ permissions:
   contents: read
 
 jobs:
-  wedged-runner:
+  stalled-dispatch:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Fail when a busy runner has nothing running
+      - name: Fail when jobs wait while nothing runs
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
@@ -73,34 +82,27 @@ jobs:
               return (now - datetime.strptime(stamp, "%Y-%m-%dT%H:%M:%SZ")
                       .replace(tzinfo=timezone.utc)).total_seconds() / 60.0
 
-          # ---- busy runners --------------------------------------------------
-          got = req("/repos/%s/actions/runners" % repo)
-          if got is None:
-              raise SystemExit(1)
-          busy = [r for r in got.get("runners", []) if r.get("busy")]
-          if not busy:
-              print("runner-health: no busy runner — nothing to check")
-              raise SystemExit(0)
-
-          # ---- jobs, and the runner each one sits on -------------------------
-          # A run's status says nothing about where its jobs run, so every
-          # queued or running run has to be opened. That is a handful of calls
-          # in practice: one per in-flight pipeline.
+          # ---- runs that still have work to place ----------------------------
+          # Filtered by status and swept to the end: stopping at the first page
+          # older than the threshold would miss a long run that started hours
+          # ago and is still going, which looks identical to a stall.
           run_meta = {}
-          for status in ("in_progress", "queued"):
+          for status in ("in_progress", "queued", "pending", "waiting", "requested"):
               page = 1
               while True:
-                  runs = req("/repos/%s/actions/runs?status=%s&per_page=100&page=%d"
-                             % (repo, status, page))
-                  if runs is None:
+                  batch = req("/repos/%s/actions/runs?status=%s&per_page=100&page=%d"
+                              % (repo, status, page))
+                  if batch is None:
                       raise SystemExit(1)
-                  batch = runs.get("workflow_runs", [])
-                  run_meta.update({r["id"]: r for r in batch})
-                  if len(batch) < 100:
+                  rs = batch.get("workflow_runs", [])
+                  for r in rs:
+                      run_meta[r["id"]] = r
+                  if len(rs) < 100 or page >= 20:
                       break
                   page += 1
 
-          jobs, unreadable = [], []
+          # ---- where that work actually is -----------------------------------
+          queued, running, unreadable = [], [], []
           for rid in sorted(run_meta):
               page = 1
               while True:
@@ -109,47 +111,50 @@ jobs:
                   if part is None:
                       unreadable.append(rid)
                       break
-                  jobs.extend(part.get("jobs", []))
+                  for j in part.get("jobs", []):
+                      j["run_id"] = rid
+                      if j.get("status") == "in_progress":
+                          running.append(j)
+                      elif j.get("status") in ("queued", "pending", "waiting", "requested"):
+                          queued.append(j)
                   if len(part.get("jobs", [])) < 100:
                       break
                   page += 1
 
-          in_progress = [j for j in jobs if j.get("status") == "in_progress"]
-          waiting = [j for j in jobs if j.get("status") in ("queued", "pending")]
-
-          # ---- classify ------------------------------------------------------
-          problems = []
-          for runner in busy:
-              labels = {l.get("name") for l in runner.get("labels", [])}
-              if any(j.get("runner_name") == runner["name"] for j in in_progress):
-                  continue
-              stuck = [j for j in waiting
-                       if (j.get("labels") or [])
-                       and set(j["labels"]) <= labels
-                       and age_minutes(j.get("created_at")) >= threshold]
-              if stuck:
-                  stuck.sort(key=lambda j: j.get("created_at", ""))
-                  problems.append((runner, stuck))
-
           # A run younger than the threshold proves nothing yet: its job list may
           # still be materialising, and a single 5xx can look the same as a stuck
-          # run. Only unreadable runs that are already old enough to be blocking
-          # are reported.
+          # run. Only unreadable runs old enough to be blocking are reported.
           stale_unreadable = [rid for rid in unreadable
                               if age_minutes(run_meta.get(rid, {}).get("created_at")) >= threshold]
 
-          if not problems and not stale_unreadable:
-              print("runner-health: %d busy runner(s), each with a job in flight" % len(busy))
+          # ---- classify ------------------------------------------------------
+          # A busy fleet always has jobs in progress, so running work rules the
+          # wedge out regardless of queue depth. Only a queue draining to nothing
+          # is a stall.
+          stalled = []
+          if not running and queued:
+              waiting = [j for j in queued
+                         if age_minutes(j.get("created_at")) >= threshold]
+              if waiting:
+                  waiting.sort(key=lambda j: j.get("created_at", ""))
+                  stalled = waiting
+
+          if not stalled and not stale_unreadable:
+              print("runner-health: %d job(s) queued, %d running — no stall"
+                    % (len(queued), len(running)))
               raise SystemExit(0)
 
           lines = []
-          for runner, stuck in problems:
-              oldest = stuck[0]
+          if stalled:
+              oldest = stalled[0]
               lines.append(
-                  "runner %s is busy with no in-progress job while %d job(s) wait; "
-                  "oldest queued %.0f min (run %s, %s)"
-                  % (runner["name"], len(stuck), age_minutes(oldest.get("created_at")),
+                  "no job has started while %d job(s) wait, oldest %.0f min "
+                  "(run %s, %s)"
+                  % (len(queued), age_minutes(oldest.get("created_at")),
                      oldest.get("run_id"), oldest.get("name")))
+              lines.append(
+                  "the queue spans %d run(s); oldest waiting job created %s"
+                  % (len({j.get("run_id") for j in stalled}), oldest.get("created_at")))
           for rid in stale_unreadable:
               # Unreadable state is reported, never assumed healthy: the runs
               # that wedge a worker are the same ones whose job list stops
@@ -167,9 +172,10 @@ jobs:
               with open(summary_path, "a") as f:
                   f.write("## Runner health\n\n")
                   f.write("\n".join("- " + line for line in lines) + "\n")
-                  if problems:
-                      f.write("\nA busy runner with no attributable in-progress job is wedged: "
-                              "queued work cannot dispatch and cancellation does not apply. "
-                              "Restart the actions runner service on the host.\n")
+                  if stalled:
+                      f.write("\nQueued work is not being picked up and no job is running "
+                              "anywhere. Restart the actions runner service on the host, then "
+                              "cancel the runs stuck in queued: a worker that still reports "
+                              "busy with nothing attributed blocks dispatch entirely.\n")
           raise SystemExit(1)
           PYEOF
