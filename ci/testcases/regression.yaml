@@ -54,7 +54,6 @@ tests:
     run-{driver}-occupancy
     run-{driver}-multikernel
     run-{driver}-async_barrier
-    run-{driver}-async_gbarrier
     run-{driver}-packld
     run-{driver}-wgather
     run-{driver}-wsync
@@ -173,6 +172,14 @@ tests:
   - simx
   app: vecadd
   flags: --nohup
+- id: async-gbarrier
+  # Its own case rather than part of isa-1a: global barriers across the
+  # default 8-cluster device.
+  via: make-run
+  drivers:
+  - simx
+  dir: tests/regression
+  target: run-{driver}-async_gbarrier
 - id: async-gbarrier-mc
   via: blackbox
   drivers:
@@ -181,3 +188,12 @@ tests:
   shape:
     clusters: 2
     cores: 2
+# One core per cluster: the barrier exists only across clusters.
+- id: async-gbarrier-mc1
+  via: blackbox
+  drivers:
+  - simx
+  app: async_gbarrier
+  shape:
+    clusters: 2
+    cores: 1

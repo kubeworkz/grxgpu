@@ -66,6 +66,11 @@ public:
 
   class Core* get_first_core() const;
 
+  // A core's arrival at a global barrier (core_id is device-wide). When
+  // `count` cores have arrived, every one of them is resumed: the barrier
+  // spans all clusters, as VX_gbar_unit does at the top of the RTL.
+  void global_barrier_arrive(uint32_t bar_id, uint32_t count, uint32_t core_id);
+
   // Drain dirty data from caches (write-back path) all the way to DRAM.
   // Walks L1 dcaches → L2 → L3, ticking the simulator between phases so
   // each level's evictions reach the next before that level itself flushes.
@@ -79,6 +84,7 @@ private:
 
   Kmu::Ptr    kmu_;
   std::vector<Cluster::Ptr> clusters_;
+  std::vector<core_barrier_t> gbarriers_;
   Memory::Ptr memsim_;
   RAM*        ram_ = nullptr;   // functional backing store (set by attach_ram)
   Cache::Ptr l3cache_;

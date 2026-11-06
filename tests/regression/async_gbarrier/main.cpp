@@ -17,6 +17,9 @@
    } while (false)
 
 const char* kernel_file = "kernel.vxbin";
+// Per-launch completion wait in seconds. A global barrier that never releases
+// hangs the kernel, so the wait is bounded and a hang becomes a failure.
+uint32_t wait_timeout_s = 600;
 
 vx_device_h device = nullptr;
 vx_buffer_h pre_buffer = nullptr;
@@ -30,15 +33,18 @@ kernel_arg_t kernel_arg = {};
 
 static void show_usage() {
   std::cout << "Vortex Test." << std::endl;
-  std::cout << "Usage: [-k: kernel] [-h: help]" << std::endl;
+  std::cout << "Usage: [-k: kernel] [-t: wait_timeout_sec] [-h: help]" << std::endl;
 }
 
 static void parse_args(int argc, char** argv) {
   int c;
-  while ((c = getopt(argc, argv, "k:h")) != -1) {
+  while ((c = getopt(argc, argv, "k:t:h")) != -1) {
     switch (c) {
     case 'k':
       kernel_file = optarg;
+      break;
+    case 't':
+      wait_timeout_s = atoi(optarg);
       break;
     case 'h':
       show_usage();
@@ -139,7 +145,15 @@ int main(int argc, char* argv[]) {
     li.block_dim[0] = block_dim[0];
     vx_event_h launch_ev = nullptr;
     RT_CHECK(vx_enqueue_launch(queue, &li, 0, nullptr, &launch_ev));
-    RT_CHECK(vx_event_wait_value(launch_ev, 1, VX_TIMEOUT_INFINITE));
+    if (vx_event_wait_value(launch_ev, 1, (uint64_t)wait_timeout_s * 1000000000ull) != 0) {
+      std::cout << "Error: launch " << launch << " did not complete within " << wait_timeout_s
+                << "s: a global barrier never released (every core waits at it)." << std::endl
+                << "FAILED!" << std::endl;
+      // The device's simulation threads are stuck mid-kernel; releasing the
+      // device would block joining them, so exit without cleanup.
+      std::cout.flush();
+      _exit(-1);
+    }
     vx_event_release(launch_ev);
   }
 

@@ -82,6 +82,9 @@ public:
 
   void global_barrier_arrive(uint32_t bar_id, uint32_t count, uint32_t core_id);
 
+  // Resume a core of this cluster (index within the cluster) from a global barrier.
+  void global_barrier_resume(uint32_t bar_id, uint32_t local_core_id);
+
   PerfStats perf_stats() const;
 
   int dcr_write(uint32_t addr, uint32_t value);
