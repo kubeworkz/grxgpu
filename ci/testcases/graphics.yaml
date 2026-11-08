@@ -579,7 +579,7 @@ tests:
   via: blackbox
   app: gfx_tex
   args: -i toad.png -r toad_ref_f0.png -f 0 -g 0
-  configs: -DVX_CFG_EXT_TEX_ENABLE
+  configs: -DVX_CFG_EXT_TEX_ENABLE -DVX_CFG_ISSUE_WIDTH=4
 
 # Perf-regression twin of the model_parity-raster benchmark (same run, cycles-vs-baseline).
 - id: perf_gate-raster
@@ -587,7 +587,7 @@ tests:
   via: blackbox
   app: gfx_raster
   args: -w 128 -h 128 -t triangle.cgltrace -r triangle_ref_128.png
-  configs: -DVX_CFG_EXT_RASTER_ENABLE
+  configs: -DVX_CFG_EXT_RASTER_ENABLE -DVX_CFG_ISSUE_WIDTH=4
 
 # Perf-regression twin of the model_parity-om benchmark (same run, cycles-vs-baseline).
 - id: perf_gate-om
@@ -595,7 +595,7 @@ tests:
   via: blackbox
   app: gfx_om
   args: -w 128 -h 128 -r whitebox_128.png
-  configs: -DVX_CFG_EXT_OM_ENABLE
+  configs: -DVX_CFG_EXT_OM_ENABLE -DVX_CFG_ISSUE_WIDTH=4
 
 # Full-pipeline (TEX+RASTER+OM) parity + perf-gate on box.cgltrace — catches
 # cross-FF-unit interactions the per-unit model_parity/perf_gate cases miss.
@@ -616,4 +616,4 @@ tests:
   via: blackbox
   app: gfx_draw3d
   args: -w 128 -h 128 -t box.cgltrace -r box_ref_128.png
-  configs: -DVX_CFG_EXT_TEX_ENABLE -DVX_CFG_EXT_RASTER_ENABLE -DVX_CFG_EXT_OM_ENABLE
+  configs: -DVX_CFG_EXT_TEX_ENABLE -DVX_CFG_EXT_RASTER_ENABLE -DVX_CFG_EXT_OM_ENABLE -DVX_CFG_ISSUE_WIDTH=4

@@ -178,7 +178,7 @@ tests:
   via: blackbox
   app: sgemm_tcu
   args: -m 128 -n 128 -k 128
-  configs: -DVX_CFG_NUM_THREADS=8 -DVX_CFG_EXT_TCU_ENABLE -DITYPE=fp16 -DOTYPE=fp32
+  configs: -DVX_CFG_NUM_THREADS=8 -DVX_CFG_EXT_TCU_ENABLE -DITYPE=fp16 -DOTYPE=fp32 -DVX_CFG_ISSUE_WIDTH=4
 
 # TCU fp16 multi-core: NT=NW=8 across 2 cores (shared L2).
 - id: model_parity-fp16-mc
@@ -194,7 +194,7 @@ tests:
   via: blackbox
   app: sgemm_tcu
   args: -m 128 -n 128 -k 128
-  configs: -DVX_CFG_NUM_THREADS=8 -DVX_CFG_NUM_WARPS=8 -DVX_CFG_EXT_TCU_ENABLE -DITYPE=fp16 -DOTYPE=fp32
+  configs: -DVX_CFG_NUM_THREADS=8 -DVX_CFG_NUM_WARPS=8 -DVX_CFG_EXT_TCU_ENABLE -DITYPE=fp16 -DOTYPE=fp32 -DVX_CFG_ISSUE_WIDTH=4
   shape: {cores: 2, l2cache: true}
 # Shared-memory staged TCU SGEMM (sgemm2 kernel: CTA tiling + local-mem operand
 # reuse). K stays at 64: the test's double-accumulated CPU reference vs the

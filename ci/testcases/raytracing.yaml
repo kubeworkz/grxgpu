@@ -81,4 +81,4 @@ tests:
   check: perf_gate
   via: blackbox
   app: rt_raycast
-  configs: -DVX_CFG_EXT_RTU_ENABLE
+  configs: -DVX_CFG_EXT_RTU_ENABLE -DVX_CFG_ISSUE_WIDTH=4
