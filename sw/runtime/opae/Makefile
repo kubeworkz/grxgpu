@@ -46,7 +46,7 @@ endif
 
 PROJECT := libvortex-opae.so
 
-.PHONY: all force driver clean-driver clean-runtime clean
+.PHONY: all force verilate driver clean-driver clean-runtime clean
 
 all: $(DESTDIR)/$(PROJECT)
 
@@ -54,6 +54,12 @@ $(ROOT_DIR)/hw/syn/altera/opae/vortex_opae.h:
 	$(MAKE) -C $(ROOT_DIR)/hw/syn/altera/opae swconfig
 
 driver: $(DESTDIR)/libopae-c-sim.so
+
+# Generate the model for this runtime's driver without compiling it, with the
+# same DESTDIR and flags the driver build gets, so the build that follows
+# reuses the model instead of re-verilating.
+verilate:
+	DESTDIR=$(DESTDIR) $(MAKE) -C $(ROOT_DIR)/sim/opaesim verilate
 
 $(DESTDIR)/libopae-c-sim.so: force
 	DESTDIR=$(DESTDIR) $(MAKE) -C $(ROOT_DIR)/sim/opaesim $(DESTDIR)/libopae-c-sim.so

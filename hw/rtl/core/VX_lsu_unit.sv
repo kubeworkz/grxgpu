@@ -28,6 +28,10 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
     // Outputs
     VX_commit_if.master     commit_if [`VX_CFG_ISSUE_WIDTH],
 
+`ifdef PERF_ENABLE
+    output wire [PERF_CTR_BITS-1:0] perf_fence_cycles,
+`endif
+
     // Per-block client connection to VX_lsu_scheduler (at VX_core).
     VX_lsu_sched_if.master per_block_client_if [`VX_CFG_NUM_LSU_BLOCKS]
 );
@@ -35,6 +39,19 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
     localparam NUM_LANES  = `VX_CFG_NUM_LSU_LANES;
 
     `SCOPE_IO_SWITCH (BLOCK_SIZE);
+
+`ifdef PERF_ENABLE
+    wire [BLOCK_SIZE-1:0][PERF_CTR_BITS-1:0] per_block_fence_cycles;
+    reg [PERF_CTR_BITS-1:0] perf_fence_cycles_sum;
+    integer perf_block_idx;
+    always @(*) begin
+        perf_fence_cycles_sum = '0;
+        for (perf_block_idx = 0; perf_block_idx < BLOCK_SIZE; perf_block_idx = perf_block_idx + 1) begin
+            perf_fence_cycles_sum = perf_fence_cycles_sum + per_block_fence_cycles[perf_block_idx];
+        end
+    end
+    assign perf_fence_cycles = perf_fence_cycles_sum;
+`endif
 
     VX_execute_if #(
         .data_t (lsu_execute_t)
@@ -63,6 +80,9 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
             `SCOPE_IO_BIND  (block_idx)
             .clk              (clk),
             .reset            (reset),
+        `ifdef PERF_ENABLE
+            .perf_fence_cycles (per_block_fence_cycles[block_idx]),
+        `endif
             .execute_if       (per_block_execute_if[block_idx]),
             .result_if        (per_block_result_if[block_idx]),
             .client_if        (per_block_client_if[block_idx])

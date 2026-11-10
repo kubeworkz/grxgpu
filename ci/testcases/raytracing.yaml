@@ -66,6 +66,7 @@ tests:
 # on both drivers, cycles must agree within tolerance (see model_parity.yaml).
 - id: model_parity-rt_raycast
   check: model_parity
+  shape: {clusters: 1, cores: 4}
   # Execution passes and retired instructions match exactly; the image is
   # bit-exact. Only the cycle counts diverge (~2.8x): a documented pre-existing
   # RTU SimX-optimism (SimX under-models traversal-memory latency), now widened

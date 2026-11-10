@@ -163,6 +163,7 @@ tests:
 # config on both drivers, cycles must agree within tolerance (see model_parity.yaml).
 - id: model_parity-fp16
   check: model_parity
+  shape: {clusters: 1, cores: 4}
   # Execution passes and retired instructions match exactly; only cycles
   # diverge (~6%, just over the 5% gate). SimX does not model the decoupled LSU
   # pending pool that feeds the TCU operand loads. Parity divergence only;
@@ -202,6 +203,7 @@ tests:
 # twin of the perf_gate-sgemm2-fp16 benchmark (same run, cycles-vs-baseline).
 - id: model_parity-sgemm2-fp16
   check: model_parity
+  shape: {clusters: 1, cores: 4}
   via: blackbox
   app: sgemm2_tcu
   args: -m 128 -n 128 -k 64
@@ -215,6 +217,7 @@ tests:
 
 - id: model_parity-fedp2k
   check: model_parity
+  shape: {clusters: 1, cores: 4}
   # Same pre-existing LSU timing gap as model_parity-fp16; FEDP2K changes the
   # datapath width but does not change the retired instruction stream.
   known_issue: "cycle-parity gap ~6%: SimX does not model the decoupled LSU pending pool (instrs match)"

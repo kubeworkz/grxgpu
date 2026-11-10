@@ -9,6 +9,13 @@
 # is all boot/dispatch skew and makes the gap ratio noisy. Extension parity
 # cases (tensor*, rtu, raster/om/tex, dxa) live in their own category files.
 #
+# Every case must pin the device shape: only declared shape flags reach both legs
+# as --clusters/--cores. Unshaped, blackbox bounds the rtlsim model to 1 cluster
+# x 4 cores while the simx leg keeps the TOML default, and the case compares two
+# different machines. A case that pins `cores` alone is already symmetric (the
+# --cores flag suppresses the rtlsim bound), but pin `clusters` too wherever the
+# cluster count matters.
+#
 # The cycle threshold is adjustable per case with a `tolerance:` field (a
 # fraction in (0,1)); it overrides the 5% default. Set a `defaults.tolerance:`
 # to change it for a whole category file. The exact retired-instruction match is
@@ -32,15 +39,20 @@ defaults:
   - sim/simx/
   - hw/rtl/
 tests:
-# ALU/LSU/branch streaming pipeline (~314k cycles on the default 1-core shape).
+# ALU/LSU/branch streaming pipeline (~77k cycles on the pinned shape).
 - id: vecadd
   check: model_parity
   via: blackbox
   app: vecadd
   args: -n16384
+  # Pin the device: only a declared shape reaches both legs as --clusters/--cores.
+  # Unshaped, blackbox bounds the rtlsim model to 1 cluster x 4 cores while the
+  # simx leg keeps the TOML default, and the case then compares two machines.
+  shape: {clusters: 1, cores: 4}
 # FPU + LSU locality, multi-warp reuse (~1.29M cycles on the default shape).
 - id: sgemm
   check: model_parity
+  shape: {clusters: 1, cores: 4}
   via: blackbox
   app: sgemm
   args: -n64
@@ -48,12 +60,14 @@ tests:
 # Softmax: elementwise exp + reduction (FPU + reduction traffic).
 - id: softmax
   check: model_parity
+  shape: {clusters: 1, cores: 4}
   via: blackbox
   app: softmax
   args: -n64
 # SGEMV: FPU + streaming matrix-vector.
 - id: sgemv
   check: model_parity
+  shape: {clusters: 1, cores: 4}
   # Execution passes and retired instructions match exactly; only cycles
   # diverge (~14%, RTL slower). SimX does not model the decoupled LSU pending
   # pool, so it under-counts the streaming-load latency this kernel is bound
@@ -83,10 +97,28 @@ tests:
   via: blackbox
   app: async_gbarrier
   shape: {clusters: 2, cores: 2}
+# The same workload confined to one cluster. Every barrier is still device-wide
+# (its size is num_cores*num_clusters), but with a single cluster it cannot
+# escalate, so the cluster must complete it from its own core mask. That is the
+# only shape where the completion can land in the same cycle a warp enters its
+# wait; across two clusters the global round trip always hides that case, and a
+# warp stranded there deadlocks the kernel. Keep both single-cluster shapes: the
+# non-escalating completion path has no other coverage.
+- id: async-gbarrier-1c2
+  check: model_parity
+  via: blackbox
+  app: async_gbarrier
+  shape: {clusters: 1, cores: 2}
+- id: async-gbarrier-1c4
+  check: model_parity
+  via: blackbox
+  app: async_gbarrier
+  shape: {clusters: 1, cores: 4}
 # SGEMM with local-memory tiling (kernel-managed shared memory). Parity twin of
 # the perf_gate sgemmx benchmark.
 - id: sgemmx
   check: model_parity
+  shape: {clusters: 1, cores: 4}
   # Same cause as sgemv/sgemm-mc: instrs match, cycles diverge (~7%).
   known_issue: "cycle-parity gap ~7%: SimX does not model the decoupled LSU pending pool (instrs match)"
   via: blackbox
@@ -96,6 +128,7 @@ tests:
 # perf_gate stencil3d benchmark.
 - id: stencil3d
   check: model_parity
+  shape: {clusters: 1, cores: 4}
   via: blackbox
   app: stencil3d
   args: -n32
@@ -103,5 +136,6 @@ tests:
 # perf_gate raycast benchmark.
 - id: raycast
   check: model_parity
+  shape: {clusters: 1, cores: 4}
   via: blackbox
   app: raycast

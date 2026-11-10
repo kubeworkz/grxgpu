@@ -254,6 +254,7 @@ tests:
 # both drivers, cycles must agree within tolerance (see model_parity.yaml).
 - id: model_parity-sparse-fp16
   check: model_parity
+  shape: {clusters: 1, cores: 4}
   via: blackbox
   app: sgemm_tcu_sp
   configs: -DVX_CFG_NUM_THREADS=8 -DVX_CFG_EXT_TCU_ENABLE -DVX_CFG_TCU_SPARSE_ENABLE

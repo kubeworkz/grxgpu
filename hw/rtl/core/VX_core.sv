@@ -372,6 +372,7 @@ module VX_core import VX_gpu_pkg::*; #(
     `ifdef PERF_ENABLE
         .sysmem_perf    (sysmem_perf_tmp),
         .pipeline_perf  (pipeline_perf),
+        .lsu_fence_cycles (lsu_fence_cycles),
     `ifdef VX_CFG_EXT_TCU_ENABLE
         .tcu_perf       (tcu_perf),
     `endif
@@ -594,6 +595,7 @@ module VX_core import VX_gpu_pkg::*; #(
     reg [PERF_CTR_BITS-1:0] perf_icache_pending_reads;
     reg [PERF_CTR_BITS-1:0] perf_dcache_pending_reads;
 
+    wire [PERF_CTR_BITS-1:0] lsu_fence_cycles;
     reg [PERF_CTR_BITS-1:0] perf_ifetches;
     reg [PERF_CTR_BITS-1:0] perf_loads;
     reg [PERF_CTR_BITS-1:0] perf_stores;
@@ -657,6 +659,7 @@ module VX_core import VX_gpu_pkg::*; #(
     assign pipeline_perf.stores = perf_stores;
     assign pipeline_perf.ifetch_latency = perf_icache_lat;
     assign pipeline_perf.load_latency = perf_dcache_lat;
+    assign pipeline_perf.fence_lt = lsu_fence_cycles;
 
 `endif
 

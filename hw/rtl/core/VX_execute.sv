@@ -25,6 +25,7 @@ module VX_execute import VX_gpu_pkg::*; #(
 `ifdef PERF_ENABLE
     input sysmem_perf_t     sysmem_perf,
     input pipeline_perf_t   pipeline_perf,
+    output wire [PERF_CTR_BITS-1:0] lsu_fence_cycles,
 `ifdef VX_CFG_EXT_TCU_ENABLE
     output tcu_perf_t       tcu_perf,
 `endif
@@ -107,6 +108,9 @@ module VX_execute import VX_gpu_pkg::*; #(
         `SCOPE_IO_BIND  (0)
         .clk             (clk),
         .reset           (reset),
+    `ifdef PERF_ENABLE
+        .perf_fence_cycles (lsu_fence_cycles),
+    `endif
         .dispatch_if         (dispatch_if[EX_LSU * `VX_CFG_ISSUE_WIDTH +: `VX_CFG_ISSUE_WIDTH]),
         .commit_if           (commit_if[EX_LSU * `VX_CFG_ISSUE_WIDTH +: `VX_CFG_ISSUE_WIDTH]),
         .per_block_client_if (lsu_client_if)

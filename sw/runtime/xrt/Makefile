@@ -46,11 +46,17 @@ ifdef CHIPSCOPE
 	CXXFLAGS += -DCHIPSCOPE
 endif
 
-.PHONY: all force driver clean-driver clean-runtime clean
+.PHONY: all force verilate driver clean-driver clean-runtime clean
 
 all: $(DESTDIR)/$(PROJECT)
 
 driver: $(DESTDIR)/libxrtsim.so
+
+# Generate the model for this runtime's driver without compiling it, with the
+# same DESTDIR and flags the driver build gets, so the build that follows
+# reuses the model instead of re-verilating.
+verilate:
+	DESTDIR=$(DESTDIR) $(MAKE) -C $(ROOT_DIR)/sim/xrtsim verilate
 
 $(DESTDIR)/libxrtsim.so: force
 	DESTDIR=$(DESTDIR) $(MAKE) -C $(ROOT_DIR)/sim/xrtsim $(DESTDIR)/libxrtsim.so
