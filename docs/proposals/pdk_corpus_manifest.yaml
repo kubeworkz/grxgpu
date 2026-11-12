@@ -1,0 +1,603 @@
+# Conformance corpus manifest — attachment to open_pdk_harness_spec.md §2.
+#
+# A deck cannot be shown equivalent on clean layouts alone: the corpus carries
+# positive controls (cases that must be flagged) as well as negative controls
+# (cases at or near a limit that must not be flagged). The harness compares the
+# violation SETS, so a deck that misses a violation fails as loudly as one that
+# invents a violation.
+#
+# Dispositions:
+#   clean     — neither deck may report a violation on this layout
+#   violation — both decks must report at least one violation in the named
+#               family; the harness records the exact rule IDs and compares
+#               the sets rather than trusting the family label
+#
+# status:
+#   exists  — reproducible today from the named artifact
+#   planned — case defined, layout not yet drawn; artifact: tbd
+#
+# The corpus is ours, so it can be published with the harness. Partner-supplied
+# layouts join the same manifest with `source: partner` and are not published.
+
+meta:
+  version: 1
+  date: 2026-11-03
+  spec: open_pdk_harness_spec.md
+  corpus_root: syn/pdk/corpus
+  total_cases: 104
+  counts:
+    clean: 90
+    violation: 14
+  note: >-
+    The manifest moves under corpus_root when the harness lands; it sits beside
+    the proposal until then. Rule families are deck-neutral on purpose: the
+    specific rule IDs belong to the foundry deck being validated, and the
+    harness records them per run.
+
+categories:
+  - id: memory
+    cases:
+      - id: mem-01
+        artifact: syn/gen_16kb_sram.tcl
+        status: exists
+        exercises: [dense bitcell array, row straps, well taps, power grid]
+        expect: clean
+      - id: mem-02
+        artifact: tbd
+        status: planned
+        exercises: [4 KB single-port array, column mux, sense-amp pitch]
+        expect: clean
+      - id: mem-03
+        artifact: tbd
+        status: planned
+        exercises: [single 6T bitcell, min-area rules, diffusion sharing]
+        expect: clean
+      - id: mem-04
+        artifact: tbd
+        status: planned
+        exercises: [row decoder at array pitch, irregular logic, pin access]
+        expect: clean
+      - id: mem-05
+        artifact: tbd
+        status: planned
+        exercises: [column mux, sense-amp matching, well continuity]
+        expect: clean
+      - id: mem-06
+        artifact: tbd
+        status: planned
+        exercises: [precharge and write driver, wide devices, via arrays]
+        expect: clean
+      - id: mem-07
+        artifact: tbd
+        status: planned
+        exercises: [wide power straps, slotting, via array density]
+        expect: clean
+      - id: mem-08
+        artifact: tbd
+        status: planned
+        exercises: [macro boundary ring, deliberate edge enclosure shortfall]
+        expect: violation
+        family: macro-edge-enclosure
+
+  - id: standard-cell
+    cases:
+      - id: sc-01
+        artifact: tbd
+        status: planned
+        exercises: [inverter, min W/L, gate contact, SD contact spacing]
+        expect: clean
+      - id: sc-02
+        artifact: tbd
+        status: planned
+        exercises: [NAND2, series stack, diffusion spacing]
+        expect: clean
+      - id: sc-03
+        artifact: tbd
+        status: planned
+        exercises: [NOR2 with deliberate nwell enclosure shortfall]
+        expect: violation
+        family: well-enclosure
+      - id: sc-04
+        artifact: tbd
+        status: planned
+        exercises: [AOI21, internal node routing, pin access]
+        expect: clean
+      - id: sc-05
+        artifact: tbd
+        status: planned
+        exercises: [DFF, clock routing, internal via stack]
+        expect: clean
+      - id: sc-06
+        artifact: tbd
+        status: planned
+        exercises: [scan DFF, extra mux routing, pin access]
+        expect: clean
+      - id: sc-07
+        artifact: tbd
+        status: planned
+        exercises: [latch, feedback loop, min-area metal]
+        expect: clean
+      - id: sc-08
+        artifact: tbd
+        status: planned
+        exercises: [clock buffer, wide fingers, EM-driven width]
+        expect: clean
+      - id: sc-09
+        artifact: tbd
+        status: planned
+        exercises: [fill cell, well and diffusion continuity]
+        expect: clean
+      - id: sc-10
+        artifact: tbd
+        status: planned
+        exercises: [tap cell, tap spacing, latch-up distance]
+        expect: clean
+      - id: sc-11
+        artifact: tbd
+        status: planned
+        exercises: [decap, gate tie, density contribution]
+        expect: clean
+      - id: sc-12
+        artifact: tbd
+        status: planned
+        exercises: [antenna diode, connection metal, diode geometry]
+        expect: clean
+      - id: sc-13
+        artifact: tbd
+        status: planned
+        exercises: [level shifter, dual rail, well isolation]
+        expect: clean
+      - id: sc-14
+        artifact: tbd
+        status: planned
+        exercises: [power switch, header/footer, well isolation]
+        expect: clean
+      - id: sc-15
+        artifact: tbd
+        status: planned
+        exercises: [two-cell abutment with deliberate well gap at the boundary]
+        expect: violation
+        family: well-continuity
+
+  - id: routing
+    cases:
+      - id: rt-01
+        artifact: tbd
+        status: planned
+        exercises: [metal1 at min width]
+        expect: clean
+      - id: rt-02
+        artifact: tbd
+        status: planned
+        exercises: [metal1 spacing exactly at the limit]
+        expect: clean
+      - id: rt-03
+        artifact: tbd
+        status: planned
+        exercises: [metal1 spacing one grid under the limit]
+        expect: violation
+        family: metal-spacing
+      - id: rt-04
+        artifact: tbd
+        status: planned
+        exercises: [wide metal, width-dependent spacing rule]
+        expect: clean
+      - id: rt-05
+        artifact: tbd
+        status: planned
+        exercises: [single cut via, min enclosure]
+        expect: clean
+      - id: rt-06
+        artifact: tbd
+        status: planned
+        exercises: [via with insufficient metal enclosure]
+        expect: violation
+        family: via-enclosure
+      - id: rt-07
+        artifact: tbd
+        status: planned
+        exercises: [stacked vias across four layers]
+        expect: clean
+      - id: rt-08
+        artifact: tbd
+        status: planned
+        exercises: [vertex deliberately off the database grid]
+        expect: violation
+        family: grid
+      - id: rt-09
+        artifact: tbd
+        status: planned
+        exercises: [metal notch narrower than the notch rule]
+        expect: violation
+        family: notch
+      - id: rt-10
+        artifact: tbd
+        status: planned
+        exercises: [45-degree routing, corner spacing]
+        expect: clean
+      - id: rt-11
+        artifact: tbd
+        status: planned
+        exercises: [fat-end dogbone, end-of-line spacing]
+        expect: clean
+      - id: rt-12
+        artifact: tbd
+        status: planned
+        exercises: [corner-to-corner spacing at the limit]
+        expect: clean
+      - id: rt-13
+        artifact: tbd
+        status: planned
+        exercises: [parallel run length, width-dependent spacing]
+        expect: clean
+      - id: rt-14
+        artifact: tbd
+        status: planned
+        exercises: [slotted wide metal, slot width and pitch]
+        expect: clean
+      - id: rt-15
+        artifact: tbd
+        status: planned
+        exercises: [local density gradient across a tile boundary]
+        expect: clean
+      - id: rt-16
+        artifact: tbd
+        status: planned
+        exercises: [via-in-pad, pad metal overlap]
+        expect: clean
+
+  - id: wells-and-taps
+    cases:
+      - id: wt-01
+        artifact: tbd
+        status: planned
+        exercises: [nwell to pwell spacing at the limit]
+        expect: clean
+      - id: wt-02
+        artifact: tbd
+        status: planned
+        exercises: [well spacing deliberately under the limit]
+        expect: violation
+        family: well-spacing
+      - id: wt-03
+        artifact: tbd
+        status: planned
+        exercises: [tap spacing at the limit]
+        expect: clean
+      - id: wt-04
+        artifact: tbd
+        status: planned
+        exercises: [guard ring around a noisy block]
+        expect: clean
+      - id: wt-05
+        artifact: tbd
+        status: planned
+        exercises: [tap-to-transistor latch-up distance]
+        expect: clean
+      - id: wt-06
+        artifact: tbd
+        status: planned
+        exercises: [deep nwell isolation of an analog block]
+        expect: clean
+      - id: wt-07
+        artifact: tbd
+        status: planned
+        exercises: [substrate tap density across a tile]
+        expect: clean
+      - id: wt-08
+        artifact: tbd
+        status: planned
+        exercises: [well continuity across a standard-cell row]
+        expect: clean
+      - id: wt-09
+        artifact: tbd
+        status: planned
+        exercises: [implant overlap and enclosure at a device boundary]
+        expect: clean
+      - id: wt-10
+        artifact: tbd
+        status: planned
+        exercises: [well proximity effect, device spacing]
+        expect: clean
+
+  - id: devices
+    cases:
+      - id: dv-01
+        artifact: tbd
+        status: planned
+        exercises: [minimum W and L]
+        expect: clean
+      - id: dv-02
+        artifact: tbd
+        status: planned
+        exercises: [channel length deliberately below minimum]
+        expect: violation
+        family: device-dimension
+      - id: dv-03
+        artifact: tbd
+        status: planned
+        exercises: [multi-finger device, finger width and count]
+        expect: clean
+      - id: dv-04
+        artifact: tbd
+        status: planned
+        exercises: [shared diffusion between two gates]
+        expect: clean
+      - id: dv-05
+        artifact: tbd
+        status: planned
+        exercises: [dummy gate at a block boundary]
+        expect: clean
+      - id: dv-06
+        artifact: tbd
+        status: planned
+        exercises: [gate contact over diffusion]
+        expect: clean
+      - id: dv-07
+        artifact: tbd
+        status: planned
+        exercises: [source-drain contact spacing under the limit]
+        expect: violation
+        family: contact-spacing
+      - id: dv-08
+        artifact: tbd
+        status: planned
+        exercises: [poly endcap at the limit]
+        expect: clean
+      - id: dv-09
+        artifact: tbd
+        status: planned
+        exercises: [contact array, density and enclosure]
+        expect: clean
+      - id: dv-10
+        artifact: tbd
+        status: planned
+        exercises: [matched pair, symmetric diffusion and routing]
+        expect: clean
+      - id: dv-11
+        artifact: tbd
+        status: planned
+        exercises: [thick-oxide IO device, extended drain]
+        expect: clean
+      - id: dv-12
+        artifact: tbd
+        status: planned
+        exercises: [ESD device with silicide block]
+        expect: clean
+      - id: dv-13
+        artifact: tbd
+        status: planned
+        exercises: [butted contact, shared diffusion and metal]
+        expect: clean
+
+  - id: io-and-esd
+    cases:
+      - id: io-01
+        artifact: tbd
+        status: planned
+        exercises: [bond pad, passivation opening]
+        expect: clean
+      - id: io-02
+        artifact: tbd
+        status: planned
+        exercises: [ESD diode, anode and cathode geometry]
+        expect: clean
+      - id: io-03
+        artifact: tbd
+        status: planned
+        exercises: [ESD clamp with too few contacts for the current path]
+        expect: violation
+        family: current-density
+      - id: io-04
+        artifact: tbd
+        status: planned
+        exercises: [pad metal coverage and step coverage]
+        expect: clean
+      - id: io-05
+        artifact: tbd
+        status: planned
+        exercises: [pad to circuit spacing]
+        expect: clean
+      - id: io-06
+        artifact: tbd
+        status: planned
+        exercises: [guard ring around an IO cell]
+        expect: clean
+      - id: io-07
+        artifact: tbd
+        status: planned
+        exercises: [thick top metal under the pad]
+        expect: clean
+      - id: io-08
+        artifact: tbd
+        status: planned
+        exercises: [IO to core boundary, level shift and well split]
+        expect: clean
+
+  - id: seal-and-scribe
+    cases:
+      - id: sl-01
+        artifact: tbd
+        status: planned
+        exercises: [seal ring corner]
+        expect: clean
+      - id: sl-02
+        artifact: tbd
+        status: planned
+        exercises: [seal ring continuity across all layers]
+        expect: clean
+      - id: sl-03
+        artifact: tbd
+        status: planned
+        exercises: [seal ring to circuit spacing]
+        expect: clean
+      - id: sl-04
+        artifact: tbd
+        status: planned
+        exercises: [scribe lane structures and alignment marks]
+        expect: clean
+
+  - id: density-and-fill
+    cases:
+      - id: df-01
+        artifact: tbd
+        status: planned
+        exercises: [local density at the minimum]
+        expect: clean
+      - id: df-02
+        artifact: tbd
+        status: planned
+        exercises: [local density at the maximum]
+        expect: clean
+      - id: df-03
+        artifact: tbd
+        status: planned
+        exercises: [tile deliberately over the density maximum]
+        expect: violation
+        family: density-max
+      - id: df-04
+        artifact: tbd
+        status: planned
+        exercises: [large empty region under the density minimum]
+        expect: violation
+        family: density-min
+      - id: df-05
+        artifact: tbd
+        status: planned
+        exercises: [checkerboard fill at pattern limits]
+        expect: clean
+      - id: df-06
+        artifact: tbd
+        status: planned
+        exercises: [solid plane with slotting]
+        expect: clean
+      - id: df-07
+        artifact: tbd
+        status: planned
+        exercises: [fill cell legality and overlap]
+        expect: clean
+      - id: df-08
+        artifact: tbd
+        status: planned
+        exercises: [CMP dummy interaction with routing]
+        expect: clean
+      - id: df-09
+        artifact: tbd
+        status: planned
+        exercises: [fill near an analog block, keep-out]
+        expect: clean
+
+  - id: regularity
+    cases:
+      - id: rg-01
+        artifact: tbd
+        status: planned
+        exercises: [poly array, pitch and endcap]
+        expect: clean
+      - id: rg-02
+        artifact: tbd
+        status: planned
+        exercises: [metal array, same-width parallel lines]
+        expect: clean
+      - id: rg-03
+        artifact: tbd
+        status: planned
+        exercises: [contact array, row and column spacing]
+        expect: clean
+      - id: rg-04
+        artifact: tbd
+        status: planned
+        exercises: [nested via array across layers]
+        expect: clean
+      - id: rg-05
+        artifact: tbd
+        status: planned
+        exercises: [gate array, uniform cell placement]
+        expect: clean
+      - id: rg-06
+        artifact: tbd
+        status: planned
+        exercises: [memory-like tile, repeated unit at scale]
+        expect: clean
+      - id: rg-07
+        artifact: tbd
+        status: planned
+        exercises: [array edge termination, dummy columns]
+        expect: clean
+
+  - id: marginal
+    cases:
+      - id: mg-01
+        artifact: tbd
+        status: planned
+        exercises: [width exactly at minimum]
+        expect: clean
+      - id: mg-02
+        artifact: tbd
+        status: planned
+        exercises: [spacing exactly at minimum]
+        expect: clean
+      - id: mg-03
+        artifact: tbd
+        status: planned
+        exercises: [area exactly at minimum]
+        expect: clean
+      - id: mg-04
+        artifact: tbd
+        status: planned
+        exercises: [via enclosure exactly at minimum]
+        expect: clean
+      - id: mg-05
+        artifact: tbd
+        status: planned
+        exercises: [density exactly at the limit]
+        expect: clean
+      - id: mg-06
+        artifact: tbd
+        status: planned
+        exercises: [endcap exactly at minimum]
+        expect: clean
+      - id: mg-07
+        artifact: tbd
+        status: planned
+        exercises: [notch exactly at the limit]
+        expect: clean
+      - id: mg-08
+        artifact: tbd
+        status: planned
+        exercises: [corner spacing exactly at minimum]
+        expect: clean
+
+  - id: cross-layer
+    cases:
+      - id: xl-01
+        artifact: tbd
+        status: planned
+        exercises: [metal over poly with no interaction rule]
+        expect: clean
+      - id: xl-02
+        artifact: tbd
+        status: planned
+        exercises: [metal1 over a gate contact, deliberately prohibited]
+        expect: violation
+        family: contact-overlap
+      - id: xl-03
+        artifact: tbd
+        status: planned
+        exercises: [via over gate, allowed case]
+        expect: clean
+      - id: xl-04
+        artifact: tbd
+        status: planned
+        exercises: [metal over diffusion contact]
+        expect: clean
+      - id: xl-05
+        artifact: tbd
+        status: planned
+        exercises: [nwell and deep nwell overlap]
+        expect: clean
+      - id: xl-06
+        artifact: tbd
+        status: planned
+        exercises: [hierarchical block overlap and boundary]
+        expect: clean

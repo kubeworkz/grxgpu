@@ -1,0 +1,31 @@
+{
+  "_placeholder": true,
+  "_comment": "Symbolic layer map for the corpus generators. The numbers below are placeholders, not any PDK's GDS numbering: replace this file with the layer map that ships with the PDK descriptor before generated layouts are used as evidence.",
+  "dbu_um": 0.001,
+  "layers": {
+    "nwell": [1, 0],
+    "pwell": [2, 0],
+    "dnwell": [3, 0],
+    "nsdm": [4, 0],
+    "psdm": [5, 0],
+    "diff": [6, 0],
+    "tap": [7, 0],
+    "poly": [8, 0],
+    "sab": [9, 0],
+    "licon": [10, 0],
+    "li1": [11, 0],
+    "mcon": [12, 0],
+    "met1": [13, 0],
+    "via1": [14, 0],
+    "met2": [15, 0],
+    "via2": [16, 0],
+    "met3": [17, 0],
+    "via3": [18, 0],
+    "met4": [19, 0],
+    "via4": [20, 0],
+    "met5": [21, 0],
+    "pad": [22, 0],
+    "pass": [23, 0],
+    "seal": [24, 0]
+  }
+}
