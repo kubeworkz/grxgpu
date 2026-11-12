@@ -87,6 +87,14 @@ See [docs/testing.md](docs/testing.md) and [docs/debugging.md](docs/debugging.md
   `core.hooksPath` at `ci/hooks`, so the artifact and LF gates run on the staged
   paths before each commit instead of surfacing in CI; `git commit --no-verify`
   skips them for one commit.
+
+- **Check a restored file's line endings before committing it.** The tree stores
+  RTL as LF, but a file copied back from a Windows checkout or an ad-hoc backup
+  usually arrives as CRLF; committing it rewrites every line, so the functional
+  change vanishes into whitespace and the LF gate has nothing useful to check.
+  Compare `git show HEAD:<path> | head -1 | cat -A` with `git ls-files --eol
+  <path>`, and normalise with `sed -i 's/\r$//' <path>` when they disagree.
+  Re-applying the edit beats restoring the whole file.
 - **RTL coverage path is `xrt`, not `rtlsim`.** When discussing or planning RTL verification, `xrt` is the canonical path — `rtlsim` bypasses the AFU surface. `rtlsim` remains useful for fast iteration on processor RTL; `xrt` is what proves the full integration.
 - **`ci/regression.sh` is the canonical source of tested configurations.** Use it to discover supported parameter combinations before inventing ad hoc ones.
 - **Perf-regression baselines (`ci/perf/baselines/*.json`) are golden data — never hand-edit them, and never "fix" a red perf gate by bumping the number.** They are regenerated only by `pytest ci -m perf_gate --update-baselines` (a human-run, reviewed step; checklist in `docs/designs/continuous_integration.md` §3.4), and CI must never pass that flag. A `perf_gate` failure means real cycles moved: root-cause it, or — if the change is intended — regenerate the baseline so the diff shows the perf delta for review. Same rule as image goldens and `known_issue:`.
