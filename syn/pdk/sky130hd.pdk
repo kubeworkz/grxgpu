@@ -1,0 +1,31 @@
+# sky130hd standard-cell descriptor for the syn/ flows.
+# Selected with PDK=<name>; sky130hd is the default. Field set: README.md.
+
+PDK_NAME=sky130hd
+PDK_DESCRIPTION="SkyWater sky130 HD (130 nm), tt corner, 25 C, 1.8 V"
+PDK_NODE_NM=130
+PDK_READY=1
+
+# Libraries
+PDK_LIBERTY=/OpenROAD/test/sky130hd/sky130_fd_sc_hd__tt_025C_1v80.lib
+PDK_TECH_LEF=/OpenROAD/test/sky130hd/sky130hd.tlef
+PDK_CELL_LEF=/OpenROAD/test/sky130hd/sky130_fd_sc_hd_merged.lef
+
+# Supply nets
+PDK_POWER_NET=VDD
+PDK_GROUND_NET=VSS
+
+# generate_ram cell set
+PDK_STORAGE_CELL=sky130_fd_sc_hd__dfxtp_1
+PDK_TRISTATE_CELL=sky130_fd_sc_hd__ebufn_4
+PDK_INV_CELL=sky130_fd_sc_hd__inv_1
+PDK_TAP_CELL=sky130_fd_sc_hd__tap_1
+PDK_FILLER_CELLS="sky130_fd_sc_hd__fill_1 sky130_fd_sc_hd__fill_2 sky130_fd_sc_hd__fill_4 sky130_fd_sc_hd__fill_8"
+PDK_MAX_TAP_DIST=15
+PDK_HAS_ORRAM=1
+
+# generate_ram stack: "<layer> <pitch_um>" for the signal routing layer,
+# "<layer> <pitch_um> <spacing_um>" for the vertical and horizontal straps.
+PDK_ROUTING_LAYER="met1 0.48"
+PDK_VER_LAYER="met2 0.48 40"
+PDK_HOR_LAYER="met3 0.48 20"

@@ -137,7 +137,7 @@ routed macro does not — no DRC, no LVS, no GDS, no timing.
 
 | Field | Value |
 |---|---|
-| Flow | [`syn/gen_16kb_sram.tcl`](../syn/gen_16kb_sram.tcl), blob `de66637d…`, SHA-256 `cd33a7c3…` over the committed bytes; stopped after filler insertion and before routing |
+| Flow | [`syn/gen_16kb_sram.tcl`](../syn/gen_16kb_sram.tcl), blob `5ebef7c4…`, SHA-256 `1b5e8cc0…` over the committed bytes; stopped after filler insertion and before routing. The liberty, LEFs, cell set and layer stack it passes to `generate_ram` resolve from [`syn/pdk/sky130hd.pdk`](../syn/pdk/sky130hd.pdk), the flow's default descriptor, and are unchanged by that indirection |
 | Array | 4096 words × 32 bits = 131,072 bits; 1 read/write port; column mux 4 |
 | Cells | `sky130_fd_sc_hd__dfxtp_1` storage, `ebufn_4` tristate read buffer, `inv_1`, `a22oi_1`, `dlclkp_1`, `tap_1`, `fill_1/2/4/8` |
 | PDK | sky130hd — `sky130hd.tlef`, `sky130_fd_sc_hd_merged.lef`, `sky130_fd_sc_hd__tt_025C_1v80.lib` |

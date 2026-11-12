@@ -1,10 +1,10 @@
 # GRX G100 Yosys Synthesis Script
-# Target: SkyWater sky130nm (sky130hd)
+# Target: PDK-selected cells (default sky130hd); render with syn/pdk/render.sh
 
 # Read technology library
-read_liberty /OpenROAD/test/sky130hd/sky130hd_tt.lib
-read_lef /OpenROAD/test/sky130hd/sky130hd.tlef
-read_lef /OpenROAD/test/sky130hd/sky130_fd_sc_hd_merged.lef
+read_liberty @PDK_LIBERTY@
+read_lef @PDK_TECH_LEF@
+read_lef @PDK_CELL_LEF@
 
 # Read all RTL sources
 # Packages first (defines types used by all modules)
@@ -118,7 +118,7 @@ opt_clean -purge
 # Generic synthesis
 synth -top Vortex_axi
 
-# Map to sky130hd cells
+# Map to the PDK's cells
 techmap
 opt
 

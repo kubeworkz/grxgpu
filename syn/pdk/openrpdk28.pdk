@@ -1,0 +1,40 @@
+# RIOS OpenRPDK28 descriptor — skeleton, libraries not delivered.
+#
+# The public PDK (github.com/RIOSLaboratory/OpenRPDK28) ships a layer map and a
+# device model file only: no standard cells, no liberty, no LEF, no DRC/LVS deck,
+# no SRAM compiler. Every library, cell and layer field below is therefore empty
+# and pdk_load names them all at once until they are filled in from the PDK the
+# flows are actually taped out against. Filling them is the whole change: no
+# flow script names a process.
+
+PDK_NAME=openrpdk28
+PDK_DESCRIPTION="RIOS OpenRPDK28 (28 nm), libraries not yet delivered"
+PDK_NODE_NM=28
+# 0 until the fields below are filled: pdk_load refuses a descriptor that is
+# not ready, so no flow can report numbers from this one by accident.
+PDK_READY=0
+
+# Libraries
+PDK_LIBERTY=
+PDK_TECH_LEF=
+PDK_CELL_LEF=
+
+# Supply nets
+PDK_POWER_NET=
+PDK_GROUND_NET=
+
+# generate_ram cell set. PDK_HAS_ORRAM stays 0 until the cells below are filled
+# and a macro actually generates; the RAM flows refuse the PDK until then.
+PDK_STORAGE_CELL=
+PDK_TRISTATE_CELL=
+PDK_INV_CELL=
+PDK_TAP_CELL=
+PDK_FILLER_CELLS=
+PDK_MAX_TAP_DIST=
+PDK_HAS_ORRAM=0
+
+# generate_ram stack: "<layer> <pitch_um>" for the signal routing layer,
+# "<layer> <pitch_um> <spacing_um>" for the vertical and horizontal straps.
+PDK_ROUTING_LAYER=
+PDK_VER_LAYER=
+PDK_HOR_LAYER=
