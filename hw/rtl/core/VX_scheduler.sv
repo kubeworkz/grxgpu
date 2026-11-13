@@ -620,11 +620,13 @@ module VX_scheduler import VX_gpu_pkg::*; #(
     // Track pending instructions per warp
 
     wire [`VX_CFG_NUM_WARPS-1:0] pending_warp_empty;
-    wire [`VX_CFG_NUM_WARPS-1:0] pending_warp_alm_empty;
+    wire [`VX_CFG_NUM_WARPS-1:0][15:0] pending_warp_size;
 
     for (genvar i = 0; i < `VX_CFG_NUM_WARPS; ++i) begin : g_pending_warps
         localparam logic [ISSUE_ISW_W-1:0] isw = wid_to_isw(i);
         localparam logic [ISSUE_WIS_W-1:0] wis = wid_to_wis(i);
+
+        wire [`CLOG2(257)-1:0] pending_size;
 
         VX_pending_size #(
             .SIZE      (256),
@@ -635,18 +637,20 @@ module VX_scheduler import VX_gpu_pkg::*; #(
             .incr      (issue_sched_if[isw].valid && (issue_sched_if[isw].wis == ISSUE_WIS_W'(wis))),
             .decr      (commit_sched_if.committed_warps[i]),
             .empty     (pending_warp_empty[i]),
-            .alm_empty (pending_warp_alm_empty[i]),
+            `UNUSED_PIN (alm_empty),
             `UNUSED_PIN (full),
             `UNUSED_PIN (alm_full),
-            `UNUSED_PIN (size)
+            .size      (pending_size)
         );
+
+        assign pending_warp_size[i] = 16'(pending_size);
     end
 
     wire busy_buf;
     `BUFFER_EX(busy_buf, (active_warps_n != 0 || ~(&pending_warp_empty)), 1'b1, 1, 1);
     assign busy = busy_buf || cta_dispatcher_busy;
 
-    assign warp_ctl_if.warp_pending_alm_empty = pending_warp_alm_empty;
+    assign warp_ctl_if.warp_pending_size = pending_warp_size;
 
     // export CSRs
     assign sched_csr_if.cycles = cycles;
