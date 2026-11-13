@@ -169,37 +169,33 @@ public:
   #ifndef NDEBUG
     std::cout << std::dec << timestamp << ": [sim] run()" << std::endl;
   #endif
+    constexpr uint32_t WAIT_TIMEOUT = 100000; // a launch without work never raises busy
+
+    // Drain before the pulse so the level sampled after it belongs to the new
+    // dispatch: busy is high from the pulse to the end of the frame, so a drain
+    // after it would run the whole frame. Pending here is reset state or the
+    // registered tail of the DCR writes that program the launch.
+    uint32_t drain_i = 0;
+    for (uint32_t i = 0; device_->busy && i < WAIT_TIMEOUT; ++i) {
+      this->tick();
+      drain_i = i + 1;
+    }
+
     // pulse start for one cycle
     device_->start = 1;
     this->tick();
     device_->start = 0;
 
-    // Upper bound on the post-start wait for busy (see below); a no-work frame
-    // never asserts busy, so the wait must not be unbounded.
-    constexpr uint32_t NO_WORK_TIMEOUT = 100000;
-
-    // drain any residual busy from the previous frame before starting a new one.
-    // busy is already high after reset and at the end of every frame; if we
-    // pulse start while busy is high, the wait-for-busy loop exits immediately
-    // and the drain loop exits after one tick, executing only ~1/2300 of the frame.
-    constexpr uint32_t DRAIN_TIMEOUT = 100000;
-    uint32_t drain_i = 0;
-    for (uint32_t i = 0; device_->busy && i < DRAIN_TIMEOUT; ++i) {
+    // Only a dispatch that lands after the pulse leaves the device idle here.
+    uint32_t wait_i = 0;
+    for (uint32_t i = 0; !device_->busy && i < WAIT_TIMEOUT; ++i) {
       this->tick();
-      drain_i = i + 1;
+      wait_i = i + 1;
     }
 #ifndef NDEBUG
-    std::cout << std::dec << timestamp << ": [sim] drain iterations: " << drain_i << std::endl;
+    std::cout << std::dec << timestamp << ": [sim] launch drained=" << drain_i
+              << ", dispatch wait=" << wait_i << std::endl;
 #endif
-
-    // wait for device to go busy. A frame may legitimately have no work — e.g. a
-    // fully-culled graphics draw whose rasterizer emits zero fragment waves — and
-    // then busy never re-asserts after the start pulse. Bound the wait so such a
-    // frame drains immediately instead of spinning forever. Real work asserts
-    // busy within a few cycles of start, far below this window.
-    for (uint32_t i = 0; !device_->busy && i < NO_WORK_TIMEOUT; ++i) {
-      this->tick();
-    }
 
     // wait for device to go idle, or for the HTIF tohost write.
     //
