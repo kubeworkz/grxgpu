@@ -289,7 +289,11 @@ public:
 
     std::fill(ibuf_inflight_.begin(), ibuf_inflight_.end(), 0);
 
-    perf_stats_ = PerfStats();
+    // minstret/mcycle are architectural CSRs: the RTL clears them only with
+    // the core, so a kernel launch must not wipe them.
+    if (!simobject_->processor()->preserve_perf()) {
+      perf_stats_ = PerfStats();
+    }
   }
 
   void tick() {

@@ -17,6 +17,9 @@ never expanded here (build32/ and build64/ are separate trees).
       JSON (category x driver x xlen) cells for the GitHub matrix
   testcase.py select --changed-from=REF
       categories whose touches[] intersect the diff (path-scaling)
+  testcase.py verilate [--all] [--dry-run]
+      generate each selected case's Verilator model once; ids arrive on stdin
+      from `pytest --collect-only`, so selection stays pytest's
 """
 
 import argparse
@@ -37,6 +40,8 @@ _DRIVER_TO_MARKER = {"xrt": "xrtsim", "opae": "opaesim"}
 # Execution driver name -> its sim source directory under sim/.
 _DRIVER_TO_SIMDIR = {"simx": "simx", "rtlsim": "rtlsim", "xrt": "xrtsim", "opae": "opaesim"}
 VALID_DRIVERS = set(_DRIVER_TO_SIMDIR)
+# Drivers whose sim is a Verilator model, i.e. one `make … verilate` can prepare.
+VERILATOR_DRIVERS = {"rtlsim", "xrt", "opae"}
 VALID_VIA = {"blackbox", "make-run", "script"}
 VALID_CHECK = {"model_parity", "perf_gate"}
 
@@ -58,6 +63,7 @@ class Spec:
         self.via = entry.get("via", "blackbox")
         self.app = entry.get("app", "")
         self.args = entry.get("args", "")
+        self.expected_instrs = entry.get("instrs")
         # Verbatim extra blackbox flags the structured fields don't model
         # (e.g. --debug=3 --perf=6 --scope --nohup --log=...).
         self.flags = entry.get("flags", "")
@@ -193,11 +199,72 @@ class Spec:
             return ["bash", "-c", _subst(self.run, xlen)], env
         raise ValueError("unknown via: {!r}".format(self.via))
 
+    def model_build(self, xlen):
+        """argv + env that generate this case's Verilator model, or None.
+
+        Must reproduce the flags the run gives the sim build byte for byte: the
+        sim Makefile's stamp compares the flag set, so any difference would
+        re-verilate. Mirrors blackbox.sh — shape knobs and --perf become
+        CONFIGS, --debug/--scope/--saif become make variables, and RTL drivers
+        model the bounded topology. make-run cases build the sim tree directly,
+        so they use the fixture's command shape.
+        """
+        if not self.needs_sim or self.driver not in VERILATOR_DRIVERS:
+            return None
+        env = {}
+        if self.via == "blackbox":
+            flags = self.flags.split()
+            if "--nohup" in flags:
+                return None  # builds into a private temp dir; nothing to reuse
+            cfgs = _subst(self.configs, xlen)
+            for knob, define in (("clusters", "-DVX_CFG_NUM_CLUSTERS={}"),
+                                 ("cores", "-DVX_CFG_NUM_CORES={}"),
+                                 ("warps", "-DVX_CFG_NUM_WARPS={}"),
+                                 ("threads", "-DVX_CFG_NUM_THREADS={}")):
+                if self.shape.get(knob):
+                    cfgs = _add_opt(cfgs, define.format(self.shape[knob]))
+            for knob, define in (("l2cache", "-DVX_CFG_L2_ENABLE"),
+                                 ("l3cache", "-DVX_CFG_L3_ENABLE")):
+                if self.shape.get(knob):
+                    cfgs = _add_opt(cfgs, define)
+            if self.shape.get("scope"):
+                env["SCOPE"] = "1"
+            for flag in flags:
+                if flag.startswith("--perf="):
+                    cfgs = _add_opt(cfgs, "-DPERF_ENABLE")
+                elif flag.startswith("--debug="):
+                    env["DEBUG"] = flag.split("=", 1)[1]
+                elif flag == "--scope":
+                    env["SCOPE"] = "1"
+                elif flag == "--saif":
+                    env["SAIF"] = "1"
+            if self.driver in ("rtlsim", "opae") and \
+                    os.environ.get("RTL_UNBOUND") != "1" and \
+                    "VX_CFG_NUM_CLUSTERS" not in cfgs and \
+                    "VX_CFG_NUM_CORES" not in cfgs:
+                cfgs += " -DVX_CFG_NUM_CLUSTERS=1 -DVX_CFG_NUM_CORES=4"
+            argv = ["make", "-C", "sw/runtime/" + self.driver, "verilate"]
+        else:
+            cfgs = self.configs
+            vcfg = self.vars.get("CONFIGS")
+            if vcfg:
+                cfgs = (cfgs + " " + vcfg) if cfgs else vcfg
+            cfgs = _subst(cfgs, xlen)
+            argv = ["make", "-C", self.sim_dir, "verilate"]
+        if cfgs:
+            env["CONFIGS"] = cfgs
+        return argv, env
+
 
 def _subst(text, xlen):
     """Resolve the ambient-xlen placeholders in a config/run string:
     {xlen} -> 32/64, {xsize} -> XLEN/8 (the legacy $XLEN / $XSIZE)."""
     return text.replace("{xlen}", str(xlen)).replace("{xsize}", str(int(xlen) // 8))
+
+
+def _add_opt(base, flag):
+    """Append a define the way blackbox.sh's add_option does."""
+    return (base + " " + flag) if base else flag
 
 
 def _merge_configs(default, entry):
@@ -395,6 +462,49 @@ def cmd_drivers(args):
     return 0
 
 
+def cmd_verilate(args):
+    """Generate each selected case's Verilator model once, before the run.
+
+    Case ids arrive on stdin from `pytest --collect-only`, so the selection is
+    pytest's own — there is no second implementation of the marker expression.
+    """
+    xlen = int(os.environ.get("VX_XLEN", "32"))
+    text = "" if args.all else sys.stdin.read()
+    selected = {line.strip() for line in text.splitlines() if line.strip()}
+    cases = [c for c in load_all() if c.applies_to_xlen(xlen)]
+    if selected:
+        known = {c.id for c in cases}
+        for unknown in sorted(selected - known):
+            sys.stderr.write("model-prep: ignoring unknown case id {}\n".format(unknown))
+        cases = [c for c in cases if c.id in selected]
+    jobs, seen = [], set()
+    for case in cases:
+        job = case.model_build(xlen)
+        if job is None:
+            continue
+        argv, env = job
+        key = (tuple(argv), tuple(sorted(env.items())))
+        if key not in seen:
+            seen.add(key)
+            jobs.append((case.id, argv, env))
+    print("model-prep: {} configuration(s) for {} selected case(s)".format(
+        len(jobs), len(cases)), flush=True)
+    for case_id, argv, env in jobs:
+        print("model-prep: {}: {}: {}".format(
+            case_id,
+            " ".join("{}={}".format(k, v) for k, v in sorted(env.items())) or "-",
+            " ".join(argv)), flush=True)
+    if args.dry_run:
+        return 0
+    for case_id, argv, env in jobs:
+        rc = execute(argv, env)
+        if rc != 0:
+            sys.stderr.write("model-prep: {}: verilation failed (exit {})\n".format(
+                case_id, rc))
+            return rc
+    return 0
+
+
 def cmd_lint(args):
     cases = load_all()
     errors, seen = [], {}
@@ -464,6 +574,13 @@ def main(argv=None):
     d = sub.add_parser("drivers", help="drivers a diff forces in (path->driver)")
     d.add_argument("--changed-from", dest="changed_from")
     d.set_defaults(func=cmd_drivers)
+
+    v = sub.add_parser("verilate", help="generate selected cases' Verilator models once")
+    v.add_argument("--all", action="store_true",
+                   help="prepare every case, not just the ids on stdin")
+    v.add_argument("--dry-run", action="store_true",
+                   help="print the commands without running them")
+    v.set_defaults(func=cmd_verilate)
 
     m2 = sub.add_parser("sims", help="driver set implied by a cells JSON array")
     m2.add_argument("--cells", default="[]")

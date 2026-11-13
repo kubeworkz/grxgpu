@@ -183,15 +183,39 @@ endif
 
 PROJECT := rtlsim
 
-.PHONY: all force clean clean-lib clean-exe
+.PHONY: all verilate force clean clean-lib clean-exe
 
 all: $(DESTDIR)/$(PROJECT)
 
-$(DESTDIR)/$(PROJECT): $(SRCS) $(SRC_DIR)/main.cpp $(CONFIG_FILE) $(RTL_SRCS)
-	$(VERILATOR_PATH)/bin/verilator --build $(VL_FLAGS) $(SRCS) $(SRC_DIR)/main.cpp -CFLAGS '$(CXXFLAGS)' -LDFLAGS '$(LDFLAGS)' --MMD --Mdir $@.obj_dir -o $@
+# Verilation and compilation are separate steps. `verilator --build` would
+# re-verilate on every invocation and drop the objects a killed compile had
+# already produced, so an interrupted driver build restarted from zero.
+# Verilating into a persistent obj_dir and letting make drive the model's own
+# makefile keeps those objects: a re-run compiles only what is missing and
+# skips verilation entirely while the generated model is newer than its inputs.
+EXE_MDIR := $(DESTDIR)/$(PROJECT).obj_dir
+LIB_MDIR := $(DESTDIR)/lib$(PROJECT).so.obj_dir
+VL_MK := V$(TOP).mk
 
-$(DESTDIR)/lib$(PROJECT).so: $(SRCS) $(CONFIG_FILE) $(RTL_SRCS)
-	$(VERILATOR_PATH)/bin/verilator --build $(VL_FLAGS) $(SRCS) -CFLAGS '$(CXXFLAGS)' -LDFLAGS '-shared $(LDFLAGS)' --MMD --Mdir $@.obj_dir -o $@
+$(EXE_MDIR)/$(VL_MK): $(SRCS) $(SRC_DIR)/main.cpp $(CONFIG_FILE) $(RTL_SRCS)
+	$(VERILATOR_PATH)/bin/verilator $(VL_FLAGS) $(SRCS) $(SRC_DIR)/main.cpp -CFLAGS '$(CXXFLAGS)' -LDFLAGS '$(LDFLAGS)' --MMD --Mdir $(EXE_MDIR) -o $(DESTDIR)/$(PROJECT)
+
+# A link killed mid-write leaves a truncated artifact whose fresh mtime would
+# otherwise read as up to date, so relink from the objects every time.
+$(DESTDIR)/$(PROJECT): $(EXE_MDIR)/$(VL_MK) force
+	rm -f $@
+	$(MAKE) -C $(EXE_MDIR) -f $(VL_MK) -j $(THREADS)
+
+$(LIB_MDIR)/$(VL_MK): $(SRCS) $(CONFIG_FILE) $(RTL_SRCS)
+	$(VERILATOR_PATH)/bin/verilator $(VL_FLAGS) $(SRCS) -CFLAGS '$(CXXFLAGS)' -LDFLAGS '-shared $(LDFLAGS)' --MMD --Mdir $(LIB_MDIR) -o $(DESTDIR)/lib$(PROJECT).so
+
+# Generate the Verilator models without compiling them, so the expensive
+# verilation can run as its own step and later builds reuse its obj_dirs.
+verilate: $(EXE_MDIR)/$(VL_MK) $(LIB_MDIR)/$(VL_MK)
+
+$(DESTDIR)/lib$(PROJECT).so: $(LIB_MDIR)/$(VL_MK) force
+	rm -f $@
+	$(MAKE) -C $(LIB_MDIR) -f $(VL_MK) -j $(THREADS)
 
 # updates the timestamp when flags changed.
 $(CONFIG_FILE): force

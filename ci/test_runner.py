@@ -55,6 +55,10 @@ def _model_parity(case, xlen):
     assert simx_instrs == rtl_instrs, \
         "{}: retired-instruction mismatch (simx={}, rtlsim={}) — functional " \
         "divergence, not a timing gap".format(case.id, simx_instrs, rtl_instrs)
+    if case.expected_instrs is not None:
+        assert int(case.expected_instrs) == rtl_instrs, (
+            "{}: retired-instruction count changed (expected {}, simx={}, "
+            "rtlsim={})".format(case.id, case.expected_instrs, simx_instrs, rtl_instrs))
     assert gap <= case.tolerance, \
         "{}: cycle gap {:.2%} exceeds tolerance {:.0%} (simx={}, rtlsim={})".format(
             case.id, gap, case.tolerance, simx_cycles, rtl_cycles)

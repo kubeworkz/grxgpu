@@ -98,38 +98,44 @@ tests:
     cores: 2
     l2cache: true
   args: -d3
+# Intra-core multicast handshake: all num_recv receiver CTAs rendezvous through
+# one per-core group-barrier slot and index their LMEM regions by CTA_ID (the
+# per-core slot), so the launch must keep the whole cluster on a single core.
 - id: dxa_copy_mcast-1
   via: blackbox
   drivers:
   - simx
   app: dxa_copy_mcast
   configs: -DVX_CFG_EXT_DXA_ENABLE
+  shape: {clusters: 1, cores: 1}
 - id: dxa_copy_mcast-2
   via: blackbox
   drivers:
   - rtlsim
   app: dxa_copy_mcast
   configs: -DVX_CFG_EXT_DXA_ENABLE
+  shape: {clusters: 1, cores: 1}
 - id: dxa_copy_mcast-3
   via: blackbox
   drivers:
   - simx
   app: dxa_copy_mcast
   configs: -DVX_CFG_EXT_DXA_ENABLE -DVX_CFG_L2_ENABLE
+  shape: {clusters: 1, cores: 1}
 - id: dxa_copy_mcast-4
   via: blackbox
   drivers:
   - rtlsim
   app: dxa_copy_mcast
   configs: -DVX_CFG_EXT_DXA_ENABLE -DVX_CFG_L2_ENABLE
+  shape: {clusters: 1, cores: 1}
 - id: dxa_copy_mcast-5
   via: blackbox
   drivers:
   - simx
   app: dxa_copy_mcast
   configs: -DVX_CFG_EXT_DXA_ENABLE -DVX_CFG_NUM_WARPS=8
-  shape:
-    threads: 8
+  shape: {clusters: 1, cores: 1, threads: 8}
   args: -r16 -c16 -R16 -C8
 - id: sgemm2_dxa-1
   via: blackbox
@@ -325,6 +331,7 @@ tests:
 # cycles must agree within tolerance (see model_parity.yaml).
 - id: model_parity-copy
   check: model_parity
+  shape: {clusters: 1, cores: 4}
   # Execution passes on both drivers and retired instructions match exactly;
   # only the cycle counts diverge (~9%). SimX does not yet model the decoupled
   # LSU pending pool, so it under-counts DXA copy issue latency. Parity
@@ -341,12 +348,17 @@ tests:
   via: blackbox
   app: dxa_copy
   args: -d1
-  configs: -DVX_CFG_EXT_DXA_ENABLE
+  configs: -DVX_CFG_EXT_DXA_ENABLE -DVX_CFG_ISSUE_WIDTH=4
 # Multicast DXA copy: intra-core multicast handshake microbench (work is
 # num_recv x tile by design; rtlsim determinism makes the small run gateable).
 # Parity twin precedes each perf_gate case (same app/config on both drivers).
 - id: model_parity-copy-mcast
   check: model_parity
+  # Intra-core by construction: all num_recv receiver CTAs rendezvous through a
+  # single per-core group-barrier slot and index their shared LMEM regions by
+  # CTA_ID (= per-core slot). A cluster spread over several cores never
+  # completes that rendezvous, so pin the cluster onto one core.
+  shape: {clusters: 1, cores: 1}
   # Same cause as model_parity-copy: instrs match, cycles diverge (~9%).
   known_issue: "cycle-parity gap ~9%: SimX does not model the decoupled LSU pending pool (instrs match)"
   via: blackbox
@@ -356,11 +368,13 @@ tests:
   check: perf_gate
   via: blackbox
   app: dxa_copy_mcast
-  configs: -DVX_CFG_EXT_DXA_ENABLE
+  configs: -DVX_CFG_EXT_DXA_ENABLE -DVX_CFG_ISSUE_WIDTH=4
+  shape: {clusters: 1, cores: 1}
 # DXA-staged shared-memory SGEMM (sgemm2 kernel with DXA operand producer).
 # tile 4 fits one 16-thread block on the default NT4/NW4 core.
 - id: model_parity-sgemm2-dxa
   check: model_parity
+  shape: {clusters: 1, cores: 4}
   via: blackbox
   app: sgemm2_dxa
   args: -n128 -t4 -m1
@@ -370,10 +384,11 @@ tests:
   via: blackbox
   app: sgemm2_dxa
   args: -n128 -t4 -m1
-  configs: -DVX_CFG_EXT_DXA_ENABLE
+  configs: -DVX_CFG_EXT_DXA_ENABLE -DVX_CFG_ISSUE_WIDTH=4
 # DXA-staged SGEMM with multicast fetch of the shared operand.
 - id: model_parity-sgemm2-dxa-mcast
   check: model_parity
+  shape: {clusters: 1, cores: 4}
   via: blackbox
   app: sgemm2_dxa_mcast
   args: -n128
@@ -383,7 +398,7 @@ tests:
   via: blackbox
   app: sgemm2_dxa_mcast
   args: -n128
-  configs: -DVX_CFG_EXT_DXA_ENABLE
+  configs: -DVX_CFG_EXT_DXA_ENABLE -DVX_CFG_ISSUE_WIDTH=4
 # WGMMA consumer fed by a DXA producer pipeline. K stays at 64: the test's
 # CPU reference does not replicate the TCU fp32 accumulation order, so K=128
 # drifts past the 10-ULP gate.
@@ -393,7 +408,7 @@ tests:
   app: sgemm_tcu_wg_dxa
   args: -m 128 -n 128 -k 64
   configs: -DVX_CFG_ISSUE_WIDTH=4 -DVX_CFG_EXT_TCU_ENABLE -DVX_CFG_TCU_WGMMA_ENABLE -DVX_CFG_EXT_DXA_ENABLE -DWGMMA_NRC=16
-  shape: {threads: 32, warps: 8}
+  shape: {clusters: 1, cores: 4, threads: 32, warps: 8}
 - id: perf_gate-wgmma-dxa
   check: perf_gate
   via: blackbox
@@ -413,7 +428,7 @@ tests:
   app: sgemm_tcu_wg_sp_dxa
   args: -m 128 -n 128 -k 128
   configs: -DVX_CFG_ISSUE_WIDTH=4 -DVX_CFG_EXT_TCU_ENABLE -DVX_CFG_TCU_WGMMA_ENABLE -DVX_CFG_TCU_SPARSE_ENABLE -DVX_CFG_EXT_DXA_ENABLE -DWGMMA_NRC=32
-  shape: {threads: 32, warps: 8}
+  shape: {clusters: 1, cores: 4, threads: 32, warps: 8}
 - id: perf_gate-wgmma-sp-dxa
   check: perf_gate
   via: blackbox
@@ -425,6 +440,7 @@ tests:
 # the same reference-tolerance reason as perf_gate-wgmma-dxa.
 - id: model_parity-wgmma-dxa-mcast
   check: model_parity
+  shape: {clusters: 1, cores: 4}
   # Same cause as model_parity-wgmma-sp-dxa: instrs match, cycles diverge (~9%).
   known_issue: "cycle-parity gap ~9%: SimX timing model lags the LSU pending pool + DXA issue (instrs match)"
   via: blackbox
@@ -436,4 +452,4 @@ tests:
   via: blackbox
   app: sgemm_tcu_wg_dxa_mcast
   args: -m 128 -n 128 -k 64
-  configs: -DVX_CFG_EXT_TCU_ENABLE -DVX_CFG_EXT_DXA_ENABLE
+  configs: -DVX_CFG_EXT_TCU_ENABLE -DVX_CFG_EXT_DXA_ENABLE -DVX_CFG_ISSUE_WIDTH=4

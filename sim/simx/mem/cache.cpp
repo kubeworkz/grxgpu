@@ -12,6 +12,7 @@
 // limitations under the License.
 
 #include "cache.h"
+#include <deque>
 #include "mem_block_pool.h"
 #include "debug.h"
 #include "types.h"
@@ -24,6 +25,8 @@
 #include <unordered_map>
 #include <util.h>
 #include <vector>
+#include <iostream>
+#include <cstdlib>
 
 using namespace vortex;
 
@@ -597,6 +600,13 @@ private:
   uint32_t size_;
 };
 
+static uint32_t mreq_queue_depth(const Cache::Config &config) {
+  uint32_t n = std::max<uint32_t>(2 * config.latency, 2);
+  uint32_t d = 1;
+  while (d < n) d <<= 1;
+  return d;
+}
+
 class CacheBank : public SimObject<CacheBank> {
 public:
   SimChannel<MemReq> core_req_in;
@@ -627,15 +637,15 @@ public:
   // a writeback request for every dirty line via mem_req_out (write-back only;
   // write-through caches have nothing to evict). flush_done() reports when the
   // walk finishes AND the cache is otherwise idle.
+  // Arm the walk. Mirrors VX_cache_flush: every bank walks its own slice of
+  // the array, one line per cycle (one way per cycle when write-back), and the
+  // fence retires only after the walk and a final drain.
   void flush_begin() {
-    if (!config_.write_back) {
-      flushing_ = false;
-      flush_set_idx_ = 0;
-      flush_way_idx_ = 0;
-      flush_sector_idx_ = 0;
+    if (flushing_)
       return;
-    }
     flushing_ = true;
+    bank_arm_cyc_ = bank_ticks_;
+    walk_started_ = false;
     flush_set_idx_ = 0;
     flush_way_idx_ = 0;
     flush_sector_idx_ = 0;
@@ -647,7 +657,9 @@ public:
 
 protected:
   void on_reset() {
-    perf_stats_ = Cache::PerfStats();
+    mreq_queue_.clear();
+    // Perf counters are not cleared here: MPM reads are cumulative over
+    // the run, and Cache::Impl's fence counters already survive a relaunch.
     pending_mshr_size_ = 0;
     pending_amo_probes_ = 0;
     pipe_core_lines_.clear();
@@ -678,6 +690,11 @@ protected:
   }
 
   void on_tick() {
+    ++bank_ticks_;
+    if (!mreq_queue_.empty() && !this->mem_req_out.full()) {
+      this->mem_req_out.send(mreq_queue_.front());
+      mreq_queue_.pop_front();
+    }
     // The core-response port takes one response per tick; the pipeline has
     // priority and the forward drain yields (crsp_sent_).
     crsp_sent_ = false;
@@ -779,9 +796,10 @@ private:
       return;
     }
 
-    // 3) core request
-    if (!this->core_req_in.empty()) {
+    // 3) core request; a walk in progress owns the array
+    if (!flushing_ && !this->core_req_in.empty()) {
       auto &core_req = this->core_req_in.peek();
+
       // Conservative MSHR occupancy check: any request that may miss must
       // reserve a slot. Counts both currently-allocated entries and
       // in-flight pipe requests that haven't reached MSHR allocation yet.
@@ -1021,7 +1039,7 @@ private:
     // Stall checks (collect all before mutating).
     if (this->core_rsp_out.full())
       return false;
-    if (do_store && !config_.write_back && this->mem_req_out.full())
+    if (do_store && !config_.write_back && mreqQueueAlmFull())
       return false;
 
     // Pure compute: read old word, derive new and ret.
@@ -1068,7 +1086,7 @@ private:
         w.uuid   = bank_req.uuid;
         w.data   = store_block;
         w.byteen = byteen;
-        this->mem_req_out.send(w);
+        mreq_queue_.push_back(w);
         DT(3, this->name() << " amo-writethrough: " << w);
       }
       // Break other harts' reservations on this line.
@@ -1095,7 +1113,7 @@ private:
                         const std::shared_ptr<mem_block_t>& data, uint64_t byteen,
                         bool need_rsp, uint64_t rsp_tag) {
     __unused(full_addr);
-    if (this->mem_req_out.full()) {
+    if (mreqQueueAlmFull()) {
       return false;
     }
     if (need_rsp && this->core_rsp_out.full()) {
@@ -1108,7 +1126,7 @@ private:
     w.uuid    = uuid;
     w.data    = data;
     w.byteen  = byteen;
-    this->mem_req_out.send(w);
+    mreq_queue_.push_back(w);
     DT(3, this->name() << " writethrough: " << w);
 #if VX_CFG_EXT_A_ENABLED
     // Committed write: break other harts' reservations.
@@ -1165,7 +1183,7 @@ private:
       // Stall checks: writeback (if dirty) AND the AMO forward both
       // need a mem_req_out slot.
       const uint32_t out_slots_needed = (dirty ? 1u : 0u) + 1u;
-      if (this->mem_req_out.size() + out_slots_needed > this->mem_req_out.capacity()) {
+      if (mreq_queue_.size() + out_slots_needed > mreq_queue_depth(config_)) {
         return; // stall
       }
       // Pre-allocate a passthru-table slot before mutating state.
@@ -1188,7 +1206,7 @@ private:
         wb.uuid   = bank_req.uuid;
         wb.data   = sec.data;
         wb.byteen = sec.dirty_mask;
-        this->mem_req_out.send(wb);
+        mreq_queue_.push_back(wb);
         DT(3, this->name() << " amo-probe-wb: " << wb);
         ++perf_stats_.evictions;
       }
@@ -1251,7 +1269,7 @@ private:
           for (const auto &s : victim_line.sectors)
             if (s.valid && s.dirty) ++wb_count;
         }
-        if (wb_count > 0 && (this->mem_req_out.size() + wb_count) > this->mem_req_out.capacity())
+        if (wb_count > 0 && (mreq_queue_.size() + wb_count) > mreq_queue_depth(config_))
           return; // stall
 
         if (config_.repl_policy == Cache::FIFO) {
@@ -1272,7 +1290,7 @@ private:
           wb.uuid   = bank_req.uuid;
           wb.data   = sec.data;
           wb.byteen = sec.dirty_mask;
-          this->mem_req_out.send(wb);
+          mreq_queue_.push_back(wb);
           DT(3, this->name() << " writeback: " << wb);
           ++perf_stats_.evictions;
         }
@@ -1464,7 +1482,7 @@ private:
         // Cache hit.
         const bool need_rsp = need_core_rsp(bank_req);
         const bool need_mem = bank_req.write && !config_.write_back;
-        if (need_mem && this->mem_req_out.full())
+        if (need_mem && mreqQueueAlmFull())
           return;
         if (need_rsp && this->core_rsp_out.full())
           return;
@@ -1483,7 +1501,7 @@ private:
             w.uuid   = bank_req.uuid;
             w.data   = bank_req.data;
             w.byteen = bank_req.byteen;
-            this->mem_req_out.send(w);
+            mreq_queue_.push_back(w);
             DT(3, this->name() << " writethrough: " << w);
 #if VX_CFG_EXT_A_ENABLED
             // Writethrough commit: break other harts' reservations.
@@ -1578,45 +1596,67 @@ private:
   }
 
   void processFlush() {
-    // Wait for in-flight requests to drain before walking lines, otherwise an
-    // outstanding fill could install a fresh line behind our scan and leave
-    // a dirty victim un-evicted.
+    // VX_cache_flush quiesces the bank, then walks one line per cycle (one way
+    // per cycle when write-back), evicting dirty sectors and invalidating the
+    // line. That walk is what a fence costs in hardware.
     if (pending_fill_reqs_ != 0
      || !pipe_req_->empty()
-     || !mshr_.empty()) {
+     || !mshr_.empty()
+     || !mreq_queue_.empty()) {
       return;
     }
-    while (flush_set_idx_ < params_.sets_per_bank) {
-      auto &set = sets_.at(flush_set_idx_);
-      while (flush_way_idx_ < set.lines.size()) {
-        auto &line = set.lines.at(flush_way_idx_);
-        // Emit one writeback per dirty sector (resumable across stalls).
-        while (flush_sector_idx_ < line.sectors.size()) {
-          auto &sec = line.sectors.at(flush_sector_idx_);
-          if (sec.valid && sec.dirty) {
-            if (this->mem_req_out.full())
-              return; // stall — resume at this sector next cycle
-            MemReq mem_req;
-            mem_req.addr = params_.mem_addr_sector(bank_id_, flush_set_idx_, line.tag, flush_sector_idx_);
-            mem_req.op   = MemOp::ST;
-            mem_req.data = sec.data;
-            mem_req.byteen = sec.dirty_mask;
-            this->mem_req_out.send(mem_req);
-            DT(3, this->name() << " flush-wb: " << mem_req);
-            ++perf_stats_.evictions;
-            sec.dirty = false;
-            sec.dirty_mask = 0;
-          }
-          ++flush_sector_idx_;
-        }
-        flush_sector_idx_ = 0;
-        ++flush_way_idx_;
-      }
-      ++flush_set_idx_;
-      flush_way_idx_ = 0;
+    if (!walk_started_) {
+      walk_started_ = true;
+      walk_start_cyc_ = bank_ticks_;
     }
-    flushing_ = false;
-    DT(3, this->name() << " flush-done");
+    if (flush_set_idx_ >= params_.sets_per_bank) {
+      // WAIT2: the flush request to lower caches leaves last, so flush_end
+      // must wait for the bank to be empty again.
+      if (!mreq_queue_.empty())
+        return;
+      perf_stats_.flush_walk_cycles += bank_ticks_ - walk_start_cyc_;
+      flushing_ = false;
+      DT(3, this->name() << " flush-done");
+      return;
+    }
+    auto &set = sets_.at(flush_set_idx_);
+    auto &line = set.lines.at(flush_way_idx_);
+    if (config_.write_back) {
+      for (uint32_t i = 0; i < line.sectors.size(); ++i) {
+        auto &sec = line.sectors.at(i);
+        if (!sec.valid || !sec.dirty)
+          continue;
+        if (mreqQueueAlmFull())
+          return; // stall - resume at this line next cycle
+        MemReq mem_req;
+        mem_req.addr = params_.mem_addr_sector(bank_id_, flush_set_idx_, line.tag, i);
+        mem_req.op   = MemOp::ST;
+        mem_req.data = sec.data;
+        mem_req.byteen = sec.dirty_mask;
+        mreq_queue_.push_back(mem_req);
+        DT(3, this->name() << " flush-wb: " << mem_req);
+        ++perf_stats_.evictions;
+        sec.dirty = false;
+        sec.dirty_mask = 0;
+      }
+      for (auto &sec : line.sectors) {
+        sec.valid = false;
+        sec.dirty = false;
+        sec.dirty_mask = 0;
+      }
+      if (++flush_way_idx_ < set.lines.size())
+        return;
+      flush_way_idx_ = 0;
+    } else {
+      for (auto &ln : set.lines) {
+        for (auto &sec : ln.sectors) {
+          sec.valid = false;
+          sec.dirty = false;
+          sec.dirty_mask = 0;
+        }
+      }
+    }
+    ++flush_set_idx_;
   }
 
   Cache::Config config_;
@@ -1660,6 +1700,19 @@ private:
 
   // Flush walk state.
   bool     flushing_;
+  // Mirrors the VX_cache_bank memory-request queue. VX_cache_flush quiesces on
+  // ~pipe_inflight && mreq_queue_empty, so a fence waits for this queue to
+  // drain rather than for the MSHRs alone. alm_full reserves PIPELINE_STAGES
+  // slots so a burst of writebacks cannot starve the drain.
+  std::deque<MemReq> mreq_queue_;
+  bool mreqQueueAlmFull() const {
+    return mreq_queue_.size() + config_.latency > mreq_queue_depth(config_);
+  }
+
+  uint64_t bank_ticks_     = 0;
+  uint64_t bank_arm_cyc_   = 0;
+  uint64_t walk_start_cyc_ = 0;
+  bool     walk_started_   = false;
   uint32_t flush_set_idx_;
   uint32_t flush_way_idx_;
   uint32_t flush_sector_idx_;
@@ -1760,9 +1813,11 @@ public:
       return;
     // calculate cache initialization cycles
     init_cycles_ = params_.sets_per_bank;
+    flush_walk_active_ = false;
   }
 
   void tick() {
+    ++flush_ticks_;
     if (config_.bypass)
       return;
 
@@ -1807,12 +1862,39 @@ public:
         if (this->processBypassRequest(core_req, req_id)) {
           core_req_in.pop();
         }
+      } else if (core_req.op == MemOp::FLUSH) {
+        // A fence is a cache-wide walk in hardware (VX_cache_init broadcasts it
+        // to every bank), not a memory read: the core is acknowledged only
+        // after every bank has walked its slice.
+        if (flush_busy_)
+          continue; // one fence at a time; leave it queued
+        flush_busy_     = true;
+        flush_req_id_   = req_id;
+        flush_req_tag_  = core_req.tag;
+        flush_req_cid_  = core_req.hart_id;
+        flush_req_uuid_ = core_req.uuid;
+        this->flush_begin();
+        core_req_in.pop();
+        DT(3, simobject_->name() << " flush-begin");
       } else {
         if (bank_core_xbar_->ReqIn.at(req_id).try_send(core_req, 0)) {
           core_req_in.pop();
         }
       }
     }
+
+    // retire a fence once every bank has finished its walk
+    if (flush_busy_ && this->flush_done()) {
+      if (!simobject_->core_rsp_out.at(flush_req_id_).full()) {
+        MemRsp core_rsp{flush_req_tag_, flush_req_cid_, flush_req_uuid_};
+        if (simobject_->core_rsp_out.at(flush_req_id_).try_send(core_rsp, 0)) {
+          DT(3, simobject_->name() << " flush-rsp");
+          flush_busy_ = false;
+        }
+      }
+    }
+
+    this->accountWalk();
   }
 
   PerfStats perf_stats() const {
@@ -1822,14 +1904,32 @@ public:
         perf_stats += bank->perf_stats();
       }
       perf_stats.bank_stalls = bank_core_xbar_->collisions();
+    perf_stats.fences = flush_count_;
+    perf_stats.flush_cycles = flush_cycles_;
     }
     return perf_stats;
   }
 
   void flush_begin() {
     if (config_.bypass) return;
+    // A request that arrives mid-walk coalesces with the running one; the
+    // banks would ignore the arm anyway.
+    if (!this->flush_done()) return;
+    this->accountWalk();
+    ++flush_count_;
+    flush_arm_cyc_ = flush_ticks_;
+    flush_walk_active_ = true;
     for (auto &bank : banks_) {
       bank->flush_begin();
+    }
+  }
+
+  // Every walk is billed, not only core-requested fences: device-level
+  // flushes (ProcessorImpl::flush_caches) drive the same banks.
+  void accountWalk() {
+    if (flush_walk_active_ && this->flush_done()) {
+      flush_cycles_ += flush_ticks_ - flush_arm_cyc_;
+      flush_walk_active_ = false;
     }
   }
 
@@ -1875,6 +1975,16 @@ private:
   MemArbiter::Ptr bank_arb_;
   std::vector<MemArbiter::Ptr> nc_mem_arbs_;
   MemCrossBar::Ptr bank_core_xbar_;
+  bool     flush_busy_     = false;
+  bool     flush_walk_active_ = false;
+  uint64_t flush_arm_cyc_  = 0;
+  uint64_t flush_count_ = 0;
+  uint64_t flush_cycles_ = 0;
+  uint64_t flush_ticks_    = 0;
+  uint32_t flush_req_id_   = 0;
+  uint64_t flush_req_tag_  = 0;
+  uint32_t flush_req_cid_  = 0;
+  uint64_t flush_req_uuid_ = 0;
   uint32_t init_cycles_;
 };
 

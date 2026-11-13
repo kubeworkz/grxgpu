@@ -31,6 +31,19 @@ tests:
     via: script
     run: "make -C hw/unittest run-tcu-dsp"
     touches: [hw/rtl/tcu, hw/unittest/tcu_fedp]
+  # SECDED ECC codec + counters: executes every single-bit correction and every
+  # double-bit detection over a 72-bit codeword, plus counter saturation and
+  # first-fault capture.
+  - id: hw-ecc
+    via: script
+    run: "make -C hw/unittest run-ecc"
+    touches: [hw/rtl/libs/VX_ecc_secded.sv, hw/rtl/libs/VX_ecc_ctrl.sv, hw/unittest/ecc]
+  # ECC-protected bank RAM: every byte-enable mask through the read-modify-write
+  # path, plus preloaded single-bit (corrected) and double-bit (detected) faults.
+  - id: hw-ecc-ram
+    via: script
+    run: "make -C hw/unittest run-ecc-ram"
+    touches: [hw/rtl/libs/VX_ecc_ram.sv, hw/rtl/libs/VX_ecc_secded.sv, hw/unittest/ecc_ram]
   # T0 JTAG debug path: executes the test-SRAM walking and restart/recovery
   # bench. RV32-only — the boot image and the SRAM/result map assume 32-bit
   # addressing — so this lane is pinned to xlen 32; the 64-bit cell's generic

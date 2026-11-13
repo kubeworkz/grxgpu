@@ -12,6 +12,7 @@
 // limitations under the License.
 
 #include "lsu_unit.h"
+#include <simobject.h>
 #include <iostream>
 #include <iomanip>
 #include <string.h>
@@ -24,6 +25,7 @@
 #include "mem_block_pool.h"
 #include "VX_types.h"
 #include "VX_config.h"
+#include <cstdlib>
 
 using namespace vortex;
 
@@ -292,6 +294,8 @@ void LsuUnit::ingest_inputs(uint32_t b) {
 // Per-cycle request handler. Dispatches at most one batch (one
 // memory-side mem_req) per call. The head trace stays at the queue
 // front until all its batches are issued (req_sent_all-driven).
+static uint64_t fence_start_cyc[VX_CFG_NUM_LSU_BLOCKS] = {};
+
 void LsuUnit::process_request_step(uint32_t b) {
 	auto& state = states_.at(b);
 
@@ -302,6 +306,7 @@ void LsuUnit::process_request_step(uint32_t b) {
 		bool released = state.fence.try_release(Outputs.at(b), state.pending_reqs.empty());
 		if (released) {
 			DT(3, this->name() << " fence-unlock: " << state.fence.trace());
+			core_->perf_stats().fence_cycles += SimPlatform::instance().cycles() - fence_start_cyc[b];
 		}
 	}
 
@@ -367,10 +372,30 @@ void LsuUnit::process_request_step(uint32_t b) {
 	const bool is_write = (lsu_tag && *lsu_tag == LsuType::STORE);
 
 	if (is_fence) {
-		// Engage fence lock; the next call will try to release it once
-		// the pending-reqs table drains.
+		// The fence is a memory transaction, not a local drain: issue a flush
+		// request downstream and stall dispatch (fence lock) until the memory
+		// system acknowledges it and every older tracked request retires.
+		if (state.pending_reqs.full()) {
+			return;
+		}
+		LsuReq lsu_req(VX_CFG_NUM_LSU_LANES);
+		lsu_req.op   = MemOp::FLUSH;
+		lsu_req.cid  = trace->cid;
+		lsu_req.wid  = trace->wid;
+		lsu_req.uuid = trace->uuid;
+		lsu_req.mask.set(0);
+		lsu_req.tids.at(0) = 0;
+		// eop=false: the response only retires the flush entry; the fence trace
+		// is forwarded by the fence controller once the table drains.
+		std::vector<mem_addr_size_t> lane_entries(VX_CFG_NUM_LSU_LANES);
+		lane_entries.at(0) = { 0, 0, 0, 0 };
+		IntrLsuArgs entry_args{};
+		uint32_t tag = state.pending_reqs.allocate({trace, 1, false, std::move(lane_entries), entry_args, false});
+		lsu_req.tag = tag;
 		state.fence.engage(trace);
-		DT(3, this->name() << " fence-lock: " << *trace);
+		fence_start_cyc[b] = SimPlatform::instance().cycles();
+		core_->lmem_switch(b)->ReqIn.send(lsu_req);
+		DT(3, this->name() << " fence-flush: " << lsu_req);
 		state.req_queue.pop();
 		return;
 	}

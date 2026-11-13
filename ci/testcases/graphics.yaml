@@ -539,6 +539,7 @@ tests:
 # both drivers, cycles must agree within tolerance (see model_parity.yaml).
 - id: model_parity-tex
   check: model_parity
+  shape: {clusters: 1, cores: 4}
   # Execution passes and retired instructions match exactly; only the cycle
   # counts diverge (~12%). The memory-backed gfx window reads TEX operands
   # synchronously (one-cycle RAM latency) where the SimX TEX model still assumes
@@ -551,6 +552,7 @@ tests:
   args: -i toad.png -r toad_ref_f0.png -f 0 -g 0
 - id: model_parity-raster
   check: model_parity
+  shape: {clusters: 1, cores: 4}
   # Pre-existing: both drivers render the correct image, but the SimX raster
   # model retires a different instruction count than RTL (simx 12422 vs rtlsim
   # 11894 — rtlsim matches the recorded perf baseline). Predates the gfx-window
@@ -562,6 +564,7 @@ tests:
   args: -w 128 -h 128 -t triangle.cgltrace -r triangle_ref_128.png
 - id: model_parity-om
   check: model_parity
+  shape: {clusters: 1, cores: 4}
   via: blackbox
   app: gfx_om
   configs: -DVX_CFG_EXT_OM_ENABLE
@@ -579,7 +582,7 @@ tests:
   via: blackbox
   app: gfx_tex
   args: -i toad.png -r toad_ref_f0.png -f 0 -g 0
-  configs: -DVX_CFG_EXT_TEX_ENABLE
+  configs: -DVX_CFG_EXT_TEX_ENABLE -DVX_CFG_ISSUE_WIDTH=4
 
 # Perf-regression twin of the model_parity-raster benchmark (same run, cycles-vs-baseline).
 - id: perf_gate-raster
@@ -587,7 +590,7 @@ tests:
   via: blackbox
   app: gfx_raster
   args: -w 128 -h 128 -t triangle.cgltrace -r triangle_ref_128.png
-  configs: -DVX_CFG_EXT_RASTER_ENABLE
+  configs: -DVX_CFG_EXT_RASTER_ENABLE -DVX_CFG_ISSUE_WIDTH=4
 
 # Perf-regression twin of the model_parity-om benchmark (same run, cycles-vs-baseline).
 - id: perf_gate-om
@@ -595,12 +598,13 @@ tests:
   via: blackbox
   app: gfx_om
   args: -w 128 -h 128 -r whitebox_128.png
-  configs: -DVX_CFG_EXT_OM_ENABLE
+  configs: -DVX_CFG_EXT_OM_ENABLE -DVX_CFG_ISSUE_WIDTH=4
 
 # Full-pipeline (TEX+RASTER+OM) parity + perf-gate on box.cgltrace — catches
 # cross-FF-unit interactions the per-unit model_parity/perf_gate cases miss.
 - id: model_parity-draw3d
   check: model_parity
+  shape: {clusters: 1, cores: 4}
   # Pre-existing: both drivers render box.cgltrace correctly (rtlsim retires
   # 143143 instrs, matching the recorded perf baseline), but the SimX graphics
   # model retires far fewer (~71753) than RTL. The instruction-count divergence
@@ -616,4 +620,4 @@ tests:
   via: blackbox
   app: gfx_draw3d
   args: -w 128 -h 128 -t box.cgltrace -r box_ref_128.png
-  configs: -DVX_CFG_EXT_TEX_ENABLE -DVX_CFG_EXT_RASTER_ENABLE -DVX_CFG_EXT_OM_ENABLE
+  configs: -DVX_CFG_EXT_TEX_ENABLE -DVX_CFG_EXT_RASTER_ENABLE -DVX_CFG_EXT_OM_ENABLE -DVX_CFG_ISSUE_WIDTH=4

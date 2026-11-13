@@ -20,6 +20,9 @@ module VX_dispatcher import VX_gpu_pkg::*; #(
     input wire              clk,
     input wire              reset,
 
+    input wire [`VX_CFG_NUM_WARPS-1:0][`VX_CFG_NUM_THREADS-1:0] thread_masks,
+    input wire [`VX_CFG_NUM_WARPS-1:0][MASK_TAG_W-1:0] mask_op_gen,
+
 `ifdef PERF_ENABLE
     output wire [NUM_EX_UNITS-1:0][PERF_CTR_BITS-1:0] perf_stalls,
     output wire [NUM_EX_UNITS-1:0][PERF_CTR_BITS-1:0] perf_instrs,
@@ -44,9 +47,18 @@ module VX_dispatcher import VX_gpu_pkg::*; #(
         assign fu_release[i] = dispatch_if[i].valid && dispatch_if[i].ready;
     end
 
+    wire [NW_WIDTH-1:0] mgen_wid = wis_to_wid(operands_if.data.wis, ISSUE_ID);
+
+    // The live mask belongs to this instruction only when it was fetched after
+    // the last split/join was decoded; an older instruction keeps the mask
+    // captured at its own fetch, which matches its program position.
+    wire [MASK_TAG_W-1:0] mgen_delta_i = operands_if.data.mgen - mask_op_gen[mgen_wid];
+    wire use_live_mask_i = (mgen_delta_i != '0) && !mgen_delta_i[MASK_TAG_W-1];
+
     // All execution units pass operand data straight through; LSU address
     // generation (pack-load included) lives in VX_lsu_slice.
     for (genvar i = 0; i < NUM_EX_UNITS; ++i) begin : g_buffers
+
         VX_elastic_buffer #(
             .DATAW   (OUT_DATAW),
             .SIZE    (DISPATCH_QSIZE),
@@ -61,7 +73,7 @@ module VX_dispatcher import VX_gpu_pkg::*; #(
                 operands_if.data.wis,
                 operands_if.data.cta_id,
                 operands_if.data.sid,
-                operands_if.data.tmask,
+                use_live_mask_i ? thread_masks[mgen_wid] : operands_if.data.tmask,
                 operands_if.data.PC,
                 operands_if.data.wb,
                 operands_if.data.wr_xregs,

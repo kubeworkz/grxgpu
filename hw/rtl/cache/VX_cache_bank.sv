@@ -50,6 +50,7 @@ module VX_cache_bank import VX_gpu_pkg::*; #(
     output wire perf_write_miss,
     output wire perf_evictions,
     output wire perf_mshr_stall,
+    output wire [PERF_CTR_BITS-1:0] perf_flush_walk,
 `endif
 
     // Core request
@@ -292,6 +293,20 @@ module VX_cache_bank import VX_gpu_pkg::*; #(
         .mshr_empty  (mshr_empty),
         .bank_empty  (no_pending_req)
     );
+
+`ifdef PERF_ENABLE
+    // Counts every cycle of the set walk, including cycles the walk is held
+    // off by a full mreq queue: the bank still advances during the flush.
+    reg [PERF_CTR_BITS-1:0] perf_flush_walk_r;
+    always @(posedge clk) begin
+        if (reset) begin
+            perf_flush_walk_r <= '0;
+        end else if (flush_valid) begin
+            perf_flush_walk_r <= perf_flush_walk_r + PERF_CTR_BITS'(1);
+        end
+    end
+    assign perf_flush_walk = perf_flush_walk_r;
+`endif
 
     // wb_hold pauses the commit while a multi-beat per-sector writeback drains
     // (0 for single-sector lines, so the baseline pipe is unaffected).

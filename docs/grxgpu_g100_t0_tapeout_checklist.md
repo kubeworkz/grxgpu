@@ -131,6 +131,13 @@ signature transcript, repair decision, reviewer signoff.
 **Evidence:** ECC RTL, parity matrix, injection regression log, counter map,
 area/timing delta, reviewer signoff.
 
+**Status (2026-11-05):** the codec and counters exist in
+`hw/rtl/libs/VX_ecc_secded.sv` and `hw/rtl/libs/VX_ecc_ctrl.sv`;
+`hw/rtl/libs/VX_ecc_ram.sv` wraps the bank RAM and LMEM's banks now use it,
+with a read-modify-write cycle for byte-enable writes. The ICache and DCache
+are still unprotected, the counters have no JTAG/CSR readout, and there is no
+area/timing delta, so none of the items above is complete.
+
 ---
 
 ## 4. Floorplan
@@ -308,7 +315,7 @@ are blocked by a known fault.
 |---|---|---|---|
 | Scan | No scan ports or chains | No DFT step in `syn/` | Insertion, ATPG, GLS |
 | MBIST | No controller | No generator | Controller, array map, repair decision |
-| ECC | No SECDED or parity | No injection flow | Encoder/decoder, counters, fault injection |
+| ECC | SECDED codec, counters, ECC bank RAM with byte-enable RMW; LMEM protected (`hw/rtl/libs/`); benches `hw/unittest/ecc`, `hw/unittest/ecc_ram` | ICache/DCache unprotected, no JTAG counter map | Wrap ICache/DCache, counter map, area/timing |
 | JTAG | TAP, DTM, DM, SBA, boot, attachment, arbiter and test SRAM (`hw/rtl/dbg/`) | CI-run Verilator TB (`hw/unittest/t0_dbg`) with a toolchain-built image; no DFT or GLS | Gate-level, board |
 | Clock/reset | `VX_clockgate`, `VX_reset_relay`, single top-level clock/reset | Synthesis only | Clock tree, reset sequencing, test muxing |
 | Floorplan | — | OpenROAD available | Placement, power grid, pin placement |
@@ -330,7 +337,10 @@ path to a tapeout package.
 3. **JTAG is RTL-tested but not silicon-proven.** The T0-A TAP/DM/SBA path
    exists and passes its Verilator testbench; it has no gate-level run, no
    board transcript and no T0-B halt/resume.
-4. **No ECC RTL.** The arrays are unprotected today.
+4. **ECC covers LMEM only.** `VX_ecc_ram` encodes on write and corrects on
+   read, and a byte-enable write pays one read-modify-write cycle to recompute
+   its check bits. ICache and DCache still store unprotected words, and the
+   error counters have no JTAG/CSR readout.
 5. **Core-side path is simulated, not built.** `VX_t0_core_attach` and
    `VX_t0_boot` now wire the real `VX_core` instruction/data ports and boot a
    toolchain-built image in simulation. The full cluster's L1/L2 is not

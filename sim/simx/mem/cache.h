@@ -54,6 +54,9 @@ public:
 		uint64_t bank_stalls = 0;
 		uint64_t mshr_stalls = 0;
 		uint64_t mem_latency = 0;
+		uint64_t fences = 0;
+		uint64_t flush_cycles = 0;
+		uint64_t flush_walk_cycles = 0;
 
 		PerfStats& operator+=(const PerfStats& rhs) {
 			this->reads += rhs.reads;
@@ -64,6 +67,9 @@ public:
 			this->bank_stalls += rhs.bank_stalls;
 			this->mshr_stalls += rhs.mshr_stalls;
 			this->mem_latency += rhs.mem_latency;
+			this->fences += rhs.fences;
+			this->flush_cycles += rhs.flush_cycles;
+			this->flush_walk_cycles += rhs.flush_walk_cycles;
 			return *this;
 		}
 	};
@@ -78,9 +84,9 @@ public:
 
 	PerfStats perf_stats() const;
 
-	// Flush API: arm a write-back walk that emits dirty lines via mem_req_out.
-	// flush_done() returns true once the walk completes; the caller is expected
-	// to tick the simulator until then. Write-through caches no-op.
+	// Flush API: arm a walk that evicts dirty lines (write-back) and invalidates
+	// every line, matching VX_cache_flush. flush_done() returns true once the
+	// walk completes; the caller ticks the simulator until then.
 	void flush_begin();
 	bool flush_done() const;
 
