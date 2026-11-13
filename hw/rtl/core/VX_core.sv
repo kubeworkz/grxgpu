@@ -354,6 +354,8 @@ module VX_core import VX_gpu_pkg::*; #(
         .issue_perf     (pipeline_perf.issue),
     `endif
 
+        .thread_masks   (sched_csr_if.thread_masks),
+        .mask_op_gen    (sched_csr_if.mask_op_gen),
         .decode_if      (decode_if),
         .writeback_if   (writeback_if),
         .dispatch_if    (dispatch_if),

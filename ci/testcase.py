@@ -63,6 +63,7 @@ class Spec:
         self.via = entry.get("via", "blackbox")
         self.app = entry.get("app", "")
         self.args = entry.get("args", "")
+        self.expected_instrs = entry.get("instrs")
         # Verbatim extra blackbox flags the structured fields don't model
         # (e.g. --debug=3 --perf=6 --scope --nohup --log=...).
         self.flags = entry.get("flags", "")

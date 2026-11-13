@@ -108,6 +108,9 @@ tests:
   check: model_parity
   via: blackbox
   app: async_gbarrier
+  # Exact count both models must retire on this shape: the mask-override gate
+  # must not change which threads an instruction executes under.
+  instrs: 10376
   shape: {clusters: 1, cores: 2}
 - id: async-gbarrier-1c4
   check: model_parity

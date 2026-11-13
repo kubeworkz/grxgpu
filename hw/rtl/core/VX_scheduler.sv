@@ -66,6 +66,11 @@ module VX_scheduler import VX_gpu_pkg::*; #(
 
     wire [NW_WIDTH-1:0]     schedule_wid;
     wire [`VX_CFG_NUM_THREADS-1:0] schedule_tmask;
+    reg [`VX_CFG_NUM_WARPS-1:0][MASK_TAG_W-1:0] mask_op_gen;
+    // Only the newest mask op's tag is kept, which is exact while a warp has one
+    // split/join in flight at a time.
+    reg [`VX_CFG_NUM_WARPS-1:0] maskop_pending;
+
     wire [PC_BITS-1:0]      schedule_pc;
     wire                    schedule_valid;
     wire                    schedule_ready;
@@ -111,6 +116,7 @@ module VX_scheduler import VX_gpu_pkg::*; #(
         .busy       (cta_dispatcher_busy)
     );
 
+    assign sched_csr_if.mask_op_gen = mask_op_gen;
     assign sched_csr_if.cta_csrs = cta_rd_csrs;
     assign sched_csr_if.cta_tid  = cta_rd_tid;
 
@@ -444,7 +450,66 @@ module VX_scheduler import VX_gpu_pkg::*; #(
 
     // schedule the next ready warp
 
-    wire [`VX_CFG_NUM_WARPS-1:0] ready_warps = active_warps & ~stalled_warps;
+    // A pushed entry lives in out_buf until fetch accepts it and warp_pcs only
+    // advances then, so a warp re-selected while it waits would push the same PC
+    // twice. stalled_warps can already be clear (decode of an older
+    // instruction), hence the separate hold.
+    reg [`VX_CFG_NUM_WARPS-1:0] fetch_pend;
+
+    always @(posedge clk) begin
+        if (reset) begin
+            fetch_pend <= '0;
+        end else begin
+            for (integer w = 0; w < `VX_CFG_NUM_WARPS; ++w) begin
+                if (schedule_fire && (schedule_wid == NW_WIDTH'(w))) begin
+                    fetch_pend[w] <= 1'b1;
+                end else if (schedule_if_fire && (schedule_if.data.wid == NW_WIDTH'(w))) begin
+                    fetch_pend[w] <= 1'b0;
+                end
+            end
+        end
+    end
+
+    // A decoded branch redirects the warp only when the ALU resolves it. Any
+    // other unlock (an older branch, a split, a barrier) would otherwise let the
+    // warp fetch the fall-through, and a fetched word is never squashed.
+    reg [1:0] br_pend [`VX_CFG_NUM_WARPS];
+
+    reg [`VX_CFG_NUM_WARPS-1:0] br_resolved;
+    always @(*) begin
+        br_resolved = '0;
+        for (integer i = 0; i < `VX_CFG_NUM_ALU_BLOCKS; ++i) begin
+            if (branch_valid[i]) begin
+                br_resolved[branch_wid[i]] = 1'b1;
+            end
+        end
+    end
+
+    always @(posedge clk) begin
+        if (reset) begin
+            for (integer w = 0; w < `VX_CFG_NUM_WARPS; ++w) begin
+                br_pend[w] <= 2'd0;
+            end
+        end else begin
+            for (integer w = 0; w < `VX_CFG_NUM_WARPS; ++w) begin
+                if (cta_fire && (cta_wid == NW_WIDTH'(w))) begin
+                    br_pend[w] <= 2'd0;
+                end else if (decode_sched_if.valid && decode_sched_if.wstall_br
+                          && (decode_sched_if.wid == NW_WIDTH'(w)) && !br_resolved[w]) begin
+                    br_pend[w] <= (br_pend[w] == 2'd2) ? 2'd2 : br_pend[w] + 2'd1;
+                end else if (br_resolved[w]) begin
+                    br_pend[w] <= (br_pend[w] == 2'd0) ? 2'd0 : br_pend[w] - 2'd1;
+                end
+            end
+        end
+    end
+
+    wire [`VX_CFG_NUM_WARPS-1:0] br_hold;
+    for (genvar w = 0; w < `VX_CFG_NUM_WARPS; ++w) begin : g_br_hold
+        assign br_hold[w] = (br_pend[w] != 2'd0);
+    end
+
+    wire [`VX_CFG_NUM_WARPS-1:0] ready_warps = active_warps & ~stalled_warps & ~fetch_pend & ~br_hold;
 
     // Per-warp ibuffer occupancy counter (registered full[i] keeps arbitration
     // off the critical path; full_n feeds an externally registered aggregate
@@ -624,6 +689,26 @@ module VX_scheduler import VX_gpu_pkg::*; #(
         end
     end
 `endif
+    always @(posedge clk) begin
+        if (reset) begin
+            for (int w = 0; w < `VX_CFG_NUM_WARPS; ++w) begin
+                mask_op_gen[w] <= '0;
+                maskop_pending[w] <= 1'b0;
+            end
+        end else begin
+            if (warp_ctl_if.split_valid || warp_ctl_if.sjoin_valid) begin
+                maskop_pending[warp_ctl_if.wid] <= 1'b0;
+            end
+            if (decode_sched_if.valid && decode_sched_if.mask_op) begin
+                mask_op_gen[decode_sched_if.wid] <= decode_sched_if.mgen;
+                maskop_pending[decode_sched_if.wid] <= 1'b1;
+            end
+            `ASSERT(!(decode_sched_if.valid && decode_sched_if.mask_op
+                      && maskop_pending[decode_sched_if.wid]),
+                ("two mask-producing ops in flight for one warp"));
+        end
+    end
+
     `RUNTIME_ASSERT(timeout_ctr < SCHED_STALL_TIMEOUT, ("*** %s timeout: active_warps=%b, stalled_warps=%b", INSTANCE_ID, active_warps, stalled_warps))
 
 `ifdef PERF_ENABLE

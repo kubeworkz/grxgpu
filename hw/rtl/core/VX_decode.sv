@@ -866,8 +866,8 @@ module VX_decode import
         .reset     (reset),
         .valid_in  (fetch_if.valid),
         .ready_in  (fetch_if.ready),
-        .data_in   ({fetch_if.data.uuid,  fetch_if.data.wid,  fetch_if.data.cta_id,  fetch_if.data.tmask,  fetch_if.data.PC,  ex_type,                op_type,                op_args,                wb,                rd_xregs,                wr_xregs,                use_regs[3:1],          reg_ids[RV_RD],    bytesel,                  reg_ids[RV_RS1],    reg_ids[RV_RS2],    reg_ids[RV_RS3]}),
-        .data_out  ({decode_if.data.uuid, decode_if.data.wid, decode_if.data.cta_id, decode_if.data.tmask, decode_if.data.PC, decode_if.data.ex_type, decode_if.data.op_type, decode_if.data.op_args, decode_if.data.wb, decode_if.data.rd_xregs, decode_if.data.wr_xregs, decode_if.data.used_rs, decode_if.data.rd, decode_if.data.bytesel,   decode_if.data.rs1, decode_if.data.rs2, decode_if.data.rs3}),
+        .data_in   ({fetch_if.data.uuid,  fetch_if.data.wid,  fetch_if.data.cta_id,  fetch_if.data.tmask,  fetch_if.data.mgen, fetch_if.data.PC,  ex_type,                op_type,                op_args,                wb,                rd_xregs,                wr_xregs,                use_regs[3:1],          reg_ids[RV_RD],    bytesel,                  reg_ids[RV_RS1],    reg_ids[RV_RS2],    reg_ids[RV_RS3]}),
+        .data_out  ({decode_if.data.uuid, decode_if.data.wid, decode_if.data.cta_id, decode_if.data.tmask, decode_if.data.mgen, decode_if.data.PC, decode_if.data.ex_type, decode_if.data.op_type, decode_if.data.op_args, decode_if.data.wb, decode_if.data.rd_xregs, decode_if.data.wr_xregs, decode_if.data.used_rs, decode_if.data.rd, decode_if.data.bytesel,   decode_if.data.rs1, decode_if.data.rs2, decode_if.data.rs3}),
         .valid_out (decode_if.valid),
         .ready_out (decode_if.ready)
     );
@@ -879,6 +879,9 @@ module VX_decode import
     // Register decode_sched_if to break the long combinational path.
     reg                  decode_sched_valid_r;
     reg                  decode_sched_unlock_r;
+    reg                  decode_sched_wstall_br_r;
+    reg decode_sched_mask_op_r;
+    reg [MASK_TAG_W-1:0] decode_sched_mgen_r;
     reg [NW_WIDTH-1:0]   decode_sched_wid_r;
 `ifdef VX_CFG_EXT_C_ENABLE
     reg                  decode_sched_is_rvc_r;
@@ -890,6 +893,14 @@ module VX_decode import
         end else begin
             decode_sched_valid_r  <= fetch_fire;
             decode_sched_unlock_r <= ~is_wstall;
+            // A control-flow op resolves its PC only in the ALU; the scheduler
+            // must not fetch past it until then.
+            decode_sched_wstall_br_r <= is_wstall && (ex_type == EX_ALU);
+            // Tag of this instruction, so the scheduler can bound the live-mask override
+            // to instructions fetched after this split/join.
+            decode_sched_mask_op_r <= (ex_type == EX_SFU)
+                && ((op_type == INST_OP_BITS'(INST_SFU_SPLIT)) || (op_type == INST_OP_BITS'(INST_SFU_JOIN)));
+            decode_sched_mgen_r <= fetch_if.data.mgen;
             decode_sched_wid_r    <= fetch_if.data.wid;
         `ifdef VX_CFG_EXT_C_ENABLE
             decode_sched_is_rvc_r <= fetch_if.data.is_rvc;
@@ -900,6 +911,9 @@ module VX_decode import
     assign decode_sched_if.valid  = decode_sched_valid_r;
     assign decode_sched_if.wid    = decode_sched_wid_r;
     assign decode_sched_if.unlock = decode_sched_unlock_r;
+    assign decode_sched_if.wstall_br = decode_sched_wstall_br_r;
+    assign decode_sched_if.mask_op   = decode_sched_mask_op_r;
+    assign decode_sched_if.mgen      = decode_sched_mgen_r;
 `ifdef VX_CFG_EXT_C_ENABLE
     assign decode_sched_if.is_rvc = decode_sched_is_rvc_r;
 `endif

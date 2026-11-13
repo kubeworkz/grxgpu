@@ -54,6 +54,7 @@ module VX_ibuffer import VX_gpu_pkg::*; #(
                 decode_if.data.wid,
                 decode_if.data.cta_id,
                 decode_if.data.tmask,
+                decode_if.data.mgen,
                 decode_if.data.PC,
                 decode_if.data.ex_type,
                 decode_if.data.op_type,

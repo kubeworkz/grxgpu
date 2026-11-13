@@ -552,6 +552,12 @@ package VX_gpu_pkg;
 
     localparam DISPATCH_QSIZE = `VX_CFG_DISPATCH_QUEUE_SIZE;
 
+    // Dispatch-time mask override tags. A tag wraps, so the width must exceed the
+    // distance from a warp's split/join to the farthest instruction that takes the
+    // live mask: 512 covers the 155 fetches measured (with a non-wrapping tag).
+    localparam MASK_TAG_MAX_LIVE_DIST = 155;
+    localparam MASK_TAG_W = $clog2(4 * MASK_TAG_MAX_LIVE_DIST);
+
     localparam PER_OPC_WARPS = PER_ISSUE_WARPS / `VX_CFG_NUM_OPCS;
     localparam PER_OPC_NW_BITS = `CLOG2(PER_OPC_WARPS);
     localparam PER_OPC_NW_W = `UP(PER_OPC_NW_BITS);
@@ -890,6 +896,7 @@ package VX_gpu_pkg;
         logic [NW_WIDTH-1:0]    wid;
         logic [NCTA_WIDTH-1:0]  cta_id;
         logic [`VX_CFG_NUM_THREADS-1:0] tmask;
+        logic [MASK_TAG_W-1:0] mgen;
         logic [PC_BITS-1:0]     PC;
         logic [31:0]            instr;
     `ifdef VX_CFG_EXT_C_ENABLE
@@ -902,6 +909,7 @@ package VX_gpu_pkg;
         logic [NW_WIDTH-1:0]        wid;
         logic [NCTA_WIDTH-1:0]      cta_id;
         logic [`VX_CFG_NUM_THREADS-1:0]    tmask;
+        logic [MASK_TAG_W-1:0] mgen;
         logic [PC_BITS-1:0]         PC;
         logic [EX_BITS-1:0]         ex_type;
         logic [INST_OP_BITS-1:0]    op_type;
@@ -922,6 +930,7 @@ package VX_gpu_pkg;
         logic [NW_WIDTH-1:0]        wid;
         logic [NCTA_WIDTH-1:0]      cta_id;
         logic [`VX_CFG_NUM_THREADS-1:0]    tmask;
+        logic [MASK_TAG_W-1:0] mgen;
         logic [PC_BITS-1:0]         PC;
         logic [EX_BITS-1:0]         ex_type;
         logic [INST_OP_BITS-1:0]    op_type;
@@ -944,6 +953,7 @@ package VX_gpu_pkg;
         logic [ISSUE_WIS_W-1:0]     wis;
         logic [NCTA_WIDTH-1:0]      cta_id;
         logic [`VX_CFG_NUM_THREADS-1:0]    tmask;
+        logic [MASK_TAG_W-1:0] mgen;
         logic [PC_BITS-1:0]         PC;
         logic [EX_BITS-1:0]         ex_type;
         logic [INST_OP_BITS-1:0]    op_type;
@@ -964,6 +974,7 @@ package VX_gpu_pkg;
         logic [NCTA_WIDTH-1:0]              cta_id;
         logic [SIMD_IDX_W-1:0]              sid;
         logic [`VX_CFG_SIMD_WIDTH-1:0]             tmask;
+        logic [MASK_TAG_W-1:0] mgen;
         logic [PC_BITS-1:0]                 PC;
         logic [EX_BITS-1:0]                 ex_type;
         logic [INST_OP_BITS-1:0]            op_type;

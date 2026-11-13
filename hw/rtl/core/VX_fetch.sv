@@ -189,7 +189,7 @@ module VX_fetch import VX_gpu_pkg::*; #(
     // Direct path (no RVC): scheduler PC → icache request → fetch_if.
     // ------------------------------------------------------------------------
 
-    assign icache_req_valid = schedule_if.valid;
+    assign icache_req_valid = schedule_if.valid && ~dst_inflight[schedule_if.data.wid];
     assign icache_req_addr  = schedule_if.data.PC[2-(`VX_CFG_XLEN-PC_BITS) +: ICACHE_ADDR_WIDTH];
     assign icache_req_wid   = schedule_if.data.wid;
     assign icache_req_uuid  = schedule_if.data.uuid;
@@ -247,6 +247,17 @@ module VX_fetch import VX_gpu_pkg::*; #(
 
     assign fetch_if.valid       = icache_bus_if.rsp_valid;
     assign fetch_if.data.tmask  = rsp_new ? rsp_tmask  : rsp_tmask_r;
+    // Per-warp fetch sequence: the tag an instruction carries so dispatch can
+    // tell whether it was fetched before or after a split/join published.
+    reg [`VX_CFG_NUM_WARPS-1:0][MASK_TAG_W-1:0] fetch_gen;
+    always @(posedge clk) begin
+        if (reset) begin
+            fetch_gen <= '0;
+        end else if (fetch_if.valid && fetch_if.ready) begin
+            fetch_gen[fetch_if.data.wid] <= fetch_gen[fetch_if.data.wid] + 1'b1;
+        end
+    end
+    assign fetch_if.data.mgen   = fetch_gen[fetch_if.data.wid];
     assign fetch_if.data.wid    = rsp_tag;
     assign fetch_if.data.cta_id = rsp_new ? rsp_cta_id : rsp_cta_id_r;
     assign fetch_if.data.PC     = rsp_new ? rsp_PC     : rsp_PC_r;
