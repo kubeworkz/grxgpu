@@ -85,7 +85,10 @@ fi
 # Build-flag scans use `find` + `grep -l`-style filtering since some
 # grep builds handle --include/--exclude inconsistently against
 # arbitrary file extensions. Only true Makefile / .mk / .in files are
-# scanned; stamp files (configure artifacts) are filtered explicitly.
+# scanned; stamp files (configure artifacts) and Verilator's generated
+# *.obj_dir trees are filtered explicitly. The latter matter because the
+# rtlsim library is verilated into sw/runtime/ and its generated .mk
+# carries configure-expanded -I paths into hw/ and sim/.
 
 scan_makefile_flags() {
     local label="$1"; shift
@@ -101,6 +104,7 @@ scan_makefile_flags() {
     done < <(find "$@" \
               \( -name 'Makefile' -o -name '*.mk' -o -name '*.in' \) \
               -not -name '*.stamp' \
+              -not -path '*.obj_dir/*' \
               -type f 2>/dev/null)
     if [ -n "$hits" ]; then
         echo "ERROR: $label" >&2
@@ -134,6 +138,7 @@ if [ "${#SW_BUILD_DIRS[@]}" -gt 0 ]; then
               \( -name 'Makefile' -o -name '*.mk' -o -name '*.in' \) \
               -not -name '*.stamp' \
               -not -path '*/sw/runtime/opae/*' \
+              -not -path '*.obj_dir/*' \
               -type f 2>/dev/null || true)
 fi
 if [ -n "$sw_files" ]; then
