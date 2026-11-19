@@ -195,6 +195,11 @@ all: $(DESTDIR)/$(PROJECT)
 # skips verilation entirely while the generated model is newer than its inputs.
 EXE_MDIR := $(DESTDIR)/$(PROJECT).obj_dir
 LIB_MDIR := $(DESTDIR)/lib$(PROJECT).so.obj_dir
+# The runtime links the library with its own DESTDIR (`<build>/sw/runtime`), so
+# that copy of the model escapes `$(DESTDIR)`; a partially compiled archive left
+# there relinks cleanly and only fails at load with an undefined Verilator symbol.
+RUNTIME_LIB := $(ROOT_DIR)/sw/runtime/lib$(PROJECT).so
+RUNTIME_LIB_MDIR := $(RUNTIME_LIB).obj_dir
 VL_MK := V$(TOP).mk
 
 $(EXE_MDIR)/$(VL_MK): $(SRCS) $(SRC_DIR)/main.cpp $(CONFIG_FILE) $(RTL_SRCS)
@@ -229,8 +234,8 @@ $(CONFIG_FILE): force
 	fi
 
 clean-lib:
-	rm -rf $(DESTDIR)/lib$(PROJECT).so.obj_dir
-	rm -f $(DESTDIR)/lib$(PROJECT).so
+	rm -rf $(DESTDIR)/lib$(PROJECT).so.obj_dir $(RUNTIME_LIB_MDIR)
+	rm -f $(DESTDIR)/lib$(PROJECT).so $(RUNTIME_LIB)
 
 clean-exe:
 	rm -rf $(DESTDIR)/$(PROJECT).obj_dir

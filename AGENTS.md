@@ -82,6 +82,7 @@ See [docs/testing.md](docs/testing.md) and [docs/debugging.md](docs/debugging.md
   ```
 - **`make tests` / `make -C tests/regression` build with *default* macros.** Use `CONFIGS` + explicit per-app rebuild for non-default configurations.
 - **`--rebuild=1` forces a driver rebuild** even if the hardware configuration is unchanged. Use it when iterating on the driver itself; `--rebuild=0` suppresses rebuild regardless.
+- **Clean the runtime's copy of the rtlsim model too.** `sw/runtime/rtlsim/Makefile` passes its own `DESTDIR` (`<build>/sw/runtime`) when it builds `librtlsim.so`, so that model lands in `sw/runtime/librtlsim.so.obj_dir`, not `sim/rtlsim/librtlsim.so.obj_dir`. A build killed mid-compile leaves a truncated `Vrtlsim_shim__ALL.a` there that still links into `librtlsim.so` and only fails at load with `undefined symbol ...__nba_sequent__TOP__14`. `make -C sim/rtlsim clean` removes both copies; if you clean by hand, remove both.
 - **Keep smoke/regression runs lean.** Don't enable debug or perf collection unless the run is explicitly for debug or measurement.
 - **Enable the pre-commit gate once per clone.** `./ci/install_hooks.sh` points
   `core.hooksPath` at `ci/hooks`, so the artifact and LF gates run on the staged
