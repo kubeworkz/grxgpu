@@ -13,6 +13,8 @@ tests:
   - simx
   app: sgemm_tcu
   configs: -DVX_CFG_NUM_THREADS=2 -DVX_CFG_EXT_TCU_ENABLE -DVX_CFG_TCU_INT8_ENABLE -DITYPE=int8 -DOTYPE=int32
+  # Matches the rtlsim twin; 64³ traces 64x the MMA work in this -O0 build.
+  args: -m16 -n16 -k16
   flags: --debug=3 --log=run_simx.log
 - id: sgemm_tcu-2
   via: blackbox
