@@ -477,7 +477,10 @@ module VX_tcu_core import VX_gpu_pkg::*, VX_tcu_pkg::*; #(
 
         `ifdef VX_CFG_TCU_SPARSE_ENABLE
             for (genvar k_idx = 0; k_idx < TCU_TC_K; ++k_idx) begin : g_sparse_slice_assign
-                localparam J_SP = SYM_SPARSE ? (j % (TCU_TC_N / 2)) : j;
+                // WMMA_SP pairs columns in symmetric mode; WGMMA_SP always uses
+                // the full interleaved candidate set and must not be paired.
+                localparam J_SP_WM = SYM_SPARSE ? (j % (TCU_TC_N / 2)) : j;
+                localparam J_SP_WG = j;
                 // rs2_data sparse-pair layout differs by op:
                 //   WGMMA_SP: source is tbuf (shared mem), K-major →
                 //     idx = k_idx*(TC_N*2) + J_SP*2 + lane
@@ -485,15 +488,15 @@ module VX_tcu_core import VX_gpu_pkg::*, VX_tcu_pkg::*; #(
                 //     idx = J_SP*(TC_K*2) + k_idx*2 + lane
                 // The two layouts are incompatible; separate formulas are required.
             `ifdef VX_CFG_TCU_WGMMA_ENABLE
-                wire [31:0] b_col_1_wg = 32'(rs2_data[k_idx * TCU_TC_N * 2 + J_SP * 2]);
-                wire [31:0] b_col_2_wg = 32'(rs2_data[k_idx * TCU_TC_N * 2 + J_SP * 2 + 1]);
-                wire [31:0] b_col_1_wm = 32'(rs2_data[b_off_wm + J_SP * TCU_TC_K * 2 + k_idx * 2]);
-                wire [31:0] b_col_2_wm = 32'(rs2_data[b_off_wm + J_SP * TCU_TC_K * 2 + k_idx * 2 + 1]);
+                wire [31:0] b_col_1_wg = 32'(rs2_data[k_idx * TCU_TC_N * 2 + J_SP_WG * 2]);
+                wire [31:0] b_col_2_wg = 32'(rs2_data[k_idx * TCU_TC_N * 2 + J_SP_WG * 2 + 1]);
+                wire [31:0] b_col_1_wm = 32'(rs2_data[b_off_wm + J_SP_WM * TCU_TC_K * 2 + k_idx * 2]);
+                wire [31:0] b_col_2_wm = 32'(rs2_data[b_off_wm + J_SP_WM * TCU_TC_K * 2 + k_idx * 2 + 1]);
                 assign b_col_1[k_idx] = is_wgmma ? b_col_1_wg : b_col_1_wm;
                 assign b_col_2[k_idx] = is_wgmma ? b_col_2_wg : b_col_2_wm;
             `else
-                assign b_col_1[k_idx] = 32'(rs2_data[b_off_wm + J_SP * TCU_TC_K * 2 + k_idx * 2]);
-                assign b_col_2[k_idx] = 32'(rs2_data[b_off_wm + J_SP * TCU_TC_K * 2 + k_idx * 2 + 1]);
+                assign b_col_1[k_idx] = 32'(rs2_data[b_off_wm + J_SP_WM * TCU_TC_K * 2 + k_idx * 2]);
+                assign b_col_2[k_idx] = 32'(rs2_data[b_off_wm + J_SP_WM * TCU_TC_K * 2 + k_idx * 2 + 1]);
             `endif
             end
         `endif

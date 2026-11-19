@@ -55,6 +55,24 @@ module VX_dispatcher import VX_gpu_pkg::*; #(
     wire [MASK_TAG_W-1:0] mgen_delta_i = operands_if.data.mgen - mask_op_gen[mgen_wid];
     wire use_live_mask_i = (mgen_delta_i != '0) && !mgen_delta_i[MASK_TAG_W-1];
 
+`ifdef VX_CFG_TCU_SPARSE_ENABLE
+    // Sparse WMMA uops carry a per-uop K-half lane mask synthesized by
+    // VX_tcu_uops. Replacing it with the live mask would let both halves
+    // write every lane, so each accumulator column would take both halves;
+    // keep the uop mask and fold in the live activity mask.
+    wire is_sparse_wmma_uop = (operands_if.data.ex_type == EX_BITS'(EX_TCU))
+                           && (operands_if.data.op_type == INST_OP_BITS'(INST_TCU_WMMA_SP));
+`else
+    wire is_sparse_wmma_uop = 1'b0;
+`endif
+
+    wire [`VX_CFG_NUM_THREADS-1:0] dispatch_tmask =
+        use_live_mask_i
+            ? (is_sparse_wmma_uop
+                ? (thread_masks[mgen_wid] & operands_if.data.tmask)
+                : thread_masks[mgen_wid])
+            : operands_if.data.tmask;
+
     // All execution units pass operand data straight through; LSU address
     // generation (pack-load included) lives in VX_lsu_slice.
     for (genvar i = 0; i < NUM_EX_UNITS; ++i) begin : g_buffers
@@ -73,7 +91,7 @@ module VX_dispatcher import VX_gpu_pkg::*; #(
                 operands_if.data.wis,
                 operands_if.data.cta_id,
                 operands_if.data.sid,
-                use_live_mask_i ? thread_masks[mgen_wid] : operands_if.data.tmask,
+                dispatch_tmask,
                 operands_if.data.PC,
                 operands_if.data.wb,
                 operands_if.data.wr_xregs,
