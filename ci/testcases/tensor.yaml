@@ -63,6 +63,8 @@ tests:
   - rtlsim
   app: sgemm_tcu
   configs: -DVX_CFG_NUM_THREADS=2 -DVX_CFG_EXT_TCU_ENABLE -DVX_CFG_TCU_TYPE_DPI -DVX_CFG_TCU_INT8_ENABLE -DITYPE=int8 -DOTYPE=int32
+  # Matches the debug category: 64³ takes minutes and writes a multi-GB VCD.
+  args: -m16 -n16 -k16
   flags: --debug=3 --log=run_rtlsim.log
 - id: sgemm_tcu-9
   via: blackbox
