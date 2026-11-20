@@ -22,7 +22,7 @@ release.
 | Area | Pinned identity or current state | G1 disposition |
 |---|---|---|
 | Source | T0 commit `ff550c27570f17b0c8242be42257043d3de4ffa7`, root tree `cf6b2f8657fcba985dd9007fa403231c3d800301` | Identity pinned; no T0 build or freeze tag |
-| Configuration | Proposed `CONFIGS` below; resolver output SHA-256 `7824b5185203543cc4637ae7950b526caad856f99283f624dd825679e53f41e4` | Proposed only; not frozen or exercised |
+| Configuration | Proposed `CONFIGS` below; resolver output SHA-256 `cd5336232fa98454009574121e0b25cc98feb3530a50675874ba98738c154cda` (LF-stored) | Proposed only; not frozen or exercised |
 | Toolchain | Discovery toolchain recorded; no T0 build/tool bundle | **OPEN** for T0 |
 | Workload | `sgemm_tcu_wg_dxa`, M=N=64, K=64/512, FP16→FP32, NRC=16 | Source pinned; no T0 invocation |
 | Golden output | None archived; discovery runs printed `PASSED!` only | **ABSENT** |
@@ -153,8 +153,10 @@ python ci/gen_config.py --config=VX_config.toml \
 | Test SRAM | 256 KB, 4096 × 512 bits, no ECC | RTL, not a resolver field |
 
 **Configuration identity artifact:** [proposed-config.txt](evidence/g100-t0-g1-audit-2026-11-20/proposed-config.txt),
-SHA-256 `7824b5185203543cc4637ae7950b526caad856f99283f624dd825679e53f41e4`,
-6,007 bytes, resolver exit 0 on 2026-11-20 using CPython 3.14.0 and
+SHA-256 `cd5336232fa98454009574121e0b25cc98feb3530a50675874ba98738c154cda`,
+6,006 bytes with LF endings (the Windows capture's trailing CRLF hashed
+`7824b5185203543cc4637ae7950b526caad856f99283f624dd825679e53f41e4`), resolver
+exit 0 on 2026-11-20 using CPython 3.14.0 and
 `ci/gen_config.py` at the pinned hash. This is a reproducible resolver output,
 not a T0 build stamp or a frozen configuration.
 
