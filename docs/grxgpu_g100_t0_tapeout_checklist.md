@@ -112,9 +112,9 @@ signature transcript, repair decision, reviewer signoff.
   equivalent, with the parity matrix recorded.
 - [ ] **Correctable error.** Corrected data is returned, a counter increments,
   and the access does not stall; the counter is readable over JTAG.
-- [ ] **Uncorrectable error.** A fault is raised, the address and syndrome are
-  logged, and the core halts or traps per the ratified policy. Silent bad data
-  is not an option.
+- [ ] **Uncorrectable error.** Never return silent bad data. The reporting
+  action and any logged address or syndrome follow the error policy once it is
+  ratified; no policy is ratified yet.
 - [ ] **Scrubbing.** Each array is read in the background at a defined rate, or
   the no-scrub decision is recorded with its reliability rationale.
 - [ ] **Register file parity.** One bit per 32-bit register word, or a written
@@ -278,8 +278,8 @@ load-and-run transcript, bring-up procedure, reviewer signoff.
 4. **MBIST.** Run all 48 arrays; record pass/fail and failing addresses.
 5. **Scan.** Run the chain-integrity flush, then the stuck-at patterns.
 6. **ECC.** Inject a correctable and an uncorrectable error through the debug
-   path; confirm the counters and the fault. *Blocked in T0-A: no ECC RTL
-   exists, and LMEM is not on the SBA path.*
+   path; confirm the counters and the error response. *Blocked in T0-A: no ECC
+   RTL exists, and LMEM is not on the SBA path.*
 7. **Debug module.** Read DMSTATUS, set `ndmreset`, run an SBA write/read at
    the test SRAM base, clear `ndmreset`.
 8. **Memory.** Write and read the test SRAM at the base, middle and last word,

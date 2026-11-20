@@ -183,7 +183,7 @@ Each record is: chosen option, the pinned-RTL evidence behind it, the condition 
 
 **Chosen option.** Protect the test SRAM with the same SECDED wrapper, 64+8 per 64-bit lane (8 lanes per 512-bit line), byte-enable RMW and counters in the status block. Fallback if area or schedule forces a cut: per-lane parity with a sticky counter; leaving it bare is a recorded deferral to T0-B, not compliance.
 
-**Pinned-RTL evidence.** The SRAM is a plain `reg [511:0] mem [4096]` with 64 byte enables (`hw/rtl/dbg/VX_t0_test_sram.sv:46-65`); SBA stores are 4 bytes (`hw/rtl/dbg/VX_dm_sba.sv:58`), so every SBA store is a partial codeword and takes the RMW path. It is the only ECC-bearing array available in T0-A.
+**Pinned-RTL evidence.** The SRAM is a plain `reg [511:0] mem [4096]` with 64 byte enables (`hw/rtl/dbg/VX_t0_test_sram.sv:46-65`); SBA stores are 4 bytes (`hw/rtl/dbg/VX_dm_sba.sv:58`), so every SBA store is a partial codeword and takes the RMW path. It is the only array available to carry ECC in T0-A.
 
 **Condition to check.** Area delta recorded; the JTAG store/read test still passes through the RMW path; the address window is unchanged.
 
