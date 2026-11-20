@@ -204,7 +204,7 @@ tapeout plan already synthesizes and the discovery runs already exercise at
 | LMEM / ICache / DCache | 16 KB / 16 KB / 16 KB per core | The measured inventory |
 | L2 | disabled | Not in the measured area or the RTL path |
 | Graphics | disabled | Compute-only discovery scope |
-| ECC | SECDED 64+8 on LMEM, ICache and DCache; **no RTL yet** (P10) | Production SRAM does not ship without it. The 256 KB test SRAM is bring-up storage and is outside this requirement. |
+| ECC | SECDED 64+8 on LMEM, ICache and DCache; **no RTL yet** (P10) | Production SRAM does not ship without it. The 256 KB test SRAM is bring-up storage and is outside this requirement. Closure work and the unsigned decisions are in the [ECC closure plan](g100_t0_ecc_closure_plan.md); the gate record is the [S0 decision signoff](../evidence/g100-t0-ecc-s0-2026-11-20/signoff.md). |
 | Clock | 400 MHz target, 800 MHz stretch | 400 is the platform model; neither is closed by STA |
 | Power envelope | 10 W | Package and thermal budget; no activity-based estimate exists |
 | Host interface | none; JTAG bring-up | No host RTL or PHY exists (§7) |
@@ -254,7 +254,7 @@ evidence exists.
 | P07 | Host interface | Absent from RTL and the plan; T0 is JTAG-only | PCIe controller + PHY selected and integrated |
 | P08 | DRAM interface | Absent; T0 runs from SRAM | DDR/LPDDR controller + PHY selected |
 | P09 | DFT: scan, compression, MBIST, JTAG | Scan/MBIST requirements in §8; the TAP, DM and SBA are specified in [the T0 JTAG spec](g100_t0_jtag_debug.md); no RTL | Scan insertion, MBIST RTL and JTAG RTL land |
-| P10 | ECC and RAS | SECDED specified for T0; no RTL | ECC RTL + error-reporting registers |
+| P10 | ECC and RAS | SECDED specified for T0; no RTL | ECC RTL + error-reporting registers. Closure work and the unsigned decisions are in the [ECC closure plan](g100_t0_ecc_closure_plan.md); the gate record is the [S0 decision signoff](../evidence/g100-t0-ecc-s0-2026-11-20/signoff.md). |
 | P11 | Floorplan and package | No floorplan; QFN assumed | Placed die and pin list |
 | P12 | PTA die-to-die port | Excluded from T0 (§9) | A G100 SKU with a D2D PHY, or the module stays host-attached |
 | P13 | PDK rights, foundry slot, cost | Not assessed | Controlled supplier evidence |
