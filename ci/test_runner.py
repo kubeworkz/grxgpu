@@ -22,6 +22,8 @@ import os
 import re
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import testcase as tc  # noqa: E402
 import perf_baseline as pb  # noqa: E402
@@ -31,10 +33,14 @@ import perf_baseline as pb  # noqa: E402
 _PERF_RE = re.compile(r"^PERF: instrs=(\d+), cycles=(\d+), IPC=", re.M)
 
 
-def _run_one(case, xlen, driver):
+def _run_one(case, xlen, driver, command_timeout=None):
     """One parity leg: run under `driver`, return (instrs, cycles)."""
     argv, env = case.run_command(xlen, driver=driver)
-    rc, out = tc.execute_capture(argv, env)
+    try:
+        rc, out = tc.execute_capture(argv, env, timeout=command_timeout)
+    except tc.CommandTimeout:
+        pytest.fail("{} [{}] timed out after {}s: {}".format(
+            case.id, driver, command_timeout, " ".join(argv)))
     assert rc == 0, "{} [{}] failed (exit {}): {}".format(
         case.id, driver, rc, " ".join(argv))
     perf = _PERF_RE.findall(out)
@@ -44,9 +50,9 @@ def _run_one(case, xlen, driver):
     return int(instrs), int(cycles)
 
 
-def _model_parity(case, xlen):
-    simx_instrs, simx_cycles = _run_one(case, xlen, "simx")
-    rtl_instrs, rtl_cycles = _run_one(case, xlen, "rtlsim")
+def _model_parity(case, xlen, command_timeout=None):
+    simx_instrs, simx_cycles = _run_one(case, xlen, "simx", command_timeout)
+    rtl_instrs, rtl_cycles = _run_one(case, xlen, "rtlsim", command_timeout)
     gap = abs(rtl_cycles - simx_cycles) / float(rtl_cycles)
     print("PARITY: {}: instrs simx={} rtlsim={}, cycles simx={} rtlsim={}, "
           "gap={:.2%} (tolerance {:.0%})".format(
@@ -64,9 +70,9 @@ def _model_parity(case, xlen):
             case.id, gap, case.tolerance, simx_cycles, rtl_cycles)
 
 
-def _perf_gate(case, xlen, update):
+def _perf_gate(case, xlen, update, command_timeout=None):
     """Run the benchmark on rtlsim; record or compare its cycles vs baseline."""
-    instrs, cycles = _run_one(case, xlen, "rtlsim")
+    instrs, cycles = _run_one(case, xlen, "rtlsim", command_timeout)
     if update:
         pb.record(case, xlen, cycles, instrs)
         print("PERF-BASELINE: {} xlen={} record cycles={} instrs={}".format(
@@ -97,12 +103,20 @@ def _perf_gate(case, xlen, update):
 
 def test_case(case, sim_build, request):
     xlen = int(os.environ.get("VX_XLEN", "32"))
+    command_timeout = request.config.getoption("--command-timeout")
+    if command_timeout <= 0:
+        command_timeout = None
     if case.check == "model_parity":
-        _model_parity(case, xlen)
+        _model_parity(case, xlen, command_timeout)
         return
     if case.check == "perf_gate":
-        _perf_gate(case, xlen, request.config.getoption("--update-baselines"))
+        _perf_gate(case, xlen, request.config.getoption("--update-baselines"),
+                   command_timeout)
         return
     argv, env = case.run_command(xlen)
-    rc = tc.execute(argv, env)
+    try:
+        rc = tc.execute(argv, env, timeout=command_timeout)
+    except tc.CommandTimeout:
+        pytest.fail("{} timed out after {}s: {}".format(
+            case.id, command_timeout, " ".join(argv)))
     assert rc == 0, "{} failed (exit {}): {}".format(case.id, rc, " ".join(argv))

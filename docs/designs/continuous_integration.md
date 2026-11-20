@@ -159,6 +159,15 @@ markers) carry it.
   runs, but its failure is expected and does not fail CI (an unexpected pass surfaces
   as `XPASS`). Reserve it for triaged, documented breakage.
 
+Every command the runner starts also has a wall-clock budget:
+`--command-timeout` (default 3600 s or `$VX_CI_COMMAND_TIMEOUT`; `0` disables)
+applies separately to the standard run (a blackbox build+run is one command),
+each parity/perf leg, and each fixture clean/build command. It is a per-command
+limit, not a shared case deadline, so a parity/perf case can use up to two
+budgets. On expiry the runner kills the whole process group (POSIX hosts,
+including CI) and reports a normal red failure, so a livelocked simulation
+cannot hold the cell forever.
+
 No `pyproject.toml`/`pytest.ini`: markers register dynamically in `conftest.py`,
 `test_runner.py` is auto-discovered by the `test_` prefix, and the run passes `ci` as the
 path. `blackbox.sh` is untouched; `regression.sh` is reduced to the four host/multi-step

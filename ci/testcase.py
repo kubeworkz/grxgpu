@@ -27,8 +27,10 @@ import glob
 import hashlib
 import json
 import os
+import signal
 import subprocess
 import sys
+import threading
 
 import yaml
 
@@ -315,28 +317,70 @@ def load_all(testcases_dir=TESTCASES_DIR):
     return cases
 
 
-def execute(argv, env_extra=None, cwd=None):
-    """Run argv with CONFIGS et al. merged into the environment; return exit code."""
+class CommandTimeout(Exception):
+    """A command exceeded its wall-clock budget and was killed."""
+
+
+def _kill_tree(proc):
+    """Kill the command's process group (blackbox -> make -> app)."""
+    try:
+        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+
+
+def _popen(argv, env_extra, cwd, timeout, **kwargs):
+    """Start a case command; a timed command gets its own process group."""
     env = dict(os.environ)
     if env_extra:
         env.update(env_extra)
-    return subprocess.run(argv, env=env, cwd=cwd).returncode
+    if timeout is not None:
+        if os.name != "posix":
+            raise RuntimeError("case timeouts require POSIX process groups")
+        kwargs["start_new_session"] = True
+    return subprocess.Popen(argv, env=env, cwd=cwd, **kwargs)
 
 
-def execute_capture(argv, env_extra=None, cwd=None):
+def _wait(proc, timeout):
+    """Wait for a command, killing its process group on expiry."""
+    try:
+        return proc.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        _kill_tree(proc)
+        proc.wait()
+        raise CommandTimeout("command exceeded {}s".format(timeout))
+
+
+def execute(argv, env_extra=None, cwd=None, timeout=None):
+    """Run argv with CONFIGS et al. merged into the environment; return exit code."""
+    proc = _popen(argv, env_extra, cwd, timeout)
+    return _wait(proc, timeout)
+
+
+def execute_capture(argv, env_extra=None, cwd=None, timeout=None):
     """Like execute(), but also return the combined stdout/stderr text. Output
     is still echoed line-by-line so CI logs keep the full run."""
-    env = dict(os.environ)
-    if env_extra:
-        env.update(env_extra)
-    proc = subprocess.Popen(argv, env=env, cwd=cwd, stdout=subprocess.PIPE,
-                            stderr=subprocess.STDOUT, text=True, errors="replace")
+    proc = _popen(argv, env_extra, cwd, timeout, stdout=subprocess.PIPE,
+                  stderr=subprocess.STDOUT, text=True, errors="replace")
     lines = []
-    for line in proc.stdout:
-        sys.stdout.write(line)
-        lines.append(line)
-    proc.stdout.close()
-    return proc.wait(), "".join(lines)
+
+    def drain():
+        for line in proc.stdout:
+            sys.stdout.write(line)
+            lines.append(line)
+
+    reader = threading.Thread(target=drain, daemon=True)
+    reader.start()
+    try:
+        rc = _wait(proc, timeout)
+    finally:
+        # On an interrupt the child may still be running and holding the pipe;
+        # joining then would hang. _wait() reaps it on both normal exit and
+        # timeout, so a non-None poll means the pipe will reach EOF.
+        if proc.poll() is not None:
+            reader.join()
+            proc.stdout.close()
+    return rc, "".join(lines)
 
 
 # --------------------------------------------------------------------------- #
