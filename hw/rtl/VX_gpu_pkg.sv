@@ -1067,6 +1067,9 @@ package VX_gpu_pkg;
         logic [PERF_CTR_BITS-1:0] mshr_stalls;
         logic [PERF_CTR_BITS-1:0] mem_stalls;
         logic [PERF_CTR_BITS-1:0] crsp_stalls;
+        logic [PERF_CTR_BITS-1:0] fences;
+        logic [PERF_CTR_BITS-1:0] flush_lt;
+        logic [PERF_CTR_BITS-1:0] flush_walk_lt;
     } cache_perf_t;
 
     typedef struct packed {
@@ -1204,6 +1207,7 @@ package VX_gpu_pkg;
         logic [PERF_CTR_BITS-1:0] stores;
         logic [PERF_CTR_BITS-1:0] ifetch_latency;
         logic [PERF_CTR_BITS-1:0] load_latency;
+        logic [PERF_CTR_BITS-1:0] fence_lt;
    } pipeline_perf_t;
 
     ///////////////////////// LSU memory Parameters ///////////////////////////
