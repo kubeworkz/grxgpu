@@ -29,7 +29,7 @@ release.
 | Independent review | No named reviewer or review date | **OPEN** |
 | SimX↔rtlsim parity | Discovery instruction counts match; cycles differ; no tolerance | **NOT ESTABLISHED** |
 | FPGA/board | No T0 FPGA image, board, constraints, or timing evidence | **OPEN** |
-| ECC | SECDED is a T0 baseline requirement; no ECC RTL or bench exists at the T0 pin, and the CI/checklist claims that said otherwise were corrected 2026-11-20. Closure is scoped in the [ECC closure plan](proposals/g100_t0_ecc_closure_plan.md) | **BLOCKED — requirement unimplemented; references corrected; plan drafted** |
+| ECC | SECDED is a T0 baseline requirement; no ECC RTL or bench exists at the T0 pin, and the CI/checklist claims that said otherwise were corrected 2026-11-20. Closure is scoped in the [ECC closure plan](proposals/g100_t0_ecc_closure_plan.md), whose S0 assumptions were audited against this pin on 2026-11-20: status block and demux inside `VX_t0_dbg_top`, 64 KB readout window, SBA-only writes, TSRAM-only T0-A evidence | **BLOCKED — requirement unimplemented; references corrected; plan drafted, no RTL started** |
 | Overall G1 | Identity work started; required evidence is incomplete | **NOT PASSED** |
 
 ## 2. Source identity
@@ -92,7 +92,7 @@ the T0 pin, so the claim was carried across without the implementation ever
 landing. The commit
 message describes the checklist change as recording "the current ECC coverage".
 
-Resolution applied on 2026-11-20 (uncommitted): the two ECC catalog entries are
+Resolution applied and committed on 2026-11-20: the two ECC catalog entries are
 removed, the checklist's ECC status, repository-inventory row and blocker are
 corrected to "no ECC RTL", and the baseline now states that the test SRAM is
 outside the three-array SECDED scope. The correction does not manufacture
@@ -104,8 +104,12 @@ array with byte-enable writes, behind the JTAG bridge. The baseline's SECDED
 requirement covers LMEM, ICache and DCache; the test SRAM is bring-up storage,
 not one of the three functional arrays, so its lack of ECC is consistent with
 the baseline as written. It is still unprotected: a bit flip in a boot image
-loaded over SBA can prevent bring-up. Whether it needs ECC, parity or a
-scrub/reload policy is a separate T0 decision.
+loaded over SBA can prevent bring-up. The closure plan recommends protecting it
+with the same SECDED wrapper (64+8 per lane, byte-enable RMW) because T0-A has
+no other array through which the ECC path and counters can be exercised in
+silicon, with per-lane parity as the fallback; the decision remains open pending
+S0 signoff. Either way T0-A counter evidence is TSRAM-only: LMEM, ICache and
+DCache counters are simulation evidence until a cluster build exists.
 
 The path table above pins the T0 blob of `ci/testcases/unittest.yaml`
 (`15d4476121a2cde1dad0cc56e09fc0ff252eef0400909fcbc0f3c196f86e4caf`), which
@@ -279,9 +283,14 @@ Additional parity gaps:
 5. Implement the SECDED codec, counters, ECC bank RAM and testbenches; protect
    LMEM/ICache/DCache and provide T0 ECC evidence — or record a reviewed
    descope. The false CI/checklist references are corrected, but there is no
-   ECC implementation to test, and the test-SRAM protection decision is open.
-   The ordered work, gates and test-SRAM recommendation are in the
-   [ECC closure plan](proposals/g100_t0_ecc_closure_plan.md); this item closes
+   ECC implementation to test, and the test-SRAM protection decision is open,
+   with the plan recommending SECDED. The ordered work, gates and test-SRAM
+   recommendation are in the
+   [ECC closure plan](proposals/g100_t0_ecc_closure_plan.md), whose S0
+   assumptions were audited against this pin on 2026-11-20: the status block and
+   demux live inside `VX_t0_dbg_top`, the window is 64 KB with line-granular
+   reads and total decode, writes are SBA-only, and T0-A evidence is TSRAM-only,
+   with the three-array counters proven in their own benches. This item closes
    only when that plan's exit criteria are met.
 6. Obtain an independent reviewer who is not the author to review/reproduce the
    source, configuration, tools, workload, golden data, and T0 results.
