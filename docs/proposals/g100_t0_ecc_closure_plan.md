@@ -63,7 +63,9 @@ RTL shape, so changing it later is expensive.
    baseline's "64+8" applies unchanged to 64-bit words and to XLEN=64 builds.
    *Alternative rejected:* pairing two 32-bit LMEM words into one 64+8 codeword
    turns every 4-byte store into a read-modify-write of a wider word for no
-   coding benefit at T0.
+   coding benefit at T0. The conditional baseline and checklist text changes
+   for this decision are drafted in the
+   [D1 32+7 amendment](g100_t0_ecc_d1_32_7_amendment.md).
 2. **Correctable errors** are corrected silently, counted, and the first one is
    latched. No bus error, no exception.
 3. **Uncorrectable errors** are never silently corrected. LMEM returns the

@@ -52,6 +52,7 @@ Each record is: chosen option, the pinned-RTL evidence behind it, the condition 
 - Requirement text: `docs/proposals/g100_production_baseline.md:207` (ECC row) and `:299-301` (ECC paragraph); `docs/grxgpu_g100_t0_tapeout_checklist.md:110-112` (SECDED width), `:122-124` (72-bit injection) and `:127-129` (12.5% area).
 - Derived estimates: `docs/proposals/g100_production_baseline.md:211` (0.2 mm² ECC) and `:46` (10.8 mm² with ECC); `docs/grxgpu_g100_t0_tapeout_checklist.md:9` (header 10.8 mm²) and `:151-154` (10.8 mm² including ECC).
 - Unaffected: the test-SRAM 64+8-per-64-bit-lane figures in the plan §7 and the audit's `:108`.
+- Ready-to-apply amendment: [D1 32+7 baseline and checklist amendment](../../proposals/g100_t0_ecc_d1_32_7_amendment.md).
 
 **Condition to check.** Confirm the XLEN=64 build really uses 72-bit words in LMEM and that both widths instantiate in the codec bench.
 
