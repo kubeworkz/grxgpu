@@ -174,7 +174,7 @@ and `FENCE` retire immediately.
 
 The four arbiters are plain round-robin. `VX_cp_arbiter` exposes a
 `bid_priority` input but it is currently **unused**
-([`VX_cp_arbiter.sv:89-94`](../../hw/rtl/cp/VX_cp_arbiter.sv#L89)) — see §10.
+([`VX_cp_arbiter.sv:32-41`](../../hw/rtl/cp/VX_cp_arbiter.sv#L32)) — see §10.
 
 ---
 
@@ -406,7 +406,7 @@ the intent is not lost.
    ([`VX_cp_event_unit.sv:124-129`](../../hw/rtl/cp/VX_cp_event_unit.sv#L124));
    it should release between polls and back off (C-4).
 8. **Priority arbitration.** Wire `VX_cp_arbiter.bid_priority` (currently
-   unused, [`VX_cp_arbiter.sv:89-94`](../../hw/rtl/cp/VX_cp_arbiter.sv#L89))
+   unused, [`VX_cp_arbiter.sv:32-41`](../../hw/rtl/cp/VX_cp_arbiter.sv#L32))
    to the per-queue `prio` field.
 9. **Profiling writeback.** `VX_cp_profiling` is a bare cycle counter;
    flesh it out to emit the 32 B `{queued,submit,start,end}` record, add a
