@@ -321,6 +321,10 @@ class CommandTimeout(Exception):
     """A command exceeded its wall-clock budget and was killed."""
 
 
+# A setsid descendant can outlive the group; don't let it stall the timeout.
+_CAPTURE_JOIN_GRACE = 5.0
+
+
 def _kill_tree(proc):
     """Kill the command's process group (blackbox -> make -> app)."""
     try:
@@ -371,15 +375,26 @@ def execute_capture(argv, env_extra=None, cwd=None, timeout=None):
 
     reader = threading.Thread(target=drain, daemon=True)
     reader.start()
+    timed_out = False
     try:
         rc = _wait(proc, timeout)
+    except CommandTimeout:
+        timed_out = True
+        raise
     finally:
         # On an interrupt the child may still be running and holding the pipe;
-        # joining then would hang. _wait() reaps it on both normal exit and
-        # timeout, so a non-None poll means the pipe will reach EOF.
+        # joining then would hang. _wait() reaps the direct child on normal exit
+        # and timeout, but a setsid descendant can still keep the pipe open.
         if proc.poll() is not None:
-            reader.join()
-            proc.stdout.close()
+            # Do not let a timed-out command's escaped descendant turn the
+            # timeout into an unbounded wait.
+            reader.join(timeout=_CAPTURE_JOIN_GRACE if timed_out else None)
+            if reader.is_alive():
+                sys.stderr.write(
+                    "warning: capture reader still blocked after timeout; "
+                    "an escaped descendant may still hold stdout\n")
+            else:
+                proc.stdout.close()
     return rc, "".join(lines)
 
 
