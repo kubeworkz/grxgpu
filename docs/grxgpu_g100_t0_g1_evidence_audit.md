@@ -29,7 +29,7 @@ release.
 | Independent review | No named reviewer or review date | **OPEN** |
 | SimX↔rtlsim parity | Discovery instruction counts match; cycles differ; no tolerance | **NOT ESTABLISHED** |
 | FPGA/board | No T0 FPGA image, board, constraints, or timing evidence | **OPEN** |
-| ECC | SECDED is a T0 baseline requirement; no ECC RTL or bench exists at the T0 pin, and the CI/checklist claims that said otherwise were corrected 2026-11-20. Closure is scoped in the [ECC closure plan](proposals/g100_t0_ecc_closure_plan.md), whose S0 assumptions were audited against this pin on 2026-11-20; the plan proposes the status block and demux inside `VX_t0_dbg_top`, a 64 KB readout window, SBA-only writes and TSRAM-only T0-A evidence. The gate record is the [S0 decision signoff](evidence/g100-t0-ecc-s0-2026-11-20/signoff.md) | **BLOCKED — requirement unimplemented; references corrected; S0 signoff unsigned** |
+| ECC | SECDED is a T0 baseline requirement; no ECC RTL or bench exists at the T0 pin, and the CI/checklist claims that said otherwise were corrected 2026-11-20. Closure is scoped in the [ECC closure plan](proposals/g100_t0_ecc_closure_plan.md), whose S0 assumptions were audited against this pin on 2026-11-20; the plan proposes the status block and demux inside `VX_t0_dbg_top`, a 64 KB readout window, SBA-only writes and TSRAM-only T0-A evidence. The gate record is the [S0 decision signoff](evidence/g100-t0-ecc-s0-2026-11-20/signoff.md); the ready-to-apply 32+7 amendment is the [D1 amendment](proposals/g100_t0_ecc_d1_32_7_amendment.md) | **BLOCKED — requirement unimplemented; references corrected; S0 signoff unsigned** |
 | Overall G1 | Identity work started; required evidence is incomplete | **NOT PASSED** |
 
 ## 2. Source identity
@@ -294,8 +294,10 @@ Additional parity gaps:
    the status block and demux inside `VX_t0_dbg_top`, a 64 KB window with
    line-granular reads and total decode, SBA-only writes and TSRAM-only T0-A
    evidence; these choices remain unsigned. S0 closes only when the [S0 decision
-   signoff](evidence/g100-t0-ecc-s0-2026-11-20/signoff.md) is signed. This item
-   closes only when that plan's exit criteria are met.
+   signoff](evidence/g100-t0-ecc-s0-2026-11-20/signoff.md) is signed; the
+   conditional 32+7 baseline and checklist changes are drafted in the
+   [D1 amendment](proposals/g100_t0_ecc_d1_32_7_amendment.md). This item closes
+   only when that plan's exit criteria are met.
 6. Obtain an independent reviewer who is not the author to review/reproduce the
    source, configuration, tools, workload, golden data, and T0 results.
 7. Establish a supported parity definition and run a same-source,
