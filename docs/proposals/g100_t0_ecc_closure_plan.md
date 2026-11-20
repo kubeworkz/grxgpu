@@ -44,6 +44,12 @@ containment guarantee. Adding a status window widens that surface, so it needs
 a delta review and a containment test, not just a second address comparator
 (§2.9, §3 S5).
 
+**S0 pin audit (2026-11-20).** The assumptions below were re-checked against
+the pinned RTL before any code was written. The audit corrected the bus
+geometry, the CSR decode model, the demux placement, the window size and the
+T0-A evidence scope; those corrections are folded into §2, §3 S5 and §4. No
+RTL was changed.
+
 ## 2. Design decisions to freeze before code
 
 These are the decisions that must be signed off first; each one changes the
@@ -90,11 +96,39 @@ RTL shape, so changing it later is expensive.
    slave; each slave decode must be a subset of an SBA-accepted window; the SRAM
    decode must not change; the gap between the two windows must be rejected.
    The review's "window equals memory" property becomes "window equals mapped
-   slaves", and the test proves the two cannot drift apart.
+   slaves", and the test proves the two cannot drift apart. The status window
+   is 64 KB at `0x8010_0000` (`addr[31:16]==16'h8010`), enough for the register
+   map with room for later registers; 4 KB would also fit today, and the 1 MB
+   variant was rejected as extra surface for no benefit. SBA compares byte bits [31:18] for the SRAM and
+   [31:16] for the status window; the demux sees the same bits as line[25:12]
+   and line[25:10], so both ends compare identical byte-address bits.
 10. **The injection register is a reviewed backdoor.** It is off by default,
    enabled only by the bring-up configuration, can only flip one bit on one
-   read, and can never write data or check bits. Its presence, default and
-   removal path go in the security-review addendum and the checklist.
+   read, and can never write data or check bits. It carries a bank field
+   (`{array, bank, lane, bit, double}`), because LMEM has four banks and "any
+   bank" does not reproduce. Its presence, default and removal path go in the
+   security-review addendum and the checklist.
+11. **The status block is line-granular and total.** `VX_mem_bus_if
+   #(.DATA_SIZE(64))` is 64 bytes wide (512-bit data, 64-bit byteen, 26-bit
+   line address), and the request carries no intra-line offset: the offset
+   exists only in `byteen`, and core reads arrive with `byteen=0`. The block
+   therefore returns the whole addressed 64-byte line and decodes writes from
+   the byte enables. It must answer every line in its window, mapped or not
+   (zeros for unmapped), because an unanswered request sends the SBA through
+   its timeout into a drain that has no timeout of its own and leaves the
+   arbiter holding the core.
+12. **Placement and master gating are fixed.** The demux and the status block
+   live inside `VX_t0_dbg_top`, between `VX_t0_mem_arb` and the `mem_bus_if`
+   port, on an internal `#(.DATA_SIZE(64))` interface; a demux in the testbench
+   would leave the block out of the chip. The arbiter exports the current owner
+   so writes to `GLOBAL_CONTROL`, the clear bits and `INJECT` are SBA-only;
+   core writes are ignored. The SRAM window and decode are unchanged.
+13. **T0-A evidence is TSRAM-only.** The T0-A harness instantiates the core and
+   the test SRAM, not LMEM/ICache/DCache. `CAPABILITY` reports those arrays
+   absent, injection writes for them are rejected with a sticky error, and the
+   T0 transcript can only evidence TSRAM counters. The three-array counters are
+   simulation evidence until a cluster-level build exists; that does not relax
+   the requirement that the arrays be protected in RTL.
 
 ## 3. Work breakdown, in effort order
 
@@ -108,7 +142,7 @@ stage ends at a gate; a stage that fails its gate does not hand off.
 | S2 | ECC bank RAM wrapper + bench | S1 | 4–6 | `hw-ecc-ram` lane green in CI |
 | S3 | LMEM integration | S2 | 3–4 | `local_mem` bench with ECC cases green |
 | S4 | ICache/DCache integration | S2 | 8–12 | `cache` bench green, no timing-path regression |
-| S5 | Counters, status CSR, SBA readout, security delta review | S0, S2 | 6–8 | T0 TB reads counters over SBA; containment test green; security-review addendum signed |
+| S5 | Counters, status CSR, SBA readout, security delta review | S0, S2 | 6–8 | T0 TB reads TSRAM counters over SBA; containment test green; security-review addendum signed |
 | S6 | Test SRAM protection (recommended, §7) | S2, S5 | 3–4 | T0 TB injects and reads back over SBA |
 | S7 | System verification, synthesis delta, records | S3–S6 | 4–6 | G1 ECC exit criteria met (§6) |
 
@@ -201,22 +235,30 @@ Deliverables:
 
 - Per-array saturating counters and first-fault registers at the array
   boundary (`VX_local_mem`, `VX_cache_data`/`VX_cache_bank`).
-- `hw/rtl/dbg/VX_t0_ecc_status.sv`: a 64-bit-bus slave with the register map in
-  §4, byte-enable writes, one-cycle response, clear-on-write for sticky bits.
-  Only the control, clear and injection registers accept writes; counters and
-  fault records are read-only.
-- `hw/rtl/dbg/VX_t0_mem_demux.sv` (or a decode in `VX_t0_mem_arb`): claims the
-  CSR window before the test SRAM and forwards everything else unchanged. The
-  SRAM window and the CSR window are defined once as shared localparams and
-  compared exactly, so SBA, the demux and the SRAM cannot drift apart.
-- Widen the SBA decode in `VX_dm_sba.sv` to admit the CSR window
-  (`addr[31:20]==12'h801`, i.e. 0x8010_0000) in addition to the test-SRAM
-  window, as two exact comparators. Everything outside both windows keeps the
-  existing `sberror=2` path, including the `0x8004_0000`–`0x800F_FFFF` gap.
-- A one-shot injection register in the status block: `{array, lane, bit,
-  double}` applies to the next read of that array. Guard it with a
-  configuration bit that is on for T0-A bring-up silicon and off for
+- `hw/rtl/dbg/VX_t0_ecc_status.sv`: a 512-bit, 64-byte-line slave matching
+  `VX_mem_bus_if #(.DATA_SIZE(64))` (64-bit byteen, 26-bit line address), with
+  the register map in §4. Reads return the whole addressed line so SBA's
+  32-bit lane extract and the core's 4-/8-byte lane extract both work; writes
+  apply only the enabled bytes. The block answers every line in its window,
+  zeros for unmapped offsets, and holds `rsp_valid` until `rsp_ready`.
+- `hw/rtl/dbg/VX_t0_mem_demux.sv`: instantiated **inside** `VX_t0_dbg_top`,
+  between the arbiter output and the `mem_bus_if` port, with the arbiter output
+  moved to an internal `#(.DATA_SIZE(64))` signal. It claims the status window
+  and forwards everything else unchanged. The SRAM window and the status window
+  are shared localparams, and the SRAM decode is untouched.
+- Widen the SBA decode in `VX_dm_sba.sv` to admit the 64 KB status window
+  (`addr[31:16]==16'h8010`, i.e. 0x8010_0000–0x8010_FFFF) in addition to the
+  test-SRAM window, as two exact comparators. Everything outside both windows
+  keeps the existing `sberror=2` path, including the `0x8004_0000`–`0x800F_FFFF`
+  gap and everything above `0x8010_FFFF`.
+- A one-shot injection register in the status block: `{array, bank, lane, bit,
+  double}` applies to the next read of the selected array and bank. Guard it
+  with a configuration bit that is on for T0-A bring-up silicon and off for
   production, so the backdoor is explicit rather than always present.
+- Master gating: the arbiter exports its owner to the demux/status block so
+  only SBA writes reach `GLOBAL_CONTROL`, the clear bits and `INJECT`; core
+  writes are ignored. On T0-A, `CAPABILITY` marks LMEM/ICACHE/DCACHE absent and
+  injection writes for those arrays set a sticky error without hanging.
 - An addendum to the [debug security review](g100_t0_debug_security_review.md).
   It updates §2 (what the path can reach) with the status window and injection
   register, restates the containment property as "every SBA-accepted address is
@@ -230,16 +272,29 @@ Verification:
   every register, checks saturation and clear-on-write, checks that the
   injection register produces exactly one fault, and checks that read-only
   registers ignore writes.
+- **Line-granular read test**: read the whole line at offsets 0x00 and 0x04 and
+  verify each register lands at its byte offset, that SBA's 32-bit lane extract
+  returns it, and that a core-path read returns the 8-byte lane containing it.
+- **Total-decode test**: read and write unmapped offsets in the accepted window
+  (register 0x120 and a line such as 0x8010_8000); each must return zeros, set
+  no error, and let the SBA complete, because an unanswered request wedges the
+  SBA and the arbiter.
 - **Decoder-agreement/containment test**, in the same bench and repeated in the
-  T0 TB with the SRAM present. Sweep `0x7FFF_FFFF`, `0x8000_0000`,
-  `0x8003_FFFF`, `0x8004_0000`, `0x800F_FFFF`, `0x8010_0000`, `0x801F_FFFF`
-  and `0x8020_0000`, plus random addresses, from both SBA and core masters:
+  T0 TB with the SRAM present. Sweep the aligned boundaries `0x7FFF_FFFC`,
+  `0x8000_0000`, `0x8003_FFFC`, `0x8004_0000`, `0x800F_FFFC`, `0x8010_0000`,
+  `0x8010_FFFC`, `0x8011_0000` and `0x8020_0000`, plus register offsets
+  0x00/0x04/0x18/0x11C and random addresses, from both SBA and core masters:
   each access either reaches exactly the intended slave or returns `sberror=2`;
-  a status-window write leaves the SRAM checksum unchanged and an SRAM write
-  leaves the status registers unchanged; `oob` never asserts for a
-  status-window access; misaligned and unsupported-size accesses keep
-  `sberror=3` and `4`. Assert the demux select is one-hot for every accepted
-  address, so a future third window cannot silently overlap.
+  a status-window
+  write leaves the SRAM checksum unchanged and an SRAM write leaves the status
+  registers unchanged; `oob` never asserts for a status-window access;
+  misaligned and unsupported-size accesses keep `sberror=3` and `4`. Assert the
+  demux select is one-hot for every accepted address, so a future third window
+  cannot silently overlap.
+- **Core leg**: add a load from the status window to `t0_image.S` (today the
+  image only walks 0x8000_0000–0x8004_0000), or drive `core_dcache_if` from the
+  bench; a core read carries no byteen, so this is the case the line-granular
+  response exists for.
 - Add a catalog lane for the bench. This test also covers security-review §7
   test 1 (out-of-window SBA access), which the review lists as untested today.
 
@@ -254,8 +309,8 @@ faults appear in the counters.
 ### S7 — System verification and records
 
 - T0 TB: boot, halt, SBA read/write at base/middle/last word, then inject a
-  correctable and an uncorrectable error and read both counters and the
-  first-fault record. Archive the transcript and log with checksums under
+  correctable and an uncorrectable error into the TSRAM and read both counters
+  and the first-fault record. Archive the transcript and log with checksums under
   `docs/evidence/g100-t0-ecc-<date>/`.
 - Run the affected `cache`, `local_mem` and `t0` benches, plus the `model_parity`
   cases that cover cache and LMEM traffic. ECC must not change retirement; if
@@ -270,8 +325,11 @@ faults appear in the counters.
 
 ## 4. Status register map
 
-32-bit registers in a 64-bit bus window, little-endian, byte-enable writes,
-one-cycle response. Sticky bits clear on write-1.
+32-bit registers in a 64-byte-line, 512-bit bus window (`VX_mem_bus_if
+#(.DATA_SIZE(64))`, 64-bit byteen, 26-bit line address), little-endian.
+Reads return the whole addressed line; writes apply only the enabled bytes.
+The block answers every line in its window, including unmapped offsets (zeros).
+Sticky bits clear on write-1.
 
 | Offset | Name | Contents |
 |---|---|---|
@@ -284,16 +342,19 @@ one-cycle response. Sticky bits clear on write-1.
 | +0x008 | FAULT_INFO | valid, correctable, array, bank, lane, syndrome |
 | +0x00C | FAULT_ADDR | line or word address low 32 bits |
 | +0x010 | FAULT_DETAIL | way/set or word index, high address bits |
-| +0x018 | INJECT | one-shot `{array, lane, bit, double}` |
+| +0x018 | INJECT | one-shot `{array, bank, lane, bit, double}` |
 | +0x01C | ARRAY_STATUS | per-array sticky flags and overflow |
 
 Array index `n`: 0 LMEM, 1 ICACHE, 2 DCACHE, 3 TSRAM.
 
-**Security constraints.** The block is a leaf slave: it mirrors no write to the
-bus and cannot reach the SRAM, and the demux is the only connection between the
-two windows. Writes are accepted only to `GLOBAL_CONTROL`, the per-array clear
-bits and `INJECT`. Those constraints are what the containment test checks and
-what the security-review addendum records.
+**Security constraints.** The block is a leaf slave inside `VX_t0_dbg_top`: it
+mirrors no write to the bus and cannot reach the SRAM, and the demux is the
+only connection between the two windows. Writes are accepted only from the SBA
+master, and only to `GLOBAL_CONTROL`, the per-array clear bits and `INJECT`;
+core writes are ignored. `CAPABILITY` marks LMEM/ICACHE/DCACHE absent on T0-A,
+and injection writes for them are rejected with a sticky error rather than
+hanging. Those constraints are what the containment test checks and what the
+security-review addendum records.
 
 ## 5. Verification matrix
 
@@ -304,7 +365,9 @@ what the security-review addendum records.
 | LMEM banks are protected and the DMA path is covered | `hw/unittest/local_mem` |
 | Cache fills, stores, writebacks, init and flush are protected; UE invalidates | `hw/unittest/cache` |
 | Counters, saturation, first-fault capture and injection work | `hw/unittest/ecc_status` |
-| Counters are readable over SBA and faults are observable on the T0 path | `hw/unittest/t0_dbg` transcript |
+| TSRAM counters are readable over SBA and faults are observable on the T0-A path | `hw/unittest/t0_dbg` transcript |
+| The status block returns the full line and answers every accepted address, so no SBA drain hang | `hw/unittest/ecc_status` plus the T0 TB |
+| SBA-only writes; core writes ignored; absent arrays reject injection | containment test |
 | Every SBA-accepted address is claimed by exactly one slave; the window gap is rejected | containment test in `hw/unittest/ecc_status` and the T0 TB |
 | The status window cannot read or write SRAM and SRAM accesses cannot alias into the status block | containment test |
 | The injection register flips exactly one bit on one read and is off outside bring-up | `hw/unittest/ecc_status` plus security-review addendum |
@@ -323,8 +386,9 @@ The ECC item leaves `BLOCKED` only when all of the following exist:
 1. Codec and ECC RAM benches green in CI.
 2. LMEM and cache benches green with injected correctable and uncorrectable
    errors.
-3. A T0 transcript showing boot, injection through the debug path, counter and
-   first-fault readback.
+3. A T0 transcript showing boot, TSRAM injection through the debug path, and
+   TSRAM counter and first-fault readback. LMEM/ICache/DCache counters are
+   simulation evidence in their array benches until a cluster build exists.
 4. The security-review addendum for the widened SBA window and the injection
    register is approved, and the decoder-agreement/containment test is green.
 5. A recorded area/timing delta; parity cases pass or the SimX model is updated.
@@ -359,7 +423,10 @@ returning it silently, which is the desired behaviour but must be documented in
 the bring-up procedure. Protection does not move the array: the wrapper sits
 behind the same 0x8000_0000 window, so the security review's
 window-equals-memory property still holds, and the containment test runs with
-the ECC-enabled SRAM rather than a stub.
+the ECC-enabled SRAM rather than a stub. This is also why the T0-A evidence is
+TSRAM-only: without it, T0 silicon has no ECC-bearing array and no counter to
+read, and the three-array counters cannot be exercised until a cluster-level
+build exists.
 
 Fallback if area or schedule forces a cut: parity per 64-bit lane (8 bits per
 line, 1.6% overhead) with a sticky counter, no correction. This still gives a
@@ -383,12 +450,15 @@ recorded as a deferral, not as compliance.
 | Widening SBA changes a surface the security review calls the block's main containment guarantee | Debug escape, or a silent divergence between SBA, the demux and the SRAM | Delta review of the security review; two exact comparators from shared constants; boundary/aliasing containment test as an S5 gate |
 | The injection register becomes a production backdoor | Arbitrary fault injection in a shipped part | Off by default, config-gated for bring-up, one-shot one-bit only, recorded in the security-review addendum and the checklist |
 | Decoder drift when a later window is added | Overlapping decodes, aliasing, or an accepted address with no slave | One-hot demux assertion in the test; single-sourced window constants; the review's window-equals-memory rule |
+| Status block not total over its accepted window | SBA timeout enters its unbounded drain, the arbiter holds the core, and debug wedges | Total decode with zeros for unmapped offsets, plus the total-decode test as an S5 gate |
+| Core reads carry no intra-line offset (byteen is zero) | Wrong register returned or a core hang | Line-granular read response and a core read in the image |
+| Demux implemented in the testbench instead of the chip | No status block in silicon; containment test proves only TB wiring | Placement fixed in §2.12 and checked in the T0 TB |
 | Area/timing not yet measured | Baseline claims unsupported | Synthesis report required at S7 |
 
 ## 9. Sequencing summary
 
-1. S0 freeze (1–2 d) — decisions, register map and the scope of the security
-   delta review.
+1. S0 freeze (1–2 d) — decisions, register map, placement and window from the
+   pin audit, and the scope of the security delta review.
 2. S1 codec and S2 wrapper with their benches (8–12 d) — the foundation, and
    the two CI lanes that were removed come back here.
 3. S3 LMEM (3–4 d) — the simplest real array; proves the bank integration.
