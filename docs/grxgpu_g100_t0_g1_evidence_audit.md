@@ -296,8 +296,10 @@ Additional parity gaps:
    evidence; these choices remain unsigned. S0 closes only when the [S0 decision
    signoff](evidence/g100-t0-ecc-s0-2026-11-20/signoff.md) is signed; the
    conditional 32+7 baseline and checklist changes are drafted in the
-   [D1 amendment](proposals/g100_t0_ecc_d1_32_7_amendment.md). This item closes
-   only when that plan's exit criteria are met.
+   [D1 amendment](proposals/g100_t0_ecc_d1_32_7_amendment.md); the conditional
+   error-reporting baseline and checklist changes are drafted in the
+   [D3 amendment](proposals/g100_t0_ecc_d3_error_reporting_amendment.md). This
+   item closes only when that plan's exit criteria are met.
 6. Obtain an independent reviewer who is not the author to review/reproduce the
    source, configuration, tools, workload, golden data, and T0 results.
 7. Establish a supported parity definition and run a same-source,
