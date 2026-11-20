@@ -72,7 +72,9 @@ RTL shape, so changing it later is expensive.
    stored word and raises a sticky per-array flag; a cache invalidates the line
    so the next access refetches from memory. Per-request error signalling
    (bus error or precise exception) is out of scope for T0 and recorded as a
-   T0-B item, because it changes the core's memory interface.
+   T0-B item, because it changes the core's memory interface. The conditional
+   baseline and checklist text changes for this decision are drafted in the
+   [D3 error-reporting amendment](g100_t0_ecc_d3_error_reporting_amendment.md).
 4. **Counters are 32-bit saturating**, one corrected and one uncorrected
    counter per array, plus a sticky first-fault record (array, bank, way/set or
    line, word, syndrome, correctable/uncorrectable). Per-bank counters are not

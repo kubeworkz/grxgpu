@@ -74,6 +74,12 @@ Each record is: chosen option, the pinned-RTL evidence behind it, the condition 
 
 **Pinned-RTL evidence.** The tag store already has a per-way invalidate path (`hw/rtl/cache/VX_cache_tags.sv:114,119,132`), so line invalidation is expressible without a new interface. The LMEM bank has no error port (`hw/rtl/mem/VX_local_mem.sv:264-306`), which is why the LMEM case is a sticky flag only.
 
+**Cross-document caveat.** Accepting D3 replaces the fault model in the baseline ECC paragraph and two checklist items; per-request signalling stays a T0-B item, so only the reporting wording changes. The sites are:
+
+- Requirement text: `docs/proposals/g100_production_baseline.md:301` (ECC paragraph, "raises a fault the debug path can read"); `docs/grxgpu_g100_t0_tapeout_checklist.md:115-117` (uncorrectable-error item) and `:283-285` (bring-up step 6).
+- Unaffected: the correctable-error path, counter item, codeword width and area estimates.
+- Ready-to-apply amendment: [D3 error-reporting baseline and checklist amendment](../../proposals/g100_t0_ecc_d3_error_reporting_amendment.md).
+
 **Condition to check.** Confirm an invalidated line cannot be re-read from stale data in the data array before refill (data array is way-addressed and tag-gated, so invalidation must prevent the hit).
 
 **Signoff.** ☐ Accept ☐ Accept with condition ☐ Reject — Name: __________ Date: __________ Notes: ______________________

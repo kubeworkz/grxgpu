@@ -84,7 +84,7 @@ After:
   is raised at T0; per-request signalling is T0-B.
 ```
 
-### C2 — Bring-up step 6 (`g100_t0_tapeout_checklist.md:280-282`)
+### C2 — Bring-up step 6 (`g100_t0_tapeout_checklist.md:283-285`)
 
 Before:
 
