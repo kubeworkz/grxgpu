@@ -137,7 +137,10 @@ tracked at any revision, and `hw/unittest/ecc` / `hw/unittest/ecc_ram` do not
 exist. LMEM, ICache and DCache store unprotected words, there is no counter
 map and there is no fault-injection test. A 2026-11-05 status note and two CI
 catalog entries previously claimed this implementation existed; they were
-corrected on 2026-11-20. None of the items above is complete.
+corrected on 2026-11-20. None of the items above is complete. Closure work and
+the unsigned design decisions are in the
+[ECC closure plan](proposals/g100_t0_ecc_closure_plan.md); the gate record is
+the [S0 decision signoff](evidence/g100-t0-ecc-s0-2026-11-20/signoff.md).
 
 ---
 
@@ -342,7 +345,11 @@ path to a tapeout package.
 4. **No ECC RTL.** LMEM, ICache and DCache are unprotected. The codec, ECC
    bank RAM, benches and counter readout do not exist. The 256 KB test SRAM is
    bring-up storage outside the three-array SECDED requirement, and it is also
-   unprotected; its protection is a separate decision.
+   unprotected; its protection is a separate decision. That decision and the
+   rest of the closure design are in the
+   [ECC closure plan](proposals/g100_t0_ecc_closure_plan.md), with the
+   [S0 decision signoff](evidence/g100-t0-ecc-s0-2026-11-20/signoff.md) as the
+   gate record.
 5. **Core-side path is simulated, not built.** `VX_t0_core_attach` and
    `VX_t0_boot` now wire the real `VX_core` instruction/data ports and boot a
    toolchain-built image in simulation. The full cluster's L1/L2 is not
