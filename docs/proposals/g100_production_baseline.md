@@ -204,7 +204,7 @@ tapeout plan already synthesizes and the discovery runs already exercise at
 | LMEM / ICache / DCache | 16 KB / 16 KB / 16 KB per core | The measured inventory |
 | L2 | disabled | Not in the measured area or the RTL path |
 | Graphics | disabled | Compute-only discovery scope |
-| ECC | SECDED 64+8 on all three arrays | Production SRAM does not ship without it |
+| ECC | SECDED 64+8 on LMEM, ICache and DCache; **no RTL yet** (P10) | Production SRAM does not ship without it. The 256 KB test SRAM is bring-up storage and is outside this requirement. |
 | Clock | 400 MHz target, 800 MHz stretch | 400 is the platform model; neither is closed by STA |
 | Power envelope | 10 W | Package and thermal budget; no activity-based estimate exists |
 | Host interface | none; JTAG bring-up | No host RTL or PHY exists (§7) |

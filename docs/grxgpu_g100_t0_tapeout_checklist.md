@@ -131,12 +131,13 @@ signature transcript, repair decision, reviewer signoff.
 **Evidence:** ECC RTL, parity matrix, injection regression log, counter map,
 area/timing delta, reviewer signoff.
 
-**Status (2026-11-05):** the codec and counters exist in
-`hw/rtl/libs/VX_ecc_secded.sv` and `hw/rtl/libs/VX_ecc_ctrl.sv`;
-`hw/rtl/libs/VX_ecc_ram.sv` wraps the bank RAM and LMEM's banks now use it,
-with a read-modify-write cycle for byte-enable writes. The ICache and DCache
-are still unprotected, the counters have no JTAG/CSR readout, and there is no
-area/timing delta, so none of the items above is complete.
+**Status (2026-11-20):** no ECC RTL or ECC testbench exists in the tree.
+`hw/rtl/libs/VX_ecc_secded.sv`, `VX_ecc_ctrl.sv` and `VX_ecc_ram.sv` are not
+tracked at any revision, and `hw/unittest/ecc` / `hw/unittest/ecc_ram` do not
+exist. LMEM, ICache and DCache store unprotected words, there is no counter
+map and there is no fault-injection test. A 2026-11-05 status note and two CI
+catalog entries previously claimed this implementation existed; they were
+corrected on 2026-11-20. None of the items above is complete.
 
 ---
 
@@ -277,7 +278,8 @@ load-and-run transcript, bring-up procedure, reviewer signoff.
 4. **MBIST.** Run all 48 arrays; record pass/fail and failing addresses.
 5. **Scan.** Run the chain-integrity flush, then the stuck-at patterns.
 6. **ECC.** Inject a correctable and an uncorrectable error through the debug
-   path; confirm the counters and the fault.
+   path; confirm the counters and the fault. *Blocked in T0-A: no ECC RTL
+   exists, and LMEM is not on the SBA path.*
 7. **Debug module.** Read DMSTATUS, set `ndmreset`, run an SBA write/read at
    the test SRAM base, clear `ndmreset`.
 8. **Memory.** Write and read the test SRAM at the base, middle and last word,
@@ -315,7 +317,7 @@ are blocked by a known fault.
 |---|---|---|---|
 | Scan | No scan ports or chains | No DFT step in `syn/` | Insertion, ATPG, GLS |
 | MBIST | No controller | No generator | Controller, array map, repair decision |
-| ECC | SECDED codec, counters, ECC bank RAM with byte-enable RMW; LMEM protected (`hw/rtl/libs/`); benches `hw/unittest/ecc`, `hw/unittest/ecc_ram` | ICache/DCache unprotected, no JTAG counter map | Wrap ICache/DCache, counter map, area/timing |
+| ECC | No ECC RTL; LMEM, ICache and DCache store unprotected words | No injection flow | Encoder/decoder, ECC bank RAM, benches, array protection, counters, fault injection |
 | JTAG | TAP, DTM, DM, SBA, boot, attachment, arbiter and test SRAM (`hw/rtl/dbg/`) | CI-run Verilator TB (`hw/unittest/t0_dbg`) with a toolchain-built image; no DFT or GLS | Gate-level, board |
 | Clock/reset | `VX_clockgate`, `VX_reset_relay`, single top-level clock/reset | Synthesis only | Clock tree, reset sequencing, test muxing |
 | Floorplan | — | OpenROAD available | Placement, power grid, pin placement |
@@ -337,10 +339,10 @@ path to a tapeout package.
 3. **JTAG is RTL-tested but not silicon-proven.** The T0-A TAP/DM/SBA path
    exists and passes its Verilator testbench; it has no gate-level run, no
    board transcript and no T0-B halt/resume.
-4. **ECC covers LMEM only.** `VX_ecc_ram` encodes on write and corrects on
-   read, and a byte-enable write pays one read-modify-write cycle to recompute
-   its check bits. ICache and DCache still store unprotected words, and the
-   error counters have no JTAG/CSR readout.
+4. **No ECC RTL.** LMEM, ICache and DCache are unprotected. The codec, ECC
+   bank RAM, benches and counter readout do not exist. The 256 KB test SRAM is
+   bring-up storage outside the three-array SECDED requirement, and it is also
+   unprotected; its protection is a separate decision.
 5. **Core-side path is simulated, not built.** `VX_t0_core_attach` and
    `VX_t0_boot` now wire the real `VX_core` instruction/data ports and boot a
    toolchain-built image in simulation. The full cluster's L1/L2 is not
