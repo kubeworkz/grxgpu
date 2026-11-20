@@ -29,7 +29,7 @@ release.
 | Independent review | No named reviewer or review date | **OPEN** |
 | SimX↔rtlsim parity | Discovery instruction counts match; cycles differ; no tolerance | **NOT ESTABLISHED** |
 | FPGA/board | No T0 FPGA image, board, constraints, or timing evidence | **OPEN** |
-| ECC | SECDED is a T0 baseline requirement; no ECC RTL or bench exists at the T0 pin, and the CI/checklist claims that said otherwise were corrected 2026-11-20 | **BLOCKED — requirement unimplemented; references corrected** |
+| ECC | SECDED is a T0 baseline requirement; no ECC RTL or bench exists at the T0 pin, and the CI/checklist claims that said otherwise were corrected 2026-11-20. Closure is scoped in the [ECC closure plan](proposals/g100_t0_ecc_closure_plan.md) | **BLOCKED — requirement unimplemented; references corrected; plan drafted** |
 | Overall G1 | Identity work started; required evidence is incomplete | **NOT PASSED** |
 
 ## 2. Source identity
@@ -280,6 +280,9 @@ Additional parity gaps:
    LMEM/ICache/DCache and provide T0 ECC evidence — or record a reviewed
    descope. The false CI/checklist references are corrected, but there is no
    ECC implementation to test, and the test-SRAM protection decision is open.
+   The ordered work, gates and test-SRAM recommendation are in the
+   [ECC closure plan](proposals/g100_t0_ecc_closure_plan.md); this item closes
+   only when that plan's exit criteria are met.
 6. Obtain an independent reviewer who is not the author to review/reproduce the
    source, configuration, tools, workload, golden data, and T0 results.
 7. Establish a supported parity definition and run a same-source,
