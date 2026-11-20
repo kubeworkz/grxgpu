@@ -35,7 +35,7 @@ release.
 ## 2. Source identity
 
 The T0 source is pinned to the published remote branch tip. The local checkout
-has four additional, unpublished CI/documentation commits and a dirty worktree;
+has thirteen additional, unpublished CI/documentation commits and a dirty worktree;
 neither is part of the T0 source pin or a substitute for a clean checkout.
 
 | Field | Value | Status |
@@ -46,7 +46,7 @@ neither is part of the T0 source pin or a substitute for a clean checkout.
 | Branch / remote ref | `ci/runner-health-retries`; `origin/ci/runner-health-retries` = same commit | Mutable ref; informational |
 | Commit date | 2026-11-19 22:37:47 -0500 | Observed |
 | T0 source history | T0 JTAG/debug RTL and testbench added in `adaac4a93`; the pinned tip also contains later CI-only changes | Informational |
-| Local HEAD | `082f4d855614ac4dc54d4dade040764880da12a4`, four commits ahead of the T0 pin | Not the T0 source |
+| Local HEAD | `13e0ce1fd090e9960b1265e46268e9ce5549f017`, thirteen commits ahead of the T0 pin at this update | Not the T0 source |
 | Local worktree | 28 modified/untracked paths overall; the T0 debug/test paths are unchanged, but other dirty RTL libraries are excluded by using the clean pin | Dirty; do not build from it |
 | T0 delta from discovery pin | 14 files, 2,513 insertions under `hw/rtl/dbg/` and `hw/unittest/t0_dbg/` | T0 debug path added |
 | Discovery evidence pin | `ff5790806973a1586478531c3d6710a0fa614384`, tree `9ecc11da261a4f7ad952761d6d6768e54086d7bd` | Applies to the earlier 1×4 discovery evidence only |
