@@ -47,7 +47,11 @@ Each record is: chosen option, the pinned-RTL evidence behind it, the condition 
 - ICache word is 4 B (`hw/rtl/VX_gpu_pkg.sv:1288`), line 64 B.
 - Data arrays are `VX_sp_ram` slices with byte enables (`hw/rtl/cache/VX_cache_data.sv:185-200`), so per-word protection is structural, not an add-on.
 
-**Cross-document caveat.** The production baseline (§6 ECC row; §7 P10) and the tapeout checklist (§3, "SECDED on all three arrays") still specify 64+8 on all three arrays and have not been amended. Accepting 32+7 for the 32-bit LMEM and ICache slices therefore requires an explicit baseline amendment, with the checklist width, injection and area text updated to match; a checklist-only edit would leave the baseline requirement contradicted.
+**Cross-document caveat.** Accepting 32+7 for the 32-bit LMEM and ICache slices requires an explicit baseline amendment, not a checklist-only edit; DCache and XLEN=64 builds stay 64+8. The sites that still assume 64+8 on all three arrays or 12.5% overhead are:
+
+- Requirement text: `docs/proposals/g100_production_baseline.md:207` (ECC row) and `:299-301` (ECC paragraph); `docs/grxgpu_g100_t0_tapeout_checklist.md:110-112` (SECDED width), `:122-124` (72-bit injection) and `:127-129` (12.5% area).
+- Derived estimates: `docs/proposals/g100_production_baseline.md:211` (0.2 mm² ECC) and `:46` (10.8 mm² with ECC); `docs/grxgpu_g100_t0_tapeout_checklist.md:151-153` (10.8 mm² including ECC).
+- Unaffected: the test-SRAM 64+8-per-64-bit-lane figures in the plan §7 and the audit's `:108`.
 
 **Condition to check.** Confirm the XLEN=64 build really uses 72-bit words in LMEM and that both widths instantiate in the codec bench.
 
