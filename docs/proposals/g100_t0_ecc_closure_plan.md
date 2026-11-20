@@ -80,9 +80,14 @@ RTL shape, so changing it later is expensive.
    enabled bytes, re-encodes and writes back. Full-codeword writes bypass the
    read. This costs an extra read cycle before the write; nothing else in the
    bank changes.
-6. **Cache init and flush write encoded zeros**, not raw zeros, so an
-   initialised line has valid check bits. This is a real correctness trap: the
-   current arrays are initialised with plain zeros.
+6. **Any line-clear path added in S4 writes encoded data.** The pinned cache
+   data array is not written on init or flush: `VX_cache_data` gates
+   `slice_write` on fill and hit-store only, and `init` reaches only the
+   dirty-byte masks; the RAM blocks default to `INIT_ENABLE=0` and the ASIC
+   init macro is empty. The rule is forward-looking: if S4 adds a data-array
+   clear, or any path that writes a whole line without going through the fill
+   encoder, it must write encoded zeros so the line has valid check bits. It
+   is not a description of current behaviour.
 7. **Tag arrays and dirty-byte masks are out of scope.** The baseline names the
    three data arrays. Protecting tags needs per-way codewords in the folded tag
    store and changes the tag-compare path; record it as a deliberate exclusion
@@ -215,15 +220,16 @@ with the extra RMW cycle, and record the cycle delta.
 
 Deliverables: `VX_cache_data` swaps each `VX_sp_ram` slice for the wrapper.
 Fills encode every slice of the installed sector; writebacks and flushes decode
-before driving the memory side; init writes encoded zeros (§2.6). On
-`uncorrected`, the bank invalidates the line and counts it.
+before driving the memory side; any line clear added in S4 goes through the
+encoder (§2.6). On `uncorrected`, the bank invalidates the line and counts it.
 
 Verification:
 
-- Extend `hw/unittest/cache`: fill → read, store → writeback, init and flush
-  all produce clean reads; inject a correctable error into a line and require
-  the corrected word plus a counter; inject an uncorrectable error and require
-  the line to be invalidated, the counter to move, and no corrected-looking
+- Extend `hw/unittest/cache`: fill → read, store → writeback, and init/flush
+  leave lines invalid so a read misses and refills cleanly; inject a
+  correctable error into a line and require the corrected word plus a counter;
+  inject an uncorrectable error and require the line to be invalidated, the
+  counter to move, and no corrected-looking
   data to reach the core interface.
 - Confirm the DCache read path still meets its pipeline contract: decode sits
   after the array read, so the added delay is a mux, not a new stage. Measure
@@ -363,7 +369,7 @@ security-review addendum records.
 | Codec corrects every single-bit error and detects every double-bit error | `hw/unittest/ecc` |
 | RMW preserves every byte-enable combination and full-word writes bypass it | `hw/unittest/ecc_ram` |
 | LMEM banks are protected and the DMA path is covered | `hw/unittest/local_mem` |
-| Cache fills, stores, writebacks, init and flush are protected; UE invalidates | `hw/unittest/cache` |
+| Cache data-writing paths (fill, store, writeback) are protected; init/flush only clear validity; UE invalidates | `hw/unittest/cache` |
 | Counters, saturation, first-fault capture and injection work | `hw/unittest/ecc_status` |
 | TSRAM counters are readable over SBA and faults are observable on the T0-A path | `hw/unittest/t0_dbg` transcript |
 | The status block returns the full line and answers every accepted address, so no SBA drain hang | `hw/unittest/ecc_status` plus the T0 TB |
