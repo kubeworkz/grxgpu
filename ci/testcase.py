@@ -27,6 +27,7 @@ import glob
 import hashlib
 import json
 import os
+import select
 import signal
 import subprocess
 import sys
@@ -325,6 +326,19 @@ class CommandTimeout(Exception):
 _CAPTURE_JOIN_GRACE = 5.0
 
 
+def _pipe_closed(proc):
+    """Whether the captured stdout pipe has no writers left."""
+    poll = getattr(select, "poll", None)
+    if poll is None:
+        return False
+    try:
+        p = poll()
+        p.register(proc.stdout, select.POLLHUP)
+        return any(mask & select.POLLHUP for _, mask in p.poll(0))
+    except (OSError, ValueError):
+        return False
+
+
 def _kill_tree(proc):
     """Kill the command's process group (blackbox -> make -> app)."""
     try:
@@ -386,13 +400,15 @@ def execute_capture(argv, env_extra=None, cwd=None, timeout=None):
         # joining then would hang. _wait() reaps the direct child on normal exit
         # and timeout, but a setsid descendant can still keep the pipe open.
         if proc.poll() is not None:
-            # Do not let a timed-out command's escaped descendant turn the
-            # timeout into an unbounded wait.
-            reader.join(timeout=_CAPTURE_JOIN_GRACE if timed_out else None)
+            reader.join(timeout=_CAPTURE_JOIN_GRACE)
+            # A normal exit can still leave a writer holding the pipe. Once
+            # poll says no writers remain, drain all buffered output.
+            if reader.is_alive() and not timed_out and _pipe_closed(proc):
+                reader.join()
             if reader.is_alive():
                 sys.stderr.write(
-                    "warning: capture reader still blocked after timeout; "
-                    "an escaped descendant may still hold stdout\n")
+                    "warning: capture reader still blocked; output may be "
+                    "truncated; an escaped descendant may still hold stdout\n")
             else:
                 proc.stdout.close()
     return rc, "".join(lines)
