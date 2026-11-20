@@ -29,7 +29,7 @@ release.
 | Independent review | No named reviewer or review date | **OPEN** |
 | SimX↔rtlsim parity | Discovery instruction counts match; cycles differ; no tolerance | **NOT ESTABLISHED** |
 | FPGA/board | No T0 FPGA image, board, constraints, or timing evidence | **OPEN** |
-| ECC | SECDED is a T0 baseline requirement; no ECC RTL or bench exists at the T0 pin, and the CI/checklist claims that said otherwise were corrected 2026-11-20. Closure is scoped in the [ECC closure plan](proposals/g100_t0_ecc_closure_plan.md), whose S0 assumptions were audited against this pin on 2026-11-20: status block and demux inside `VX_t0_dbg_top`, 64 KB readout window, SBA-only writes, TSRAM-only T0-A evidence. The gate record is the [S0 decision signoff](evidence/g100-t0-ecc-s0-2026-11-20/signoff.md) | **BLOCKED — requirement unimplemented; references corrected; S0 signoff unsigned** |
+| ECC | SECDED is a T0 baseline requirement; no ECC RTL or bench exists at the T0 pin, and the CI/checklist claims that said otherwise were corrected 2026-11-20. Closure is scoped in the [ECC closure plan](proposals/g100_t0_ecc_closure_plan.md), whose S0 assumptions were audited against this pin on 2026-11-20; the plan proposes the status block and demux inside `VX_t0_dbg_top`, a 64 KB readout window, SBA-only writes and TSRAM-only T0-A evidence. The gate record is the [S0 decision signoff](evidence/g100-t0-ecc-s0-2026-11-20/signoff.md) | **BLOCKED — requirement unimplemented; references corrected; S0 signoff unsigned** |
 | Overall G1 | Identity work started; required evidence is incomplete | **NOT PASSED** |
 
 ## 2. Source identity
@@ -108,8 +108,10 @@ loaded over SBA can prevent bring-up. The closure plan recommends protecting it
 with the same SECDED wrapper (64+8 per lane, byte-enable RMW) because T0-A has
 no other array through which the ECC path and counters can be exercised in
 silicon, with per-lane parity as the fallback; the decision remains open pending
-S0 signoff. Either way T0-A counter evidence is TSRAM-only: LMEM, ICache and
-DCache counters are simulation evidence until a cluster build exists.
+S0 signoff. If S0 accepts the recommendation or the parity fallback, T0-A
+counter evidence would be TSRAM-only; a recorded deferral leaves T0-A with no
+ECC-bearing array. The three-array counters can only be simulation evidence
+until a cluster build exists.
 
 The path table above pins the T0 blob of `ci/testcases/unittest.yaml`
 (`15d4476121a2cde1dad0cc56e09fc0ff252eef0400909fcbc0f3c196f86e4caf`), which
@@ -287,12 +289,13 @@ Additional parity gaps:
    with the plan recommending SECDED. The ordered work, gates and test-SRAM
    recommendation are in the
    [ECC closure plan](proposals/g100_t0_ecc_closure_plan.md), whose S0
-   assumptions were audited against this pin on 2026-11-20: the status block and
-   demux live inside `VX_t0_dbg_top`, the window is 64 KB with line-granular
-   reads and total decode, writes are SBA-only, and T0-A evidence is TSRAM-only,
-   with the three-array counters proven in their own benches. S0 closes only
-   when the [S0 decision signoff](evidence/g100-t0-ecc-s0-2026-11-20/signoff.md)
-   is signed. This item closes only when that plan's exit criteria are met.
+   assumptions were audited against this pin on 2026-11-20. The plan proposes
+   the status block and demux inside `VX_t0_dbg_top`, a 64 KB window with
+   line-granular reads and total decode, SBA-only writes and TSRAM-only T0-A
+   evidence, with the three-array counters to be proven in their own benches;
+   these choices remain unsigned. S0 closes only when the [S0 decision
+   signoff](evidence/g100-t0-ecc-s0-2026-11-20/signoff.md) is signed. This item
+   closes only when that plan's exit criteria are met.
 6. Obtain an independent reviewer who is not the author to review/reproduce the
    source, configuration, tools, workload, golden data, and T0 results.
 7. Establish a supported parity definition and run a same-source,
