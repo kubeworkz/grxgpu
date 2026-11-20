@@ -197,9 +197,8 @@ After:
 core, no L2, SECDED ECC, 256 KB test SRAM, 400 MHz, 10 W, ~10.9 mm², QFN-128.
 ```
 
-C5 is an additional derived site not currently listed in the signoff's D1
-caveat; add it to that caveat when applying, or the checklist header will
-disagree with its own §4 item.
+C5 is already listed in the signoff's D1 caveat (checklist `:9`), so it needs
+no separate caveat edit beyond the status update in §4 step 3.
 
 ## 4. Apply procedure after signoff
 
@@ -207,7 +206,7 @@ disagree with its own §4 item.
    condition changes the width.
 2. Apply B1–B4 and C1–C5 by exact string replacement. Do not touch D3 text.
 3. Update the signoff D1 caveat from "requires an explicit baseline amendment"
-   to "amended `<date>`" and add checklist `:9` to its derived list.
+   to "amended `<date>`"; checklist `:9` is already listed.
 4. Re-run the link check, trailing-whitespace check and LF check over the two
    files. Commit the baseline and checklist together; keep the signoff update
    in its own commit.
