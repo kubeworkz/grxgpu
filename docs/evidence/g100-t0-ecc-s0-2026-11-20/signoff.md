@@ -47,6 +47,8 @@ Each record is: chosen option, the pinned-RTL evidence behind it, the condition 
 - ICache word is 4 B (`hw/rtl/VX_gpu_pkg.sv:1288`), line 64 B.
 - Data arrays are `VX_sp_ram` slices with byte enables (`hw/rtl/cache/VX_cache_data.sv:185-200`), so per-word protection is structural, not an add-on.
 
+**Cross-document caveat.** The production baseline (§6 ECC row; §7 P10) and the tapeout checklist (§3, "SECDED on all three arrays") still specify 64+8 on all three arrays and have not been amended. Accepting 32+7 for the 32-bit LMEM and ICache slices therefore requires an explicit baseline amendment, with the checklist width, injection and area text updated to match; a checklist-only edit would leave the baseline requirement contradicted.
+
 **Condition to check.** Confirm the XLEN=64 build really uses 72-bit words in LMEM and that both widths instantiate in the codec bench.
 
 **Signoff.** ☐ Accept ☐ Accept with condition ☐ Reject — Name: __________ Date: __________ Notes: ______________________
