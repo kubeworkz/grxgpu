@@ -283,8 +283,9 @@ Additional parity gaps:
    JTAG test; retain raw logs, exit statuses, input/reference/output hashes, and
    the exact commands.
 5. Implement the SECDED codec, counters, ECC bank RAM and testbenches; protect
-   LMEM/ICache/DCache and provide T0 ECC evidence — or record a reviewed
-   descope. The false CI/checklist references are corrected, but there is no
+   LMEM/ICache/DCache, provide TSRAM-only T0-A evidence, and prove the three
+   arrays in simulation — or record a reviewed descope. The false
+   CI/checklist references are corrected, but there is no
    ECC implementation to test, and the test-SRAM protection decision is open,
    with the plan recommending SECDED. The ordered work, gates and test-SRAM
    recommendation are in the
@@ -292,8 +293,7 @@ Additional parity gaps:
    assumptions were audited against this pin on 2026-11-20. The plan proposes
    the status block and demux inside `VX_t0_dbg_top`, a 64 KB window with
    line-granular reads and total decode, SBA-only writes and TSRAM-only T0-A
-   evidence, with the three-array counters to be proven in their own benches;
-   these choices remain unsigned. S0 closes only when the [S0 decision
+   evidence; these choices remain unsigned. S0 closes only when the [S0 decision
    signoff](evidence/g100-t0-ecc-s0-2026-11-20/signoff.md) is signed. This item
    closes only when that plan's exit criteria are met.
 6. Obtain an independent reviewer who is not the author to review/reproduce the
