@@ -49,7 +49,7 @@ Each record is: chosen option, the pinned-RTL evidence behind it, the condition 
 
 **Cross-document caveat.** Accepting 32+7 for the 32-bit LMEM and ICache slices requires an explicit baseline amendment, not a checklist-only edit; DCache and XLEN=64 builds stay 64+8. The sites that still assume 64+8 on all three arrays or 12.5% overhead are:
 
-- Requirement text: `docs/proposals/g100_production_baseline.md:207` (ECC row) and `:299-301` (ECC paragraph); `docs/grxgpu_g100_t0_tapeout_checklist.md:110-112` (SECDED width), `:122-124` (72-bit injection) and `:127-129` (12.5% area).
+- Requirement text: `docs/proposals/g100_production_baseline.md:207` (ECC row) and `:299-302` (ECC paragraph); `docs/grxgpu_g100_t0_tapeout_checklist.md:110-112` (SECDED width), `:122-124` (72-bit injection) and `:127-129` (12.5% area).
 - Derived estimates: `docs/proposals/g100_production_baseline.md:211` (0.2 mm² ECC) and `:46` (10.8 mm² with ECC); `docs/grxgpu_g100_t0_tapeout_checklist.md:9` (header 10.8 mm²) and `:151-154` (10.8 mm² including ECC).
 - Unaffected: the test-SRAM 64+8-per-64-bit-lane figures in the plan §7 and the audit's `:108`.
 - Ready-to-apply amendment: [D1 32+7 baseline and checklist amendment](../../proposals/g100_t0_ecc_d1_32_7_amendment.md).
