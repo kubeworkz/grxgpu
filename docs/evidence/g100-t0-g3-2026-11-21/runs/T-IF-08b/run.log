@@ -1,0 +1,30 @@
+T-IF-08b host DXA slot-isolation evidence
+utc: 2026-11-21T01:34:51Z
+--- compiler ---
+g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+--- source hashes ---
+399ecd988968f357cba586b1d25549c1e71176f4cff57f20e1170b7fdf214d70  main.cpp
+981a8b306367f9ad3650a5c162500214adbd6caf8442a70523a9739761cd0b27  stub/vortex.h
+349f9e1e9309705cd209d4263edad21ff9ef1e73c9677740a560d94b113f7543  sw/runtime/include/dxa.h
+b172820148530228a925d96252141e55c6ba3d84a9c7375fb0bc49f46d93089d  sw/common/dxa_meta.h
+1647fdc48564b48b06adde771ea9c6039ef49a759801726819855447d1730ac8  sw/VX_types.h
+efc15a7873a1244e8fd93088e5e21a2cedad7e48dc311046143e20210f8bf37b  hw/rtl/dxa/VX_dxa_pkg.sv
+--- build ---
+--- run ---
+PASS slot 0: 10 writes; 15 neighbors unchanged; 14 target words still sentinel
+PASS slot 1: 10 writes; 15 neighbors unchanged; 14 target words still sentinel
+PASS slot 2: 10 writes; 15 neighbors unchanged; 14 target words still sentinel
+PASS slot 3: 10 writes; 15 neighbors unchanged; 14 target words still sentinel
+PASS slot 4: 10 writes; 15 neighbors unchanged; 14 target words still sentinel
+PASS slot 5: 10 writes; 15 neighbors unchanged; 14 target words still sentinel
+PASS slot 6: 10 writes; 15 neighbors unchanged; 14 target words still sentinel
+PASS slot 7: 10 writes; 15 neighbors unchanged; 14 target words still sentinel
+PASS slot 8: 10 writes; 15 neighbors unchanged; 14 target words still sentinel
+PASS slot 9: 10 writes; 15 neighbors unchanged; 14 target words still sentinel
+PASS slot 10: 10 writes; 15 neighbors unchanged; 14 target words still sentinel
+PASS slot 11: 10 writes; 15 neighbors unchanged; 14 target words still sentinel
+PASS slot 12: 10 writes; 15 neighbors unchanged; 14 target words still sentinel
+PASS slot 13: 10 writes; 15 neighbors unchanged; 14 target words still sentinel
+PASS slot 14: 10 writes; 15 neighbors unchanged; 14 target words still sentinel
+PASS slot 15: 10 writes; 15 neighbors unchanged; 14 target words still sentinel
+PASS T-IF-08b: 16/16 slots written; 5760 neighbor-slot words and 224 target-slot unwritten words unchanged; 384 readback words, 0 mismatches
