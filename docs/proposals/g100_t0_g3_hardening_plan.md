@@ -285,6 +285,29 @@ TCU and DXA, 16 KB LMEM/ICache/DCache per core, no L2/L3 (contract §1, §2,
   SBA-after-core-store must be characterized, and the record must state
   whether the result relies on the frozen no-coherency rule. The product-plan
   rule applies: prove the selected core count or reduce the claim.
+- T-G-5f: edge-shape conformance, in two arms.
+  - Supported arm: M and N multiples of 16 and K multiples of 8 at the frozen
+    4-warp, `WGMMA_NRC=16` configuration. Examples: M=N=64 with K=8 (smallest
+    K tile) and K=24 (not a power of two), both producible by the frozen
+    [`gen_golden`](../evidence/g100-t0-g2-2026-11-21/golden/gen_golden.cpp)
+    unchanged; and 16×16×8 (one CTA) plus non-square 32×16×8, which that
+    generator cannot produce because it fixes M=N=64 and accepts only K. Their
+    references come from a dimension-parameterized copy of `gen_golden.cpp`
+    (M, N, K arguments, same `srand(50)` order, `rv_ftoh_s` conversion, and
+    double-accumulate reference), whose source hash and generated A/B/C are
+    recorded with the new workload. The frozen generator, corpus, and
+    `G100-T0-G2-SGEMM-1.0` are not edited. Every supported shape is a new
+    workload with its own ID and CPU reference. Before the run, the evidence
+    record fixes that shape's FP32 ULP budget and comparator: the budget is
+    `max(12, ceil(5·√K))` and the comparator is the manifest's integer
+    distance between positive FP32 bit patterns, with zero mismatches beyond
+    the budget. A shape without a recorded budget is not run as supported.
+  - Rejection arm: `M % 16 != 0`, `N % 16 != 0`, and `K % 8 != 0` (for
+    example 17×16×8 and 16×16×12) must be refused by the workload's own
+    dimension checks with a clear error and a non-zero exit, not a silent
+    wrong result. The unsupported set is the frozen manifest's
+    [unsupported-shapes section](../evidence/g100-t0-g2-2026-11-21/golden-workload.md),
+    not the contract's TBD interface list.
 
 **Evidence owner.** System/SoC architect, with the Verification lead for the
 regression and the Software lead for the run record.
@@ -292,7 +315,9 @@ regression and the Software lead for the run record.
 **Exit criterion.** The 16-core top elaborates at the frozen configuration;
 16/16 cores retire and report distinct correct results; the frozen workload
 passes at 16 CTAs with A/B hash matches and C within budget; a second launch
-succeeds; the coherency statement is explicit. If the run stays at 4 cores,
+succeeds; each supported edge shape matches its own recorded CPU reference
+within its recorded ULP budget, and each rejection case exits non-zero with a
+clear error; the coherency statement is explicit. If the run stays at 4 cores,
 G3 records 4-core conformance and the 16-core claim is not made.
 
 ### 4.7 G-6 — ECC decisions and implementation
@@ -390,6 +415,32 @@ G3 requires. They do not add product features.
 | S-4 | SimX ↔ rtlsim parity harness (E-302) | T-S-4 frozen workload on both models, word-exact output compare | Verification lead | Outputs match; retired-instruction counts match exactly; cycle agreement is within the `model_parity` tolerance; counts are archived |
 | S-5 | Golden-workload device-run runner | T-S-5 run record per the [manifest §6](../evidence/g100-t0-g2-2026-11-21/golden-workload.md) | Verification lead | Runner refuses to compute when generated A/B hashes differ from the manifest |
 | S-6 | Recovery procedure | T-S-6 reload-over-SBA recovery twice from a clean state | Bring-up lead | Both runs reach the same result word; retained-SRAM behavior is stated, not assumed scrubbed |
+| S-7 | Compiler and operator path | T-S-7a pinned-toolchain rebuild of the frozen kernel and one other supported kernel; T-S-7b operator-scope record | Build/release + Software lead | Both kernels build and run from the pinned source; the operator surface is listed and tested, or an explicit T0 exclusion names the later gate |
+
+### 5.1 Coverage and defect closure
+
+| ID | Item | Evidence | Owner | Exit criterion |
+|---|---|---|---|---|
+| T-V-1 | Functional coverage review | Coverage bins mapped to the acceptance matrix; exclusions and waivers listed | Verification lead | Every critical bin is covered or has a written waiver; no gap is unclassified |
+| T-V-2 | Critical-defect log | Every open defect with severity, owner, and target | Verification lead + RTL owners | No open critical defect at G3 exit; each non-critical defect has an owner and target |
+
+### 5.2 Release-candidate checklist
+
+`T-RC-1` audits this checklist; an unmet row keeps the checklist open.
+
+| ID | Area | Required state | Evidence |
+|---|---|---|---|
+| RC-1 | Runtime | Load, launch, and status work through the supported ABI without manual register pokes | S-2, S-3 |
+| RC-2 | Firmware | T0 has no firmware or ROM; record the exclusion, or cover the loader if one is added | contract §8.2 |
+| RC-3 | Compiler | The frozen kernel and one other supported kernel rebuild from the pinned source and toolchain | S-7a |
+| RC-4 | Operator scope | Supported operators are listed and tested, or an explicit T0 exclusion is signed | S-7b |
+| RC-5 | Diagnostics | Failures report from existing status; no invented CP fault code | S-3 |
+| RC-6 | Update/recovery | Reload-over-SBA recovery succeeds twice from a clean state | S-6 |
+| RC-7 | Reproducible build | Build stamp present; rebuild byte-identical or differences enumerated | S-1 |
+| RC-8 | Evidence | All G3 logs filed with hashes; coverage and defect records complete | T-V-1, T-V-2 |
+
+**Evidence owner.** Verification lead, with the Software and Build/release
+leads for the runtime, compiler, and build rows.
 
 ---
 
@@ -400,9 +451,9 @@ G3 requires. They do not add product features.
 | Wave | Work | Why this order |
 |---|---|---|
 | 1 | G-1, G-2, IF-01–IF-06 hardening, S-1 | Debug and load path must be trustworthy before anything runs on top of it |
-| 2 | G-3 revision decision, G-4 attach, IF-07–IF-09, S-2, S-3 | The DXA path and the ABI decision gate all later compute evidence |
-| 3 | G-5 16-core integration, G-6 ECC (S0 first), IF-10, IF-14 | Full-workload and ECC evidence need the cluster top |
-| 4 | G-7 STA, G-8 requirements, S-4–S-6, G3 record | Closure evidence and the explicit carries |
+| 2 | G-3 revision decision, G-4 attach, IF-07–IF-09, S-2, S-3, S-7 | The DXA path, ABI decision, and compiler path gate all later compute evidence |
+| 3 | G-5 16-core integration, G-6 ECC (S0 first), IF-10, IF-14, T-G-5f | Full-workload, edge-shape, and ECC evidence need the cluster top |
+| 4 | G-7 STA, G-8 requirements, S-4–S-6, T-V-1, T-V-2, T-RC-1, G3 record | Closure evidence, coverage/defect records, and the explicit carries |
 
 G-6 S0 can run in parallel with wave 1 because it changes no RTL; ECC RTL
 starts only after signature. G-4 may run on a one-core cluster harness so it
@@ -431,18 +482,23 @@ contract in place, when:
 | Product regression on reference and RTL models | T-IF-14a/b, T-G-5c, S-4 | Open; corpus frozen, no device run |
 | Board regression where hardware exists | Frozen workload and T-G-7c on L4 if a board exists | No T0 board at plan time; the absence is recorded |
 | Multi-tile and maximum-size transfers | T-G-5c, T-G-3b | Open |
+| Edge shapes and DMA tails | T-G-5f, T-G-3b | Open |
 | Repeated and concurrent launches; backpressure | T-G-5d, T-IF-09a | Open |
+| Compiler/operator path | T-S-7a, T-S-7b | Open |
 | Reset and recovery | T-G-1b/c, T-S-6 | Partly exercised; bound and mid-transaction reset open |
 | Malformed commands and failure injection | T-G-3a, T-G-6d, S-3 | Open; needs the G-3 revision |
 | Boundary addresses | T-IF-04c, T-G-2a/b | SBA side tested; core side open |
 | Coherency proven for the selected core count, or reduced claim | T-G-5e | Open; no L1 in T0-A |
-| Assertions/formal reviewed; coverage gaps classified | T-G-1c, T-G-2c, T-IF-07c, E-107 | Open |
-| Runtime/firmware, diagnostics, update/recovery, reproducible builds as release candidates | S-1–S-6 | Open |
+| Assertions/formal reviewed; coverage gaps classified | T-G-1c, T-G-2c, T-IF-07c, T-V-1, E-107 | Open |
+| Critical-defect closure | T-V-2 | Open; no defect log yet |
+| Runtime/firmware, diagnostics, compiler/operator, update/recovery, reproducible builds as release candidates | S-1–S-7, T-RC-1 | Open |
 
 **Gate rule.** Every G-1–G-8 row must be recorded as closed, revisioned, or
 carried with a named later gate, and the production-plan evidence above must
-be present. A carry records an open limitation rather than completed exit
-evidence; pass, conditional pass, or hold is the approver's decision.
+be present. The record must also show no open critical defect (T-V-2) and
+coverage bins covered or waived (T-V-1). A carry records an open limitation
+rather than completed exit evidence; pass, conditional pass, or hold is the
+approver's decision.
 
 **What G3 will still not prove:** a product host interface, DRAM/HBM, product
 coherency, package selection, silicon timing or thermal behavior, tapeout
@@ -461,7 +517,7 @@ readiness, or any commercial release. Those stay outside T0 under the G0 hold.
 | O-7 STA, power, package, PDK | G-7, G-8 | T-G-7a–c, T-G-8a–c |
 | O-8 CP ring ABI not exercised on T0-A | G-3, S-2 | T-IF-10a–c, T-G-3a |
 
-Related engineering tasks: E-101 (S-1), E-103 (T-G-5c), E-104 (T-G-5e),
-E-105 (G-1, G-2, G-3), E-106 (S-2, S-3, S-6), E-107 (assertions and coverage),
-E-302 (S-4, golden run). See the
+Related engineering tasks: E-101 (S-1), E-103 (T-G-5c, T-G-5f), E-104
+(T-G-5e), E-105 (G-1, G-2, G-3), E-106 (S-2, S-3, S-6, S-7), E-107 (T-V-1,
+T-V-2), E-302 (S-4, golden run). See the
 [engineering task list](../grxgpu_engineering_task_list.md).

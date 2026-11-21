@@ -28,7 +28,7 @@ The author is not an approver and does not sign the G3 record.
 | G1 audit | [G1 evidence audit](../../grxgpu_g100_t0_g1_evidence_audit.md) | **NOT PASSED** at 2026-11-20; unchanged by this record |
 | ECC S0 | [S0 decision signoff](../g100-t0-ecc-s0-2026-11-20/signoff.md) | Unsigned; G-6 cannot start RTL |
 | Board / FPGA | None for T0 | L4 evidence cannot be produced |
-| Plan commit | `2336f90140a13489e24c16b669962b22f8ee893a`, `docs: plan the G100-T0 G3 hardening work` | Committed; this record follows it |
+| Plan commit | `2336f90140a13489e24c16b669962b22f8ee893a`, `docs: plan the G100-T0 G3 hardening work` | Entry commit; the coverage amendment is uncommitted with this record |
 | Branch | `ci/runner-health-retries` | Four commits ahead of origin at entry; not pushed |
 | Evidence dir | `docs/evidence/g100-t0-g3-2026-11-21/` | Created with this record; no logs yet |
 
@@ -60,13 +60,13 @@ the test but do not replace that accountability.
 | Role | Accountable for | Plan rows |
 |---|---|---|
 | Bring-up lead | JTAG/TAP, boot/KMU, reset domains, recovery procedure | IF-01, IF-06, IF-11, S-6 |
-| Verification lead | SBA/DMI, memory window, core attach, DXA/TLMem, ECC, golden comparison, parity | IF-02–IF-05, IF-07, IF-09, IF-14, G-1, G-2, G-4–G-6, S-4, S-5 |
-| Software/runtime lead | CP ring ABI, DXA descriptor encoders, diagnostics, CP fault contract | IF-08, IF-10, G-3, S-2, S-3 |
+| Verification lead | SBA/DMI, memory window, core attach, DXA/TLMem, ECC, golden comparison, parity, coverage and defect closure | IF-02–IF-05, IF-07, IF-09, IF-14, G-1, G-2, G-4–G-6, S-4, S-5, T-V-1, T-V-2, T-RC-1 |
+| Software/runtime lead | CP ring ABI, DXA descriptor encoders, diagnostics, CP fault contract, operator scope | IF-08, IF-10, G-3, S-2, S-3, S-7b |
 | System/SoC architect | DXA attach, 16-core integration, ECC decode contract | G-4, G-5, G-6 (with Verification) |
 | Physical design (G4 role) | Synthesis and STA at the target library, TCK-domain timing | G-7 (STA) |
 | Power/thermal lead | Board power, ambient, θJA and Tj measurement | IF-12, G-7 (measurement) |
 | Package/board lead | Pin budget, package requirements, PDK/sourcing input | IF-13, G-8 |
-| Build/release + RTL lead | Reproducible build, build stamp, configuration identity | S-1 |
+| Build/release + RTL lead | Reproducible build, build stamp, configuration identity, compiler path | S-1, S-7a |
 
 No owner is named as a person yet. A role owns the evidence; a named person
 must sign it before the G3 record can cite it.
@@ -76,7 +76,7 @@ must sign it before the G3 record can cite it.
 ## 3. Test ID index
 
 The plan is authoritative for each test's method and exit criterion; this
-index is the filing key. **All 69 entries are OPEN — none has a log, and no
+index is the filing key. **All 75 entries are OPEN — none has a log, and no
 result is recorded in this document.**
 
 ### 3.1 Interfaces
@@ -140,6 +140,7 @@ result is recorded in this document.**
 | T-G-5c | Frozen workload at the full 16-CTA grid | L2 | Verification |
 | T-G-5d | Relaunch and SBA backpressure | L2 | Verification |
 | T-G-5e | Cache/coherency characterization | L2 | System/SoC |
+| T-G-5f | Supported edge shapes (M,N % 16=0; K % 8=0), each a new workload with a recorded ULP budget; M=N=64 K=8/24 via frozen generator, M/N shapes via recorded parameterized generator; unsupported multiples rejected | L2/L3 | System/SoC (+Verification) |
 | T-G-6a | ECC S0 signature (D1–D14) | Record | Verification |
 | T-G-6b | Codec and ECC-bank wrapper benches | L0 | Verification |
 | T-G-6c | LMEM and cache integration cases | L0/L2 | Verification |
@@ -162,6 +163,16 @@ result is recorded in this document.**
 | T-S-4 | SimX/rtlsim model parity on the frozen workload | L3 | Verification |
 | T-S-5 | Golden-run runner with A/B hash precondition | L2/L3 | Verification |
 | T-S-6 | Reload-over-SBA recovery, twice | L1 | Bring-up |
+| T-S-7a | Pinned-toolchain rebuild of the frozen kernel and one other kernel | Build | Build/release (+Software) |
+| T-S-7b | Operator scope: supported list tested, or explicit T0 exclusion | Record | Software |
+
+### 3.4 Verification closure
+
+| Test ID | Scope | Tier | Accountable owner |
+|---|---|---|---|
+| T-V-1 | Functional coverage review and written waivers | Record | Verification |
+| T-V-2 | Critical-defect log and zero-open-critical exit | Record | Verification (+RTL) |
+| T-RC-1 | Release-candidate checklist audit | Record | Verification (+Software, Build/release) |
 
 ---
 
@@ -198,6 +209,9 @@ failure.
    is not a device result.
 6. **Manifest last.** `SHA256SUMS` for this directory is added with the first
    filed log and updated with each new log; it does not exist yet.
+7. **Coverage and defect records close the gate.** T-V-1 and T-V-2 are record
+   audits, not test runs; they are complete only when every critical coverage
+   bin is covered or waived and no critical defect is open.
 
 ---
 
