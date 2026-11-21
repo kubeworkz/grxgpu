@@ -327,13 +327,13 @@ Layout:
 ([`device.cpp:233`](../../sw/runtime/common/device.cpp#L233)) programs each
 queue's ring/head/cmpl addresses and sets `CP_REG_CTRL=0x1`. Each
 `vx_enqueue_*` pushes a `Command` lambda onto a per-queue worker FIFO
-([`queue.cpp:28,69`](../../sw/runtime/common/queue.cpp#L28)); the worker
+([`queue.cpp:115,147`](../../sw/runtime/common/queue.cpp#L115)); the worker
 waits on dependencies, encodes one 64 B cache line, memcpys it into the
 host-pinned ring, rings the `Q_TAIL_LO/HI` doorbell, and busy-polls
 `Q_SEQNUM` ([`device.cpp:334-398`](../../sw/runtime/common/device.cpp#L334)).
 A kernel launch is currently encoded as ~18 `CMD_DCR_WRITE`s to KMU DCRs
 followed by `CMD_LAUNCH`, then `CMD_CACHE_FLUSH` and a cout drain
-([`queue.cpp:382-424`](../../sw/runtime/common/queue.cpp#L382)).
+([`queue.cpp:382-454`](../../sw/runtime/common/queue.cpp#L382)).
 
 > **vortex2.h vs the original "minimal" spec:** the shipped header is
 > richer than the 34-function minimalist proposal — it keeps first-class

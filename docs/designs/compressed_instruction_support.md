@@ -77,7 +77,7 @@ address uses the same `is_rvc` selector.
 ([`:16,36-142`](../../tests/riscv/isa/Makefile#L16)); the regression and
 opencl `common.mk` append `c` to `-march` when `-DVX_CFG_EXT_C_ENABLE` is
 set. CI has a dedicated `rvc()` job
-([`ci/regression.sh.in:608-627`](../../ci/regression.sh.in#L608)) building
+([`ci/testcases/rvc.yaml:1-25`](../../ci/testcases/rvc.yaml#L1)) building
 simx+rtlsim with RVC and running `run-simx-32c` / `run-rtlsim-32c`. ISA
 test binaries are built from upstream riscv-tests, not checked in.
 

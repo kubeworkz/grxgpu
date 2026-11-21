@@ -128,14 +128,14 @@ AMO references in `hw/rtl/libs/`.
 `AmoUnit` (a plain class, not a SimObject): `compute`, `reserve` (same-hart
 overwrite + LRU evict), `check`, `invalidate(line, except_hart)`, `clear`,
 owned by `CacheBank` and active only when `config_.is_llc`
-([`cache.cpp:490`](../../sim/simx/mem/cache.cpp#L490)); the RMW commits in
-`commitAmo` ([`cache.cpp:705`](../../sim/simx/mem/cache.cpp#L705)).
+([`cache.cpp:1721`](../../sim/simx/mem/cache.cpp#L1721)); the RMW commits in
+`commitAmo` ([`cache.cpp:1018`](../../sim/simx/mem/cache.cpp#L1018)).
 
 SimX folds the AMO op into the unified `MemOp` enum
-([`types.h:381-399`](../../sim/simx/types.h#L381)) with a `MemFlags`
-bitfield ([`:415-452`](../../sim/simx/types.h#L415)) and `hart_id =
+([`types.h:393-410`](../../sim/simx/types.h#L393)) with a `MemFlags`
+bitfield ([`:424-463`](../../sim/simx/types.h#L424)) and `hart_id =
 make_hart_id(cid,wid,tid)`. Unlike RTL, SimX has a full **non-LLC
-passthrough** path (`AmoProbe`, [`cache.cpp:281,809`](../../sim/simx/mem/cache.cpp#L281))
+passthrough** path (`AmoProbe`, [`cache.cpp:345,1163`](../../sim/simx/mem/cache.cpp#L345))
 that probe-invalidates and forwards atomics through intermediate cache
 levels — the reference for the RTL gap noted in §6.
 
