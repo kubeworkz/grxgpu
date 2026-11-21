@@ -1,8 +1,9 @@
 # G100-T0 G3 Evidence Record — Entry Baseline and Test Index
 
-**Status:** **OPEN — entry only.** No test has run and no result is claimed.
-This record fixes the entry baseline, the accountable owners, and the test
-index that G3 evidence will be filed against. It is not a gate decision.
+**Status:** **OPEN — entry plus one L0 run.** T-IF-14a has a filed L0 PASS;
+G3 is not complete and no gate result is claimed. This record fixes the entry
+baseline, the accountable owners, and the test index that G3 evidence will be
+filed against. It is not a gate decision.
 **Gate:** G3 — functional and software hardening
 ([production plan](../../grxgpu_production_plan.md) §3).
 **Plan:** [G100-T0 G3 Functional and Software Hardening Plan](../../proposals/g100_t0_g3_hardening_plan.md).
@@ -31,7 +32,7 @@ The author is not an approver and does not sign the G3 record.
 | Board / FPGA | None for T0 | L4 evidence cannot be produced |
 | Plan commits | Entry `2336f90140a13489e24c16b669962b22f8ee893a`, `docs: plan the G100-T0 G3 hardening work`; coverage amendment `86f081ba8`, `docs: extend the G100-T0 G3 coverage plan` | Committed with this record |
 | Branch | `ci/runner-health-retries` | Four commits ahead of origin at entry; not pushed |
-| Evidence dir | `docs/evidence/g100-t0-g3-2026-11-21/` | Created with this record; no logs yet |
+| Evidence dir | `docs/evidence/g100-t0-g3-2026-11-21/` | Created with this record; T-IF-14a L0 log filed; no device log |
 
 **Corpus identities.** These are the hashes G3 must reproduce before comparing
 any device output; the manifest's `SHA256SUMS` is authoritative.
@@ -77,8 +78,8 @@ must sign it before the G3 record can cite it.
 ## 3. Test ID index
 
 The plan is authoritative for each test's method and exit criterion; this
-index is the filing key. **All 75 entries are OPEN — none has a log, and no
-result is recorded in this document.**
+index is the filing key. **74 entries remain OPEN. T-IF-14a has a filed L0
+PASS; that is a test-level result, not a G3 result.**
 
 ### 3.1 Interfaces
 
@@ -116,7 +117,7 @@ result is recorded in this document.**
 | T-IF-12a | Power/thermal record at stated ambient | L4 where available | Power/thermal |
 | T-IF-13a | Pin-budget reconciliation at `VX_MEM_PORTS=0` | L0 | Package/board |
 | T-IF-13b | Package requirement record | L0 | Package/board |
-| T-IF-14a | Corpus regeneration and hash match | L0 | Verification |
+| T-IF-14a | Corpus regeneration and hash match — [PASS, L0](runs/T-IF-14a/record.md) | L0 | Verification |
 | T-IF-14b | C comparison within ULP budget | L0/L2/L3 | Verification |
 
 ### 3.2 Open conformance items
@@ -174,6 +175,12 @@ result is recorded in this document.**
 | T-V-1 | Functional coverage review and written waivers | Record | Verification |
 | T-V-2 | Critical-defect log and zero-open-critical exit | Record | Verification (+RTL) |
 | T-RC-1 | Release-candidate checklist audit, including the RC-2 firmware and RC-8 supported-model-path exclusions | Record | Verification (+Software, Build/release) |
+
+### 3.5 Filed run records
+
+**T-IF-14a (L0) PASS** — six regenerated hashes match.
+[Record](runs/T-IF-14a/record.md), [raw log](runs/T-IF-14a/run.log).
+This is a test-level result only; G3 remains OPEN.
 
 ---
 
