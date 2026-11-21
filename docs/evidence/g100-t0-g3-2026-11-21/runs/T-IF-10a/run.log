@@ -1,0 +1,42 @@
+T-IF-10a CP wire round-trip evidence
+utc: 2026-11-21T01:46:12Z
+--- simulator ---
+Icarus Verilog version 12.0 (stable) ()
+--- source hashes ---
+ba18380613a28172c930116486a38eb91d0d89e5ac6e161d209fc95d5b2d5fdb  tb.sv
+db42a6b39e682313c318359a02c2f33e74b0270caa0c3fcf70f74cd2d73c7dba  VX_cp_unpack_icarus.sv
+52c1d58f2421ec590071a108145854c717285aa2e3868647733f6db9a9301180  hw/rtl/cp/VX_cp_pkg.sv
+9cbea90ce3843d4308690c23133eaa0149ff80d065339fa7041d3567026b5de1  hw/rtl/cp/VX_cp_unpack.sv
+3429928bdb40b5178603855203a802da0178c7e968b7dc580a5c3f859cead252  hw/rtl/VX_define.vh
+8ca973adb8b59e63c97da418fc3030f4c2e22a5be39fb661a775d8af445961f0  build32/hw/VX_config.vh
+3ddda2b27d17c9b98aa57f67fc924fb7739fd864a88d77d871cccddd12e8757a  build32/hw/VX_types.vh
+--- build ---
+VX_cp_unpack_icarus.sv:74: sorry: constant selects in always_* processes are not currently supported (all bits will be included).
+VX_cp_unpack_icarus.sv:74: sorry: constant selects in always_* processes are not currently supported (all bits will be included).
+VX_cp_unpack_icarus.sv:74: sorry: constant selects in always_* processes are not currently supported (all bits will be included).
+--- run ---
+PASS op 0x00   profiled: size 12, 0 argument byte(s)
+PASS op 0x01 unprofiled: size 28, 24 argument byte(s)
+PASS op 0x01   profiled: size 36, 24 argument byte(s)
+PASS op 0x02 unprofiled: size 28, 24 argument byte(s)
+PASS op 0x02   profiled: size 36, 24 argument byte(s)
+PASS op 0x03 unprofiled: size 28, 24 argument byte(s)
+PASS op 0x03   profiled: size 36, 24 argument byte(s)
+PASS op 0x04 unprofiled: size 20, 16 argument byte(s)
+PASS op 0x04   profiled: size 28, 16 argument byte(s)
+PASS op 0x05 unprofiled: size 20, 16 argument byte(s)
+PASS op 0x05   profiled: size 28, 16 argument byte(s)
+PASS op 0x06 unprofiled: size 12, 8 argument byte(s)
+PASS op 0x06   profiled: size 20, 8 argument byte(s)
+PASS op 0x07 unprofiled: size 8, 4 argument byte(s)
+PASS op 0x07   profiled: size 16, 4 argument byte(s)
+PASS op 0x08 unprofiled: size 20, 16 argument byte(s)
+PASS op 0x08   profiled: size 28, 16 argument byte(s)
+PASS op 0x09 unprofiled: size 28, 24 argument byte(s)
+PASS op 0x09   profiled: size 36, 24 argument byte(s)
+PASS op 0x0a unprofiled: size 12, 8 argument byte(s)
+PASS op 0x0a   profiled: size 20, 8 argument byte(s)
+PASS zero-header NOP is the padding sentinel
+PASS five-command line: 5 x profiled NOP, 60 B, 4 B untouched pad
+PASS T-IF-10a: 11 opcodes, 26 round-trip checks (21 opcode + 5 line), 5-command line
+tb.sv:249: $finish called at 28000 (1ps)
