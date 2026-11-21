@@ -194,7 +194,8 @@ def main(argv=None):
     if errors:
         print("check_docs: FAIL - {} of {} citations failed".format(len(errors), citations), file=sys.stderr)
         return 1
-    print("check_docs: OK - {} citations in {} files".format(citations, len(docs)))
+    noun = "file" if len(docs) == 1 else "files"
+    print("check_docs: OK - {} citations in {} {}".format(citations, len(docs), noun))
     return 0
 
 

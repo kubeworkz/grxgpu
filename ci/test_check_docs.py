@@ -53,6 +53,14 @@ def test_ecc_records_pass():
     result = run(ROOT, *ECC_RECORDS)
     assert result.returncode == 0, result.stdout + result.stderr
     assert "check_docs: OK" in result.stdout
+    assert "in 5 files" in result.stdout
+
+
+def test_success_summary_uses_singular_file():
+    result = run(ROOT, "docs/proposals/g100_t0_ecc_d1_32_7_amendment.md")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "in 1 file" in result.stdout
+    assert "1 files" not in result.stdout
 
 
 def test_truncated_paragraph_range_fails(tmp_path):
