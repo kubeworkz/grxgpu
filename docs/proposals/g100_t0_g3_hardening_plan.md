@@ -292,10 +292,14 @@ TCU and DXA, 16 KB LMEM/ICache/DCache per core, no L2/L3 (contract §1, §2,
     [`gen_golden`](../evidence/g100-t0-g2-2026-11-21/golden/gen_golden.cpp)
     unchanged; and 16×16×8 (one CTA) plus non-square 32×16×8, which that
     generator cannot produce because it fixes M=N=64 and accepts only K. Their
-    references come from a dimension-parameterized copy of `gen_golden.cpp`
+    references come from
+    [`gen_golden_dims.cpp`](../evidence/g100-t0-g3-2026-11-21/golden/gen_golden_dims.cpp)
     (M, N, K arguments, same `srand(50)` order, `rv_ftoh_s` conversion, and
     double-accumulate reference), whose source hash and generated A/B/C are
-    recorded with the new workload. The frozen generator, corpus, and
+    recorded for `G100-T0-G3-SGEMM-M16N16K8-1.0` and
+    `G100-T0-G3-SGEMM-M32N16K8-1.0` in the
+    [edge-workload manifest](../evidence/g100-t0-g3-2026-11-21/edge-workloads.md).
+    The frozen generator, corpus, and
     `G100-T0-G2-SGEMM-1.0` are not edited. Every supported shape is a new
     workload with its own ID and CPU reference. Before the run, the evidence
     record fixes that shape's FP32 ULP budget and comparator: the budget is

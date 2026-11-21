@@ -23,6 +23,7 @@ The author is not an approver and does not sign the G3 record.
 | Contract | v1.0, approved 2026-11-21; SHA-256 `6eed0cc55917238346446f2fe5c36b8dc1324cad5d733af5f26f432a0b4bd38d` | Approved; G2 PASS ([G2 gate record](../g100-t0-g2-2026-11-21/gate-record.md)) |
 | Frozen workload | `G100-T0-G2-SGEMM-1.0`, `sgemm_tcu_wg_dxa`, M=N=64, K=64/512, FP16→FP32, `WGMMA_NRC=16` | Frozen ([manifest](../g100-t0-g2-2026-11-21/golden-workload.md)) |
 | Golden corpus | Six files; SHA-256 in [`golden/SHA256SUMS`](../g100-t0-g2-2026-11-21/golden/SHA256SUMS) | Frozen and verified at G2 |
+| Edge-shape workloads | `G100-T0-G3-SGEMM-M16N16K8-1.0` and `G100-T0-G3-SGEMM-M32N16K8-1.0`; references and hashes in [edge-workloads.md](edge-workloads.md) | Generated; no device run; T-G-5f OPEN |
 | Source pin | `ff550c27570f17b0c8242be42257043d3de4ffa7`, tree `cf6b2f8657fcba985dd9007fa403231c3d800301` | Pinned; no T0 device build |
 | T0 configuration | Proposed `CONFIGS`; resolver SHA-256 `cd5336232fa98454009574121e0b25cc98feb3530a50675874ba98738c154cda` | Proposed at G1; not exercised |
 | G1 audit | [G1 evidence audit](../../grxgpu_g100_t0_g1_evidence_audit.md) | **NOT PASSED** at 2026-11-20; unchanged by this record |
@@ -140,7 +141,7 @@ result is recorded in this document.**
 | T-G-5c | Frozen workload at the full 16-CTA grid | L2 | Verification |
 | T-G-5d | Relaunch and SBA backpressure | L2 | Verification |
 | T-G-5e | Cache/coherency characterization | L2 | System/SoC |
-| T-G-5f | Supported edge shapes (M,N % 16=0; K % 8=0), each a new workload with a recorded ULP budget; M=N=64 K=8/24 via frozen generator, M/N shapes via recorded parameterized generator; unsupported multiples rejected | L2/L3 | System/SoC (+Verification) |
+| T-G-5f | Supported edge shapes (M,N % 16=0; K % 8=0), each a new workload with a recorded ULP budget; M=N=64 K=8/24 via frozen generator; 16×16×8 and 32×16×8 via [gen_golden_dims.cpp](golden/gen_golden_dims.cpp) with hashes in [edge-workloads.md](edge-workloads.md); unsupported multiples rejected | L2/L3 | System/SoC (+Verification) |
 | T-G-6a | ECC S0 signature (D1–D14) | Record | Verification |
 | T-G-6b | Codec and ECC-bank wrapper benches | L0 | Verification |
 | T-G-6c | LMEM and cache integration cases | L0/L2 | Verification |
@@ -224,6 +225,7 @@ failure.
 | G2 gate record | [`../g100-t0-g2-2026-11-21/gate-record.md`](../g100-t0-g2-2026-11-21/gate-record.md) |
 | Frozen workload manifest | [`../g100-t0-g2-2026-11-21/golden-workload.md`](../g100-t0-g2-2026-11-21/golden-workload.md) |
 | Golden corpus hashes | [`../g100-t0-g2-2026-11-21/golden/SHA256SUMS`](../g100-t0-g2-2026-11-21/golden/SHA256SUMS) |
+| G3 edge-shape workloads | [`edge-workloads.md`](edge-workloads.md) |
 | ECC S0 signoff | [`../g100-t0-ecc-s0-2026-11-20/signoff.md`](../g100-t0-ecc-s0-2026-11-20/signoff.md) |
 | G1 evidence audit | [`../../grxgpu_g100_t0_g1_evidence_audit.md`](../../grxgpu_g100_t0_g1_evidence_audit.md) |
 | T0 JTAG bench | [`../../../hw/unittest/t0_dbg/main.cpp`](../../../hw/unittest/t0_dbg/main.cpp) |

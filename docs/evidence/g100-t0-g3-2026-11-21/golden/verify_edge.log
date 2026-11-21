@@ -1,0 +1,2 @@
+16x16x8: A diff=0 B diff=0 C exact diff=0 max ULP=0 over budget=0 budget=15 PASS
+32x16x8: A diff=0 B diff=0 C exact diff=0 max ULP=0 over budget=0 budget=15 PASS
