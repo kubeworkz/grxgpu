@@ -108,6 +108,21 @@ def test_quote_across_wrapped_lines_passes(tmp_path):
     assert result.returncode == 0, result.stdout + result.stderr
 
 
+def test_source_range_past_end_fails(tmp_path):
+    write(tmp_path, "docs/src/target.c", "int first;\nint second;\n")
+    write(tmp_path, "docs/note.md", "See `target.c:5-9` in the source.\n")
+    result = run(tmp_path, "docs/note.md")
+    assert result.returncode == 1, result.stdout
+    assert "range ends past target.c" in result.stdout
+
+
+def test_missing_linked_in_repo_source_fails(tmp_path):
+    write(tmp_path, "docs/note.md", "See [`target.c:3`](src/target.c#L3).\n")
+    result = run(tmp_path, "docs/note.md")
+    assert result.returncode == 1, result.stdout
+    assert "target file does not exist" in result.stdout
+
+
 def test_missing_target_fails(tmp_path):
     write(tmp_path, "docs/proposals/missing.md", "See `absent.md:3` for the claim.\n")
     result = run(tmp_path, "docs/proposals/missing.md")

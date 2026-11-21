@@ -13,6 +13,9 @@ citation carries a quoted snippet that snippet must occur inside the range:
     ", phrase" switches to a whitespace-insensitive substring check;
   - an inline citation may quote its text in double quotes on the same line.
 
+Citations whose links point at sources outside the checkout (Mesa's vortexpipe,
+gem5) are skipped: the repository cannot resolve them.
+
 Run: python3 ci/check_docs.py docs/proposals/g100_t0_ecc_d1_32_7_amendment.md
 """
 
@@ -22,7 +25,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-PATH = r"[A-Za-z0-9_./-]+\.(?:md|sv|v|toml|txt|py|sh)"
+PATH = r"[A-Za-z0-9_./-]+\.(?:md|sv|v|toml|txt|py|sh|c|cpp|h|cc|in|ld|s)"
+EXTERNAL_TREES = ("src/gallium/drivers/vortexpipe/",)
 CITE_RE = re.compile(r"`(?P<path>" + PATH + r")?:(?P<ranges>\d+(?:-\d+)?(?:,\d+(?:-\d+)?)*)`")
 QUOTE_RE = re.compile(r'"([^"\n]+)"')
 HEADING_RE = re.compile(r"^#{1,6} ")
@@ -48,7 +52,41 @@ def build_index(root):
         return None
 
 
-def resolve(doc, root, rel, index):
+def citation_link(line, start, stop):
+    found = re.match(r"\s*\]\(\s*([^)#\s]+)", line[start:stop])
+    return found.group(1) if found else None
+
+
+def is_external(linked, root):
+    """True only for links outside the checkout or under a known external tree."""
+    if root not in linked.parents:
+        return True
+    relative = linked.relative_to(root).as_posix()
+    return relative.startswith(EXTERNAL_TREES)
+
+
+def external_names(doc, root, lines):
+    """Source names this document cites outside the checkout."""
+    names = set()
+    for line in lines:
+        matches = list(CITE_RE.finditer(line))
+        for position, match in enumerate(matches):
+            stop = matches[position + 1].start() if position + 1 < len(matches) else len(line)
+            link = citation_link(line, match.end(), stop)
+            if not link:
+                continue
+            linked = (doc.parent / link).resolve()
+            if is_external(linked, root):
+                names.add(Path(link).name)
+                names.add(Path(match.group("path") or link).name)
+    return names
+
+
+def resolve(doc, root, rel, index, link=None):
+    if link:
+        linked = (doc.parent / link).resolve()
+        if linked.is_file():
+            return linked
     for base in (doc.parent, root):
         candidate = base / rel
         if candidate.is_file():
@@ -124,6 +162,7 @@ def block_in_range(block, range_lines):
 
 def check_document(doc, root, errors, index):
     lines = doc.read_text(encoding="utf-8").splitlines()
+    external = external_names(doc, root, lines)
     checked = 0
     for number, line in enumerate(lines):
         last_path = None
@@ -135,9 +174,15 @@ def check_document(doc, root, errors, index):
                 last_path = rel
             elif last_path is None:
                 continue  # prose shorthand such as "the audit's `:108`" has no path to check
-            target = resolve(doc, root, rel or last_path, index)
+            stop = matches[position + 1].start() if position + 1 < len(matches) else len(line)
+            link = citation_link(line, match.end(), stop)
+            target = resolve(doc, root, rel or last_path, index, link)
             if target is None:
+                if Path(rel or last_path).name in external:
+                    continue
                 errors.append((doc, number + 1, match.group(0), "target file does not exist"))
+                continue
+            if link and root not in target.parents:
                 continue
             target_lines = target.read_text(encoding="utf-8", errors="replace").splitlines()
             for first, last in parse_ranges(match.group("ranges")):
@@ -151,7 +196,6 @@ def check_document(doc, root, errors, index):
                 range_lines = target_lines[first - 1:last]
                 snippet = heading_snippet(lines, number)
                 if snippet is None:
-                    stop = matches[position + 1].start() if position + 1 < len(matches) else len(line)
                     quote = inline_quote(line, match.end(), stop)
                     snippet = ("phrase", quote) if quote else None
                 if not snippet:
