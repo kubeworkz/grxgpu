@@ -18,13 +18,21 @@ throwaway repositories) and `test_check_docs.py` (the citation gate) with
 `python3 -m pytest`. Both gates are cheap and run on every event, including
 docs-only changes.
 
+`hooks/pre-commit`, enabled by `install_hooks.sh`, runs both hygiene gates on
+the staged paths and the citation gate on staged Markdown; staging
+`.gitignore` or `.gitattributes` switches it to the full tree. The hygiene
+gates read the index, while the citation gate reads the checkout copy of each
+staged file, so a partially staged doc is checked as it currently reads. It
+skips the citation gate with a warning when no working `python3`/`python` is on
+PATH.
+
 ## Docs citation gate
 
 A citation is a backticked target such as
-`docs/proposals/g100_production_baseline.md:299-302`, a comma list such as
-`VX_dm_sba.sv:48,58,82`, or the shorthand `:299-302` that inherits the last full
-path on the same line. A bare `:108` with no path on its line is prose
-shorthand and is not checked.
+`docs/proposals/g100_production_baseline.md:299-302` or a comma list such as
+`VX_dm_sba.sv:48,58,82`. A shorthand such as
+`:299-302` inherits the last full path on its line; a bare `:108` with no path
+on its line is prose shorthand and is not checked.
 
 Targets resolve against the citing document's directory, then the repository
 root, then a unique tracked file name, so a bare `VX_cache_data.sv` finds
