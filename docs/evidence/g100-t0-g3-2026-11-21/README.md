@@ -28,7 +28,7 @@ The author is not an approver and does not sign the G3 record.
 | G1 audit | [G1 evidence audit](../../grxgpu_g100_t0_g1_evidence_audit.md) | **NOT PASSED** at 2026-11-20; unchanged by this record |
 | ECC S0 | [S0 decision signoff](../g100-t0-ecc-s0-2026-11-20/signoff.md) | Unsigned; G-6 cannot start RTL |
 | Board / FPGA | None for T0 | L4 evidence cannot be produced |
-| Plan commit | `2336f90140a13489e24c16b669962b22f8ee893a`, `docs: plan the G100-T0 G3 hardening work` | Entry commit; the coverage amendment is uncommitted with this record |
+| Plan commits | Entry `2336f90140a13489e24c16b669962b22f8ee893a`, `docs: plan the G100-T0 G3 hardening work`; coverage amendment `86f081ba8`, `docs: extend the G100-T0 G3 coverage plan` | Committed with this record |
 | Branch | `ci/runner-health-retries` | Four commits ahead of origin at entry; not pushed |
 | Evidence dir | `docs/evidence/g100-t0-g3-2026-11-21/` | Created with this record; no logs yet |
 
