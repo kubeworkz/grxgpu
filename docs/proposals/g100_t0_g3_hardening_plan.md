@@ -437,10 +437,11 @@ G3 requires. They do not add product features.
 | RC-5 | Diagnostics | Failures report from existing status; no invented CP fault code | S-3 |
 | RC-6 | Update/recovery | Reload-over-SBA recovery succeeds twice from a clean state | S-6 |
 | RC-7 | Reproducible build | Build stamp present; rebuild byte-identical or differences enumerated | S-1 |
-| RC-8 | Evidence | All G3 logs filed with hashes; coverage and defect records complete | T-V-1, T-V-2 |
+| RC-8 | Supported-model path | T0 has no supported model path; record the exclusion, or cover the path if one is added | [workload manifest](../evidence/g100-t0-g2-2026-11-21/golden-workload.md) §1; [production plan](../grxgpu_production_plan.md) G3 row |
+| RC-9 | Evidence | All G3 logs filed with hashes; coverage and defect records complete | T-V-1, T-V-2 |
 
 **Evidence owner.** Verification lead, with the Software and Build/release
-leads for the runtime, compiler, and build rows.
+leads for the runtime, compiler, model-path, and build rows.
 
 ---
 
@@ -489,9 +490,9 @@ contract in place, when:
 | Malformed commands and failure injection | T-G-3a, T-G-6d, S-3 | Open; needs the G-3 revision |
 | Boundary addresses | T-IF-04c, T-G-2a/b | SBA side tested; core side open |
 | Coherency proven for the selected core count, or reduced claim | T-G-5e | Open; no L1 in T0-A |
-| Assertions/formal reviewed; coverage gaps classified | T-G-1c, T-G-2c, T-IF-07c, T-V-1, E-107 | Open |
+| Assertions/formal reviewed; critical coverage bins covered or waived | T-G-1c, T-G-2c, T-IF-07c, T-V-1, E-107 | Open |
 | Critical-defect closure | T-V-2 | Open; no defect log yet |
-| Runtime/firmware, diagnostics, compiler/operator, update/recovery, reproducible builds as release candidates | S-1–S-7, T-RC-1 | Open |
+| Runtime/firmware, supported-model path, diagnostics, update/recovery, reproducible builds as release candidates | S-1–S-7, T-RC-1 | Open |
 
 **Gate rule.** Every G-1–G-8 row must be recorded as closed, revisioned, or
 carried with a named later gate, and the production-plan evidence above must

@@ -172,7 +172,7 @@ result is recorded in this document.**
 |---|---|---|---|
 | T-V-1 | Functional coverage review and written waivers | Record | Verification |
 | T-V-2 | Critical-defect log and zero-open-critical exit | Record | Verification (+RTL) |
-| T-RC-1 | Release-candidate checklist audit | Record | Verification (+Software, Build/release) |
+| T-RC-1 | Release-candidate checklist audit, including the RC-2 firmware and RC-8 supported-model-path exclusions | Record | Verification (+Software, Build/release) |
 
 ---
 
