@@ -1,7 +1,7 @@
 # G100-T0 G3 Evidence Record — Entry Baseline and Test Index
 
-**Status:** **OPEN — entry plus one L0 run.** T-IF-14a has a filed L0 PASS;
-G3 is not complete and no gate result is claimed. This record fixes the entry
+**Status:** **OPEN — entry plus two L0 runs.** T-IF-14a and T-IF-08a have
+filed L0 PASSes; G3 is not complete and no gate result is claimed. This record fixes the entry
 baseline, the accountable owners, and the test index that G3 evidence will be
 filed against. It is not a gate decision.
 **Gate:** G3 — functional and software hardening
@@ -32,7 +32,7 @@ The author is not an approver and does not sign the G3 record.
 | Board / FPGA | None for T0 | L4 evidence cannot be produced |
 | Plan commits | Entry `2336f90140a13489e24c16b669962b22f8ee893a`, `docs: plan the G100-T0 G3 hardening work`; coverage amendment `86f081ba8`, `docs: extend the G100-T0 G3 coverage plan` | Committed with this record |
 | Branch | `ci/runner-health-retries` | Four commits ahead of origin at entry; not pushed |
-| Evidence dir | `docs/evidence/g100-t0-g3-2026-11-21/` | Created with this record; T-IF-14a L0 log filed; no device log |
+| Evidence dir | `docs/evidence/g100-t0-g3-2026-11-21/` | Created with this record; T-IF-14a and T-IF-08a L0 logs filed; no device log |
 
 **Corpus identities.** These are the hashes G3 must reproduce before comparing
 any device output; the manifest's `SHA256SUMS` is authoritative.
@@ -78,8 +78,8 @@ must sign it before the G3 record can cite it.
 ## 3. Test ID index
 
 The plan is authoritative for each test's method and exit criterion; this
-index is the filing key. **74 entries remain OPEN. T-IF-14a has a filed L0
-PASS; that is a test-level result, not a G3 result.**
+index is the filing key. **73 entries remain OPEN. T-IF-14a and T-IF-08a
+have filed L0 PASSes; those are test-level results, not a G3 result.**
 
 ### 3.1 Interfaces
 
@@ -104,7 +104,7 @@ PASS; that is a test-level result, not a G3 result.**
 | T-IF-07a | DXA tile read into LMEM | L2 | Verification |
 | T-IF-07b | Eight outstanding reads and credit recovery | L2 | Verification |
 | T-IF-07c | Stalled-response watchdog assertion | L2 | Verification |
-| T-IF-08a | Descriptor encoder/decoder equivalence | L0/L2 | Software |
+| T-IF-08a | Descriptor encoder/decoder equivalence — [PASS, L0](runs/T-IF-08a/record.md) | L0/L2 | Software |
 | T-IF-08b | Descriptor slot isolation, 16 slots | L0/L2 | Software |
 | T-IF-09a | DXA/TCU LMEM contention and priority | L2 | Verification |
 | T-IF-09b | Barrier completion | L2 | Verification |
@@ -180,7 +180,13 @@ PASS; that is a test-level result, not a G3 result.**
 
 **T-IF-14a (L0) PASS** — six regenerated hashes match.
 [Record](runs/T-IF-14a/record.md), [raw log](runs/T-IF-14a/run.log).
-This is a test-level result only; G3 remains OPEN.
+
+**T-IF-08a (L0) PASS** — host encoder/decoder equivalence for the frozen A/B
+descriptors at K=64 and K=512; 44 DCR writes and 8 decoded checks, 0
+mismatches. RTL decode/consumption and T-IF-08b slot isolation remain OPEN.
+[Record](runs/T-IF-08a/record.md), [raw log](runs/T-IF-08a/run.log).
+
+These are test-level results only; G3 remains OPEN.
 
 ---
 
