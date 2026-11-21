@@ -159,6 +159,15 @@ markers) carry it.
   runs, but its failure is expected and does not fail CI (an unexpected pass surfaces
   as `XPASS`). Reserve it for triaged, documented breakage.
 
+Every command the runner starts also has a wall-clock budget:
+`--command-timeout` (default 3600 s or `$VX_CI_COMMAND_TIMEOUT`; `0` disables)
+applies separately to the standard run (a blackbox build+run is one command),
+each parity/perf leg, and each fixture clean/build command. It is a per-command
+limit, not a shared case deadline, so a parity/perf case can use up to two
+budgets. On expiry the runner kills the whole process group (POSIX hosts,
+including CI) and reports a normal red failure, so a livelocked simulation
+cannot hold the cell forever.
+
 No `pyproject.toml`/`pytest.ini`: markers register dynamically in `conftest.py`,
 `test_runner.py` is auto-discovered by the `test_` prefix, and the run passes `ci` as the
 path. `blackbox.sh` is untouched; `regression.sh` is reduced to the four host/multi-step
@@ -231,6 +240,35 @@ the threshold only absorbs benign, intended micro-changes.
 - Benchmarks **reuse the steady-state model_parity workloads** (base pipeline in
   `ci/testcases/perf_gate.yaml`; extensions as `perf_gate-*` cases in
   their category files) — one run, its own gate.
+
+#### Regenerating baselines after a change of basis
+
+A baseline is only meaningful against the hardware config it was measured on,
+and `config_hash` covers `app/args/configs/shape` — **not** `VX_config.toml`
+defaults. A default that decides the measured core shape therefore re-bases
+every case that inherits it with no hash mismatch to warn anyone (e.g.
+`VX_CFG_ISSUE_WIDTH` moving `up(NUM_WARPS/16)` → `min(NUM_WARPS,4)`, 1 → 4 at
+the default 4 warps). Every `perf_gate` case pins those knobs, and a deliberate
+basis change follows this checklist:
+
+1. **Re-`configure` before recording.** Cases are loaded from
+   `<build>/ci/testcases/`, a copy `configure` makes; recording from a stale
+   copy computes `config_hash` from the old configs while `perf_baseline`
+   writes into `VORTEX_HOME` (the source tree), so every entry lands stale.
+2. **Record** in the RV32 build tree (the JSON carries `"32"` only):
+   `VX_XLEN=32 python3 -m pytest ci -m perf_gate --update-baselines`.
+   `-k` subsets are safe — the flush merges per category — but the write
+   happens once in `pytest_sessionfinish`, so a killed process writes nothing.
+3. **Review the diff**, expecting nothing else:
+   - one file per touched category, one entry per re-based case;
+   - `configs` gains the pin, `config_hash` and `cycles` change, and `instrs`
+     does **not** (a basis change cannot alter retired instructions);
+   - no reformat churn — the writer is `indent=2, sort_keys=True`, so unrelated
+     churn means the checked-in file was not canonical.
+4. **Prove it green** in assert mode:
+   `VX_XLEN=32 python3 -m pytest ci -m perf_gate`.
+5. **Commit** naming the cause (the default that moved and the pins that freeze
+   it), so the cycle delta is attributable in review.
 
 ---
 

@@ -85,6 +85,7 @@ module VX_cache import VX_gpu_pkg::*; #(
     localparam CORE_RSP_BUF_ENABLE = (NUM_BANKS != 1) || (NUM_REQS != 1);
     localparam MEM_REQ_BUF_ENABLE = (NUM_BANKS != 1);
 `ifdef PERF_ENABLE
+    wire [NUM_BANKS-1:0][PERF_CTR_BITS-1:0] perf_flush_walk_per_bank;
     wire [NUM_BANKS-1:0] perf_read_miss_per_bank;
     wire [NUM_BANKS-1:0] perf_write_miss_per_bank;
     wire [NUM_BANKS-1:0] perf_evictions_per_bank;
@@ -337,6 +338,7 @@ module VX_cache import VX_gpu_pkg::*; #(
             .perf_write_miss    (perf_write_miss_per_bank[bank_id]),
             .perf_evictions     (perf_evictions_per_bank[bank_id]),
             .perf_mshr_stall    (perf_mshr_stall_per_bank[bank_id]),
+            .perf_flush_walk    (perf_flush_walk_per_bank[bank_id]),
         `endif
             .core_req_valid     (per_bank_core_req_valid[bank_id]),
             .core_req_addr      (per_bank_core_req_addr[bank_id]),
@@ -557,6 +559,47 @@ module VX_cache import VX_gpu_pkg::*; #(
             perf_crsp_stalls  <= perf_crsp_stalls  + PERF_CTR_BITS'(perf_crsp_stall_per_cycle);
         end
     end
+    // A flush is one cycle of flush_begin across the banks; completion is the
+    // last bank's flush_end. Latency spans the begin cycle through completion.
+    reg                     perf_flush_active;
+    reg [PERF_CTR_BITS-1:0] perf_flush_timer;
+    reg [NUM_BANKS-1:0]     perf_flush_done;
+    reg [PERF_CTR_BITS-1:0] perf_fences;
+    reg [PERF_CTR_BITS-1:0] perf_flush_lt;
+
+    wire [NUM_BANKS-1:0] perf_flush_done_next = perf_flush_done | per_bank_flush_end;
+
+    always @(posedge clk) begin
+        if (reset) begin
+            perf_flush_active <= 1'b0;
+            perf_flush_timer  <= '0;
+            perf_flush_done   <= '0;
+            perf_fences       <= '0;
+            perf_flush_lt     <= '0;
+        end else if (|per_bank_flush_begin) begin
+            perf_flush_active <= 1'b1;
+            perf_flush_timer  <= '0;
+            perf_flush_done   <= '0;
+        end else if (perf_flush_active) begin
+            perf_flush_timer <= perf_flush_timer + PERF_CTR_BITS'(1);
+            perf_flush_done  <= perf_flush_done_next;
+            if (perf_flush_done_next == {NUM_BANKS{1'b1}}) begin
+                perf_flush_active <= 1'b0;
+                perf_fences       <= perf_fences + PERF_CTR_BITS'(1);
+                perf_flush_lt     <= perf_flush_lt + perf_flush_timer + PERF_CTR_BITS'(1);
+            end
+        end
+    end
+
+    reg [PERF_CTR_BITS-1:0] perf_flush_walk_lt;
+    integer perf_bank_idx;
+    always @(*) begin
+        perf_flush_walk_lt = '0;
+        for (perf_bank_idx = 0; perf_bank_idx < NUM_BANKS; perf_bank_idx = perf_bank_idx + 1) begin
+            perf_flush_walk_lt = perf_flush_walk_lt + perf_flush_walk_per_bank[perf_bank_idx];
+        end
+    end
+
     assign cache_perf.reads        = perf_core_reads;
     assign cache_perf.writes       = perf_core_writes;
     assign cache_perf.read_misses  = perf_read_misses;
@@ -566,5 +609,8 @@ module VX_cache import VX_gpu_pkg::*; #(
     assign cache_perf.mshr_stalls  = perf_mshr_stalls;
     assign cache_perf.mem_stalls   = perf_mem_stalls;
     assign cache_perf.crsp_stalls  = perf_crsp_stalls;
+    assign cache_perf.fences        = perf_fences;
+    assign cache_perf.flush_lt      = perf_flush_lt;
+    assign cache_perf.flush_walk_lt = perf_flush_walk_lt;
 `endif
 endmodule

@@ -11,3 +11,19 @@ ci/hooks/pre-commit text eol=lf
 *.sh       text eol=lf
 *.py       text eol=lf
 *.csh      text eol=lf
+
+# G3 edge-shape evidence is hashed in LF form; keep checkout bytes stable.
+docs/evidence/g100-t0-g3-2026-11-21/golden/*.cpp text eol=lf
+docs/evidence/g100-t0-g3-2026-11-21/golden/*.log text eol=lf
+docs/evidence/g100-t0-g3-2026-11-21/golden/SHA256SUMS text eol=lf
+docs/evidence/g100-t0-g3-2026-11-21/golden/*.fp16 -text
+docs/evidence/g100-t0-g3-2026-11-21/golden/*.fp32 -text
+
+# G3 run logs are hashed in their run records; keep them LF.
+docs/evidence/g100-t0-g3-2026-11-21/runs/**/*.log text eol=lf
+
+# Frozen G2 golden bytes are hashed in its SHA256SUMS; keep each text path
+# in the EOL form its existing hash uses.
+docs/evidence/g100-t0-g2-2026-11-21/golden/SHA256SUMS text eol=lf
+docs/evidence/g100-t0-g2-2026-11-21/golden/gen_golden.cpp text eol=lf
+docs/evidence/g100-t0-g2-2026-11-21/golden/verify.log text eol=crlf

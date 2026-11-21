@@ -189,6 +189,10 @@ Word CsrUnit::get_csr(uint32_t addr, uint32_t wid, uint32_t tid) {
         CSR_READ_64(VX_CSR_MPM_DCACHE_EVICTS, socket_perf.dcache.evictions);
         CSR_READ_64(VX_CSR_MPM_DCACHE_BANK_ST, socket_perf.dcache.bank_stalls);
         CSR_READ_64(VX_CSR_MPM_DCACHE_MSHR_ST, socket_perf.dcache.mshr_stalls);
+        CSR_READ_64(VX_CSR_MPM_DCACHE_FENCES, socket_perf.dcache.fences);
+        CSR_READ_64(VX_CSR_MPM_DCACHE_FLUSH_LT, socket_perf.dcache.flush_cycles);
+        CSR_READ_64(VX_CSR_MPM_DCACHE_FLUSH_WALK_LT, socket_perf.dcache.flush_walk_cycles);
+        CSR_READ_64(VX_CSR_MPM_DCACHE_FENCE_LT, core_->perf_stats().fence_cycles);
         }
       } break;
       case VX_DCR_MPM_CLASS_L2CACHE: {

@@ -8,9 +8,10 @@ the tests drive them through real git state rather than mocking it:
 
   ci/check_tracked_artifacts.sh  build output and machine binaries
   ci/check_lf_endings.sh         CRLF blobs in scripts and pinned files
+  ci/check_docs.py               cited path:line ranges and their text
   ci/check_config_boundary.sh    sw/ never includes the hardware config
   ci/check_sw_sim_boundary.sh    sw/ and sim/+hw/ stay isolated
-  ci/hooks/pre-commit            both hygiene gates on the staged paths
+  ci/hooks/pre-commit            the gates above on the staged paths
   ci/install_hooks.sh            core.hooksPath enablement
   ci/binary_magic.py             the batch parser behind the staged scan
 
@@ -35,6 +36,7 @@ COPIED = (
     "ci/check_config_boundary.sh",
     "ci/check_sw_sim_boundary.sh",
     "ci/binary_magic.py",
+    "ci/check_docs.py",
     "ci/hooks/pre-commit",
     "ci/install_hooks.sh",
     ".gitattributes",
@@ -279,6 +281,41 @@ def test_hook_blocks_a_staged_artifact(repo):
 def test_hook_passes_a_clean_tree(repo):
     result = _hook(repo)
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def _stale_citation(repo, line):
+    _write(repo, "docs/target.md", "first line\nsecond line has the phrase\n")
+    _write(repo, "docs/note.md", 'See `target.md:{}` (label, "the phrase").\n'.format(line))
+    _git(repo, "add", "docs")
+
+
+def test_hook_blocks_a_staged_stale_citation(repo):
+    _stale_citation(repo, 1)
+
+    result = _hook(repo)
+
+    assert result.returncode == 1
+    assert "range does not contain the quoted text" in result.stdout
+
+
+def test_hook_passes_a_staged_valid_citation(repo):
+    _stale_citation(repo, 2)
+
+    result = _hook(repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_hook_full_scan_checks_docs_citations(repo):
+    _stale_citation(repo, 1)
+    _write(repo, ".gitattributes", (ROOT / ".gitattributes").read_text() + "# trigger\n")
+    _git(repo, "add", ".gitattributes")
+
+    result = _hook(repo)
+
+    assert result.returncode == 1
+    assert "scanning the full tree" in result.stdout
+    assert "range does not contain the quoted text" in result.stdout
 
 
 def test_install_hooks_is_idempotent(repo):

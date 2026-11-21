@@ -58,6 +58,14 @@ module VX_bar_unit import VX_gpu_pkg::*; #(
     logic [NB_WIDTH-1:0] gbar_req_id_r, gbar_req_id_n;
     logic [NGC_WIDTH-1:0] gbar_req_size_m1_r, gbar_req_size_m1_n;
     wire gbar_rsp_ready = ~req_valid;
+    // A release must update the barrier that was armed, not whatever address
+    // the core presents when the response lands: the response is accepted
+    // only while no request is in flight, so store_waddr is stale by then.
+    wire gbar_rsp_accept = USE_GBAR && gbar_bus_if.rsp_valid && gbar_rsp_ready
+                        && (gbar_bus_if.rsp_data.id == gbar_req_id_r);
+    wire gbar_arm = USE_GBAR && gbar_req_valid_n && ~gbar_req_valid_r;
+    logic [BAR_ADDR_W-1:0] gbar_addr_r;
+    logic                  gbar_phase_r;
 
     wire [`VX_CFG_NUM_WARPS-1:0] wait_mask = ((`VX_CFG_NUM_WARPS)'(1) << req_wid) | mask_r;
     wire [CNT_WIDTH-1:0] next_count = count_r + CNT_WIDTH'(1);
@@ -166,10 +174,9 @@ module VX_bar_unit import VX_gpu_pkg::*; #(
             end
 
             // global barrier response handling
-            if (gbar_bus_if.rsp_valid && gbar_rsp_ready && (gbar_bus_if.rsp_data.id == gbar_req_id_r)) begin
+            if (gbar_rsp_accept) begin
                 unlock_valid_n = 1; // release stalled warps
                 unlock_mask_n = active_warps; // release all active warps
-                phase_n = next_phase; // advance phase
             end
 
             // global barrier request handshake
@@ -184,9 +191,17 @@ module VX_bar_unit import VX_gpu_pkg::*; #(
     wire                  store_phase_rdata;
     wire [BAR_ADDR_W-1:0] store_raddr = read_addr;
     reg [BAR_ADDR_W-1:0]  store_waddr;
-    wire [BAR_STATEW-1:0] store_state_wdata = {mask_n, count_n, events_n};
-    wire                  store_phase_wdata = phase_n;
-    wire                  store_write = req_valid || gbar_bus_if.rsp_valid;
+    reg [(1 << BAR_ADDR_BITS)-1:0] store_valids;
+    // The phase store is read asynchronously at read_addr, so this data is the
+    // phase of the address the core presents in the current cycle.
+    wire store_phase_rdata_v = store_valids[store_raddr] ? store_phase_rdata : '0;
+
+    // A release writes the armed barrier's entry and toggles its phase; a
+    // response broadcast for another barrier must not touch the stores.
+    wire [BAR_ADDR_W-1:0] store_waddr_mux = gbar_rsp_accept ? gbar_addr_r : store_waddr;
+    wire [BAR_STATEW-1:0] store_state_wdata = gbar_rsp_accept ? '0 : {mask_n, count_n, events_n};
+    wire                  store_phase_wdata = gbar_rsp_accept ? ~gbar_phase_r : phase_n;
+    wire                  store_write = req_valid || gbar_rsp_accept;
 
     VX_dp_ram #(
         .DATAW    (BAR_STATEW),
@@ -200,7 +215,7 @@ module VX_bar_unit import VX_gpu_pkg::*; #(
         .write (store_write),
         .wren  (1'b1),
         .raddr (store_raddr),
-        .waddr (store_waddr),
+        .waddr (store_waddr_mux),
         .wdata (store_state_wdata),
         .rdata (store_state_rdata)
     );
@@ -217,16 +232,13 @@ module VX_bar_unit import VX_gpu_pkg::*; #(
         .write (store_write),
         .wren  (1'b1),
         .raddr (store_raddr),
-        .waddr (store_waddr),
+        .waddr (store_waddr_mux),
         .wdata (store_phase_wdata),
         .rdata (store_phase_rdata)
     );
 
     // Store reset handling
-    reg [(1 << BAR_ADDR_BITS)-1:0] store_valids;
-    wire is_rdw_hazard = store_write && (store_waddr == store_raddr);
-
-    wire store_phase_rdata_v = store_valids[store_raddr] ? store_phase_rdata : '0;
+    wire is_rdw_hazard = store_write && (store_waddr_mux == store_raddr);
 
     always @(posedge clk) begin
         if (reset) begin
@@ -234,16 +246,29 @@ module VX_bar_unit import VX_gpu_pkg::*; #(
             phase_r <= '0;
         end else begin
             if (store_write) begin
-                store_valids[store_waddr] <= 1'b1;
+                store_valids[store_waddr_mux] <= 1'b1;
             end
-            phase_r <= store_write ? store_phase_wdata : store_phase_rdata_v;
+            phase_r <= is_rdw_hazard ? store_phase_wdata : store_phase_rdata_v;
         end
         store_waddr <= store_raddr;
     end
 
+    // Capture the armed barrier's address and stored phase: the release lands
+    // after the warps stall, when no barrier address is presented. phase_r is
+    // the registered read at read_addr, which is the entry the write targets.
+    always @(posedge clk) begin
+        if (reset) begin
+            gbar_addr_r <= '0;
+            gbar_phase_r <= 1'b0;
+        end else if (gbar_arm) begin
+            gbar_addr_r <= store_waddr;
+            gbar_phase_r <= phase_r;
+        end
+    end
+
     assign {mask_r, count_r, events_r} = store_valids[store_waddr] ? store_state_rdata : '0;
 
-    wire phase_async = is_rdw_hazard ? phase_n : store_phase_rdata_v;
+    wire phase_async = is_rdw_hazard ? store_phase_wdata : store_phase_rdata_v;
 
     reg unlock_valid_r;
     reg [`VX_CFG_NUM_WARPS-1:0] unlock_mask_r;

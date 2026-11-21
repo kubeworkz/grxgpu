@@ -32,11 +32,17 @@ endif
 
 PROJECT := libvortex-rtlsim.so
 
-.PHONY: all force driver clean-driver clean-runtime clean
+.PHONY: all force verilate driver clean-driver clean-runtime clean
 
 all: $(DESTDIR)/$(PROJECT)
 
 driver: $(DESTDIR)/librtlsim.so
+
+# Generate the model for this runtime's driver without compiling it, with the
+# same DESTDIR and flags the driver build gets, so the build that follows
+# reuses the model instead of re-verilating.
+verilate:
+	DESTDIR=$(DESTDIR) $(MAKE) -C $(ROOT_DIR)/sim/rtlsim verilate
 
 $(DESTDIR)/librtlsim.so: force
 	DESTDIR=$(DESTDIR) $(MAKE) -C $(ROOT_DIR)/sim/rtlsim $(DESTDIR)/librtlsim.so

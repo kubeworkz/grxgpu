@@ -211,6 +211,9 @@ module VX_cache_wrap import VX_gpu_pkg::*; #(
         assign cache_perf.mshr_stalls  = '0;
         assign cache_perf.mem_stalls   = perf_mem_stalls;
         assign cache_perf.crsp_stalls  = perf_crsp_stalls;
+        assign cache_perf.fences        = '0;
+        assign cache_perf.flush_lt      = '0;
+        assign cache_perf.flush_walk_lt = '0;
     `endif
     end
 `ifdef DBG_TRACE_CACHE

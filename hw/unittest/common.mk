@@ -59,10 +59,30 @@ ifdef SAIF
 	CXXFLAGS += -DSAIF_OUTPUT
 endif
 
+.PHONY: verilate force
+
 all: $(DESTDIR)/$(PROJECT)
 
-$(DESTDIR)/$(PROJECT): $(SRCS) $(RTL_SRCS)
-	$(VERILATOR_PATH)/bin/verilator --build $(VL_FLAGS) $(SRCS) -CFLAGS '$(CXXFLAGS)' -LDFLAGS '$(LDFLAGS)' -MMD -o ../$@
+# Verilation and compilation are separate steps: `verilator --build` would
+# re-verilate on every invocation and drop the objects a killed compile had
+# already produced. Verilating into obj_dir and letting make drive the model's
+# own makefile keeps those objects, so a re-run compiles only what is missing
+# and skips verilation while the model is newer than its inputs.
+MDIR := obj_dir
+VL_MK := V$(TOP).mk
+
+$(MDIR)/$(VL_MK): $(SRCS) $(RTL_SRCS)
+	$(VERILATOR_PATH)/bin/verilator $(VL_FLAGS) $(SRCS) -CFLAGS '$(CXXFLAGS)' -LDFLAGS '$(LDFLAGS)' -MMD --Mdir $(MDIR) -o ../$(DESTDIR)/$(PROJECT)
+
+# Generate the Verilator model without compiling it, so the expensive
+# verilation can run as its own step and later builds reuse obj_dir.
+verilate: $(MDIR)/$(VL_MK)
+
+# Relink from the objects every time: a link killed mid-write leaves a
+# truncated artifact whose fresh mtime would otherwise look up to date.
+$(DESTDIR)/$(PROJECT): $(MDIR)/$(VL_MK) force
+	rm -f ../$(DESTDIR)/$(PROJECT)
+	$(MAKE) -C $(MDIR) -f $(VL_MK) -j $(THREADS)
 
 run: $(DESTDIR)/$(PROJECT)
 	$(DESTDIR)/$(PROJECT) $(OPTS)

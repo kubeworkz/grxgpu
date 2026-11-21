@@ -38,6 +38,13 @@ public:
 
   void reset();
 
+  // Re-arm the model for a kernel launch. Clears microarchitectural state but
+  // preserves the architectural perf counters, which in the RTL clear only
+  // with the core.
+  void launch_reset();
+
+  bool preserve_perf() const { return preserve_perf_; }
+
   int run();
 
   // Single-cycle step; see Processor::cycle() doc. Lazily initializes
@@ -96,6 +103,7 @@ private:
   // kmu_->start()). reset() clears it so a back-to-back kernel launch
   // via cycle() re-dispatches the KMU.
   bool is_cycle_initialized_;
+  bool preserve_perf_ = false;
 };
 
 }

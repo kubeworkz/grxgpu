@@ -6,6 +6,7 @@
 **Execution disposition:** All eight local correctness invocations (K=64/K=512 across SimX and rtlsim, for single-buffered rtlsim and same-kernel double-buffered builds) exited 0 and printed `PASSED!`; see the [dated run record](evidence/g100-discovery-2026-10-13/run-record.md), raw logs and checksums. For the double-buffered same-kernel comparison, retired instruction counts match but cycles differ; this is not a parity pass. The runs are pending independent review. Historical reports remain separately classified and are not evidence for these invocations.
 **Scope approval:** [G100 Product Brief](grxgpu_g100_product_brief.md) — Kubeworkz approved compute-only discovery scope on 2026-10-13 only. This manifest does not authorize funding, purchases, tapeout, or production claims.
 **Task linkage:** E-301 (scope/evidence inventory) and E-302 (future run and FPGA evidence).
+**G100-T0 G1 audit:** [G100-T0 G1 Evidence Audit](grxgpu_g100_t0_g1_evidence_audit.md) — started 2026-11-20; source and proposed configuration pinned, with no T0 run, golden archive, independent review or parity result yet.
 
 ## 1. Reproducibility boundary
 

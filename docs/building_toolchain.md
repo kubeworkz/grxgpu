@@ -155,10 +155,15 @@ make -j$(nproc) build-qemu
 > enable **both `RISCV` and `X86`** in `LLVM_TARGETS_TO_BUILD` and
 > **enable `lld`** so the host link step has a working `ld.lld`.
 
-> **v3.0 pin:** branch `vortex_3.x` (LLVM 20.1.8, commit
-> `87f0227c`). The Vortex-specific `+xvortex` / `+zicond`
-> target-feature flags require this branch — upstream LLVM does
-> not recognize them.
+> **v3.0 pin:** branch `vortex_3.x` (LLVM 20.1.8), built at the
+> branch **tip**. `87f0227c` is only the upstream base it is rebased
+> on; the `[RISCV][Vortex]` patches (e.g. `RISCVVortexKEntry.cpp`)
+> live in the commits after it, so checking that SHA out yields
+> stock LLVM that drops `+xvortex` and the `__vx_kentry_*` stubs —
+> KMU kernels then launch with `VX_CSR_CTA_ENTRY` pointing at
+> `_start` and jump to themselves forever. The Vortex-specific
+> `+xvortex` / `+zicond` target-feature flags require this branch —
+> upstream LLVM does not recognize them.
 
 ```bash
 git clone --recursive --branch vortex_3.x https://github.com/vortexgpgpu/llvm.git llvm_vortex

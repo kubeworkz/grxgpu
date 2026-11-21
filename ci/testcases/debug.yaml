@@ -65,6 +65,9 @@ tests:
   - simx
   app: sgemm_tcu
   configs: -DVX_CFG_EXT_TCU_ENABLE
+  # Small shape keeps the level-3 trace and its log tractable; the
+  # full-size matrix coverage lives in the tensor category.
+  args: -m16 -n16 -k16
   flags: --debug=3 --log=run_simx.log
 - id: sgemm_tcu-2
   via: blackbox
@@ -72,4 +75,6 @@ tests:
   - rtlsim
   app: sgemm_tcu
   configs: -DVX_CFG_EXT_TCU_ENABLE
+  # Same bound as the simx twin; the VCD is the extra cost on this driver.
+  args: -m16 -n16 -k16
   flags: --debug=3 --log=run_rtlsim.log

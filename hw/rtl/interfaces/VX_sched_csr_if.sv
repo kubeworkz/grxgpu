@@ -19,6 +19,7 @@ interface VX_sched_csr_if import VX_gpu_pkg::*; ();
     wire [PERF_CTR_BITS-1:0]        instret;
     wire [`VX_CFG_NUM_WARPS-1:0]           active_warps;
     wire [`VX_CFG_NUM_WARPS-1:0][`VX_CFG_NUM_THREADS-1:0] thread_masks;
+    wire [`VX_CFG_NUM_WARPS-1:0][MASK_TAG_W-1:0] mask_op_gen;
 
     // Read port: slave sends wid + cta_id, master returns selected mscratch
     // and cta_csrs. csr_rd_cta_id must carry the executing instruction's
@@ -56,6 +57,7 @@ interface VX_sched_csr_if import VX_gpu_pkg::*; ();
         output instret,
         output active_warps,
         output thread_masks,
+        output mask_op_gen,
         output mscratch,
         output cta_csrs,
         output cta_tid,
@@ -82,6 +84,7 @@ interface VX_sched_csr_if import VX_gpu_pkg::*; ();
         input  instret,
         input  active_warps,
         input  thread_masks,
+        input  mask_op_gen,
         input  mscratch,
         input  cta_csrs,
         input  cta_tid,

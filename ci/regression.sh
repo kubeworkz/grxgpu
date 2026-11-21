@@ -355,13 +355,38 @@ elif [ $run_catalog -eq 1 ]; then
     # Drive the pytest catalog under this build tree. No -m = everything (--all);
     # a marker expression = a slice (--test). Don't let `set -e` abort on a red
     # test — capture the status and report it below.
-    set +e
     if [ -n "$pytest_expr" ]; then
-        VX_XLEN=$XLEN python3 -m pytest ci -m "$pytest_expr" --strict-markers
+        pytest_args=(-m "$pytest_expr")
     else
-        VX_XLEN=$XLEN python3 -m pytest ci --strict-markers
+        pytest_args=()
     fi
-    rc=$?
+    set +e
+
+    # Prepare the Verilator models up front. Verilation dominates an
+    # rtlsim/opae/xrt build, and generating each configuration's model once here
+    # leaves every case below with only a compile and link. pytest's collection
+    # supplies the case ids, so the prepared set is exactly the set that runs.
+    collected=$(mktemp)
+    VX_XLEN=$XLEN python3 -m pytest ci "${pytest_args[@]}" --strict-markers \
+        --collect-only -q > "$collected" 2>&1
+    collect_rc=$?
+    if [ $collect_rc -ne 0 ]; then
+        # Let the real run report the selection error with pytest's own message.
+        rm -f "$collected"
+        VX_XLEN=$XLEN python3 -m pytest ci "${pytest_args[@]}" --strict-markers
+        rc=$?
+    else
+        sed -n 's/.*test_case\[\(.*\)\]$/\1/p' "$collected" \
+            | VX_XLEN=$XLEN python3 "$(dirname "${BASH_SOURCE[0]}")/testcase.py" verilate
+        rc=$?
+        rm -f "$collected"
+        if [ $rc -ne 0 ]; then
+            echo "error: Verilator model preparation failed (exit $rc)" >&2
+        else
+            VX_XLEN=$XLEN python3 -m pytest ci "${pytest_args[@]}" --strict-markers
+            rc=$?
+        fi
+    fi
     set -e
 else
     show_usage

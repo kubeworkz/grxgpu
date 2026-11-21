@@ -174,7 +174,7 @@ and `FENCE` retire immediately.
 
 The four arbiters are plain round-robin. `VX_cp_arbiter` exposes a
 `bid_priority` input but it is currently **unused**
-([`VX_cp_arbiter.sv:89-94`](../../hw/rtl/cp/VX_cp_arbiter.sv#L89)) — see §10.
+([`VX_cp_arbiter.sv:32-41`](../../hw/rtl/cp/VX_cp_arbiter.sv#L32)) — see §10.
 
 ---
 
@@ -327,13 +327,13 @@ Layout:
 ([`device.cpp:233`](../../sw/runtime/common/device.cpp#L233)) programs each
 queue's ring/head/cmpl addresses and sets `CP_REG_CTRL=0x1`. Each
 `vx_enqueue_*` pushes a `Command` lambda onto a per-queue worker FIFO
-([`queue.cpp:28,69`](../../sw/runtime/common/queue.cpp#L28)); the worker
+([`queue.cpp:115,147`](../../sw/runtime/common/queue.cpp#L115)); the worker
 waits on dependencies, encodes one 64 B cache line, memcpys it into the
 host-pinned ring, rings the `Q_TAIL_LO/HI` doorbell, and busy-polls
 `Q_SEQNUM` ([`device.cpp:334-398`](../../sw/runtime/common/device.cpp#L334)).
 A kernel launch is currently encoded as ~18 `CMD_DCR_WRITE`s to KMU DCRs
 followed by `CMD_LAUNCH`, then `CMD_CACHE_FLUSH` and a cout drain
-([`queue.cpp:382-424`](../../sw/runtime/common/queue.cpp#L382)).
+([`queue.cpp:382-454`](../../sw/runtime/common/queue.cpp#L382)).
 
 > **vortex2.h vs the original "minimal" spec:** the shipped header is
 > richer than the 34-function minimalist proposal — it keeps first-class
@@ -406,7 +406,7 @@ the intent is not lost.
    ([`VX_cp_event_unit.sv:124-129`](../../hw/rtl/cp/VX_cp_event_unit.sv#L124));
    it should release between polls and back off (C-4).
 8. **Priority arbitration.** Wire `VX_cp_arbiter.bid_priority` (currently
-   unused, [`VX_cp_arbiter.sv:89-94`](../../hw/rtl/cp/VX_cp_arbiter.sv#L89))
+   unused, [`VX_cp_arbiter.sv:32-41`](../../hw/rtl/cp/VX_cp_arbiter.sv#L32))
    to the per-queue `prio` field.
 9. **Profiling writeback.** `VX_cp_profiling` is a bare cycle counter;
    flesh it out to emit the 32 B `{queued,submit,start,end}` record, add a

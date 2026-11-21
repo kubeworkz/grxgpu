@@ -2,8 +2,11 @@
 # Pre-commit: run the repo-hygiene gates on what is about to be committed.
 #
 # Enabled by ci/install_hooks.sh, which points core.hooksPath at ci/hooks.
-# Both gates read the index, so at pre-commit time they judge exactly the
-# pending commit rather than the checkout. Only the staged paths are scanned:
+# check_tracked_artifacts.sh and check_lf_endings.sh read the index, so they
+# judge exactly the pending commit. check_docs.py reads the checkout copy of
+# each staged Markdown file, because its cited ranges resolve against other
+# files in the tree; a doc staged and then edited again is checked as it now
+# reads, not as it will be committed. Only the staged paths are scanned:
 # unchanged files were checked when their own commit was made, and a full scan
 # costs seconds on a large checkout. Staging .gitignore or .gitattributes
 # changes what is in scope for the whole tree, so that falls back to a full
@@ -30,6 +33,39 @@ for gate in ci/check_tracked_artifacts.sh ci/check_lf_endings.sh; do
     "$gate" --staged || status=1
   fi
 done
+
+# The citation gate reads the checkout copy of each staged Markdown file: the
+# ranges name other files, which this commit does not change. A missing
+# interpreter skips it with a warning; CI still runs the gate.
+if [ "$full" -eq 1 ]; then
+  if [ -d docs ]; then
+    docs=docs
+  else
+    docs=""
+  fi
+else
+  docs=$(git diff --cached --name-only --diff-filter=ACMR -- '*.md')
+fi
+if [ -n "$docs" ]; then
+  python=""
+  for candidate in python3 python; do
+    if "$candidate" -c 'import sys' > /dev/null 2>&1; then
+      python=$candidate
+      break
+    fi
+  done
+  if [ -z "$python" ]; then
+    echo "pre-commit: no working python3/python on PATH - docs citation check skipped" >&2
+  else
+    old_ifs=$IFS
+    IFS='
+'
+    for file in $docs; do
+      "$python" ci/check_docs.py "$file" || status=1
+    done
+    IFS=$old_ifs
+  fi
+fi
 
 if [ "$status" -ne 0 ]; then
   echo

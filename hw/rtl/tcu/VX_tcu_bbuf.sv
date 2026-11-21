@@ -226,9 +226,9 @@ module VX_tcu_bbuf import VX_gpu_pkg::*, VX_tcu_pkg::*; #(
     wire [BANK_ADDR_WIDTH-1:0] fetch_addr_dense =
         effective_desc_b_row_base + BANK_ADDR_WIDTH'(dense_offset);
     wire [BANK_ADDR_WIDTH-1:0] fetch_addr_a_sparse =
-        effective_desc_b_row_base + BANK_ADDR_WIDTH'(sp_logrow_a >> LG_XLEN_RATIO);
+        effective_desc_b_row_base + (BANK_ADDR_WIDTH'(sp_logrow_a) >> LG_XLEN_RATIO);
     wire [BANK_ADDR_WIDTH-1:0] fetch_addr_b_sparse =
-        effective_desc_b_row_base + BANK_ADDR_WIDTH'(sp_logrow_b >> LG_XLEN_RATIO);
+        effective_desc_b_row_base + (BANK_ADDR_WIDTH'(sp_logrow_b) >> LG_XLEN_RATIO);
 
     wire [BANK_ADDR_WIDTH-1:0] fetch_addr_a =
         req_is_sparse ? fetch_addr_a_sparse : fetch_addr_dense;

@@ -189,19 +189,78 @@ module VX_fetch import VX_gpu_pkg::*; #(
     // Direct path (no RVC): scheduler PC → icache request → fetch_if.
     // ------------------------------------------------------------------------
 
-    assign icache_req_valid = schedule_if.valid;
+    assign icache_req_valid = schedule_if.valid && ~dst_inflight[schedule_if.data.wid];
     assign icache_req_addr  = schedule_if.data.PC[2-(`VX_CFG_XLEN-PC_BITS) +: ICACHE_ADDR_WIDTH];
     assign icache_req_wid   = schedule_if.data.wid;
     assign icache_req_uuid  = schedule_if.data.uuid;
     assign icache_req_tag   = {icache_req_uuid, icache_req_wid};
+
+    // One-outstanding-per-warp: tag_store has a single PC slot per warp, so a
+    // second accepted request before the first response would overwrite it and
+    // mis-tag the earlier word with the newer PC.
+    reg [`VX_CFG_NUM_WARPS-1:0] dst_inflight;
+    always @(posedge clk) begin
+        if (reset) begin
+            dst_inflight <= '0;
+        end else begin
+            for (int w = 0; w < `VX_CFG_NUM_WARPS; ++w) begin
+                if (icache_req_valid && icache_req_ready && (icache_req_wid == w[NW_WIDTH-1:0]))
+                    dst_inflight[w] <= 1'b1;
+                else if (icache_bus_if.rsp_valid && icache_bus_if.rsp_ready && (rsp_tag == w[NW_WIDTH-1:0]))
+                    dst_inflight[w] <= 1'b0;
+            end
+        end
+    end
+
     assign schedule_if.ibuf_pop = fetch_if.ibuf_pop;
-    assign schedule_if.ready = icache_req_ready;
+    assign schedule_if.ready = icache_req_ready && ~dst_inflight[schedule_if.data.wid];
+
+    // The icache holds a response until it is accepted, while tag_store's read
+    // port is live: a request firing for the same warp during that hold
+    // overwrites the slot and relabels the pending word with a newer PC.
+    // Snapshot the metadata when a response starts and drive fetch_if from the
+    // snapshot, bypassed on the first cycle so an immediately accepted response
+    // still sees its own values.
+    reg                           rsp_held_r;
+    reg [PC_BITS-1:0]             rsp_PC_r;
+    reg [`VX_CFG_NUM_THREADS-1:0] rsp_tmask_r;
+    reg [NCTA_WIDTH-1:0]          rsp_cta_id_r;
+
+    wire rsp_fire = icache_bus_if.rsp_valid && icache_bus_if.rsp_ready;
+    wire rsp_new  = icache_bus_if.rsp_valid && ~rsp_held_r;
+
+    always @(posedge clk) begin
+        if (reset) begin
+            rsp_held_r <= 1'b0;
+        end else begin
+            rsp_held_r <= icache_bus_if.rsp_valid && ~rsp_fire;
+        end
+    end
+
+    always @(posedge clk) begin
+        if (rsp_new) begin
+            rsp_PC_r     <= rsp_PC;
+            rsp_tmask_r  <= rsp_tmask;
+            rsp_cta_id_r <= rsp_cta_id;
+        end
+    end
 
     assign fetch_if.valid       = icache_bus_if.rsp_valid;
-    assign fetch_if.data.tmask  = rsp_tmask;
+    assign fetch_if.data.tmask  = rsp_new ? rsp_tmask  : rsp_tmask_r;
+    // Per-warp fetch sequence: the tag an instruction carries so dispatch can
+    // tell whether it was fetched before or after a split/join published.
+    reg [`VX_CFG_NUM_WARPS-1:0][MASK_TAG_W-1:0] fetch_gen;
+    always @(posedge clk) begin
+        if (reset) begin
+            fetch_gen <= '0;
+        end else if (fetch_if.valid && fetch_if.ready) begin
+            fetch_gen[fetch_if.data.wid] <= fetch_gen[fetch_if.data.wid] + 1'b1;
+        end
+    end
+    assign fetch_if.data.mgen   = fetch_gen[fetch_if.data.wid];
     assign fetch_if.data.wid    = rsp_tag;
-    assign fetch_if.data.cta_id = rsp_cta_id;
-    assign fetch_if.data.PC     = rsp_PC;
+    assign fetch_if.data.cta_id = rsp_new ? rsp_cta_id : rsp_cta_id_r;
+    assign fetch_if.data.PC     = rsp_new ? rsp_PC     : rsp_PC_r;
     assign fetch_if.data.instr  = icache_bus_if.rsp_data.data;
     assign fetch_if.data.uuid   = rsp_uuid;
     assign icache_bus_if.rsp_ready = fetch_if.ready;

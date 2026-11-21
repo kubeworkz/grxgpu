@@ -184,13 +184,15 @@ jobs:
         run: ./ci/check_tracked_artifacts.sh
       - name: Reject CRLF blobs in scripts and LF-pinned files
         run: ./ci/check_lf_endings.sh
+      - name: Check cited docs path:line ranges
+        run: python3 ci/check_docs.py docs
       # The runner's Python is externally managed (PEP 668) and has no
       # ensurepip, so both a system install and `python3 -m venv` fail. A
       # throwaway --target directory needs neither root nor a venv.
       - name: Test the repo gates
         run: |
           python3 -m pip install --quiet --target "$RUNNER_TEMP/pytest" pytest
-          PYTHONPATH="$RUNNER_TEMP/pytest" python3 -m pytest ci/test_repo_gates.py -q
+          PYTHONPATH="$RUNNER_TEMP/pytest" python3 -m pytest ci/test_repo_gates.py ci/test_check_docs.py -q
 
   # ---------------------------------------------------------------------------
   # setup — warm the shared toolchain + third_party caches ONCE (prepare=true),

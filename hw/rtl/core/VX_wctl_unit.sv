@@ -178,15 +178,44 @@ module VX_wctl_unit import VX_gpu_pkg::*; #(
 
     // Send scheduler request
 
-    // WSYNC: hold execute until this warp's pipeline is drained (alm_empty=1
-    // means only WSYNC itself is pending — all prior instructions committed).
+    wire execute_fire = execute_if.valid && execute_if.ready;
+
+    // WSYNC: hold execute until every instruction issued before it has committed.
     wire wsync_drain = execute_if.valid && is_wsync
-                    && !warp_ctl_if.warp_pending_alm_empty[execute_if.data.header.wid];
+                    && (warp_ctl_if.warp_pending_size[execute_if.data.header.wid] > 16'd1);
+
+`ifndef SYNTHESIS
+    // The drain assumes a WSYNC never waits on an older WSYNC's commit, which only
+    // holds if the previous WSYNC for the warp has retired by the time the next one
+    // reaches execute. Check that instead of assuming it; the tracker and the tag
+    // it needs in rsp_buf exist for this check alone and have no hardware function.
+    reg [`VX_CFG_NUM_WARPS-1:0]  wsync_pending;
+    wire [`VX_CFG_NUM_WARPS-1:0] wsync_issue_sel;
+    wire [`VX_CFG_NUM_WARPS-1:0] wsync_commit_sel;
+    wire is_wsync_r;
+
+    for (genvar i = 0; i < `VX_CFG_NUM_WARPS; ++i) begin : g_wsync_track
+        assign wsync_issue_sel[i]  = execute_fire && is_wsync && execute_if.data.header.eop
+                                  && (execute_if.data.header.wid == NW_WIDTH'(i));
+        assign wsync_commit_sel[i] = result_if.valid && result_if.ready && is_wsync_r
+                                  && (result_if.data.header.wid == NW_WIDTH'(i));
+    end
+
+    always @(posedge clk) begin
+        if (reset) begin
+            wsync_pending <= '0;
+        end else begin
+            wsync_pending <= (wsync_pending | wsync_issue_sel) & ~wsync_commit_sel;
+        end
+    end
+
+    `RUNTIME_ASSERT(!(execute_if.valid && is_wsync && wsync_pending[execute_if.data.header.wid]),
+        ("WSYNC evaluated while an older WSYNC for wid=%0d is uncommitted",
+         execute_if.data.header.wid))
+`endif
 
     // BAR (vx_barrier or vx_barrier_arrive) drains LSU before continuing.
     wire bar_drain = execute_if.valid && is_bar && !warp_ctl_if.lsu_sched_drained;
-
-    wire execute_fire = execute_if.valid && execute_if.ready;
     assign wctl_valid = execute_fire && execute_if.data.header.eop;
 
     assign wsync_valid = wctl_valid && is_wsync;
@@ -237,15 +266,24 @@ module VX_wctl_unit import VX_gpu_pkg::*; #(
 
     wire rsp_buf_ready;
     VX_elastic_buffer #(
+`ifndef SYNTHESIS
+        .DATAW ($bits(sfu_header_t) + DV_STACK_SIZEW + 1 + 1 + 1),
+`else
         .DATAW ($bits(sfu_header_t) + DV_STACK_SIZEW + 1 + 1),
+`endif
         .SIZE  (2)
     ) rsp_buf (
         .clk       (clk),
         .reset     (reset),
         .valid_in  (execute_if.valid && !wsync_drain && !bar_drain),
         .ready_in  (rsp_buf_ready),
+`ifndef SYNTHESIS
+        .data_in   ({execute_if.data.header, warp_ctl_if.dvstack_ptr, warp_ctl_if.bar_phase, bar_rsp_valid, is_wsync}),
+        .data_out  ({result_if.data.header,  dvstack_ptr_r,           bar_phase_r,           bar_rsp_valid_r, is_wsync_r}),
+`else
         .data_in   ({execute_if.data.header, warp_ctl_if.dvstack_ptr, warp_ctl_if.bar_phase, bar_rsp_valid}),
         .data_out  ({result_if.data.header,  dvstack_ptr_r,           bar_phase_r,           bar_rsp_valid_r}),
+`endif
         .valid_out (result_if.valid),
         .ready_out (result_if.ready)
     );

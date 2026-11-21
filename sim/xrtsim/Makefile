@@ -198,7 +198,7 @@ CXXFLAGS += -DNOXRT
 
 PROJECT := libxrtsim.so
 
-.PHONY: all force clean
+.PHONY: all verilate force clean
 
 all: $(DESTDIR)/$(PROJECT)
 
@@ -208,8 +208,26 @@ $(DESTDIR)/vortex.json: $(CONFIG_FILE)
 $(DESTDIR)/scope.json: $(DESTDIR)/vortex.json
 	$(SCRIPT_DIR)/scope.py $^ -o $@
 
-$(DESTDIR)/$(PROJECT): $(SRCS) $(SCOPE_JSON) $(CONFIG_FILE) $(RTL_SRCS)
-	$(VERILATOR_PATH)/bin/verilator --build --exe $(VL_FLAGS) --cc $(TOP) --top-module $(TOP) $(SRCS) -CFLAGS '$(CXXFLAGS)' -LDFLAGS '$(LDFLAGS)' --Mdir $@.obj_dir -o $@
+# Verilation and compilation are separate steps: `verilator --build` would
+# re-verilate on every invocation and drop the objects a killed compile had
+# already produced. Verilating into a persistent obj_dir and letting make drive
+# the model's own makefile keeps those objects, so a re-run compiles only what
+# is missing and skips verilation while the model is newer than its inputs.
+MDIR := $(DESTDIR)/$(PROJECT).obj_dir
+VL_MK := V$(TOP).mk
+
+$(MDIR)/$(VL_MK): $(SRCS) $(SCOPE_JSON) $(CONFIG_FILE) $(RTL_SRCS)
+	$(VERILATOR_PATH)/bin/verilator --exe $(VL_FLAGS) --cc $(TOP) --top-module $(TOP) $(SRCS) -CFLAGS '$(CXXFLAGS)' -LDFLAGS '$(LDFLAGS)' --Mdir $(MDIR) -o $(DESTDIR)/$(PROJECT)
+
+# Generate the Verilator model without compiling it, so the expensive
+# verilation can run as its own step and later builds reuse its obj_dir.
+verilate: $(MDIR)/$(VL_MK)
+
+# Relink from the objects every time: a link killed mid-write leaves a
+# truncated artifact whose fresh mtime would otherwise look up to date.
+$(DESTDIR)/$(PROJECT): $(MDIR)/$(VL_MK) force
+	rm -f $@
+	$(MAKE) -C $(MDIR) -f $(VL_MK) -j $(THREADS)
 
 # updates the timestamp when flags changed.
 $(CONFIG_FILE): force

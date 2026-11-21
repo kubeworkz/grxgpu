@@ -109,7 +109,7 @@ tests:
   drivers:
   - rtlsim
   app: sgemm
-  configs: -DVX_CFG_MEM_BLOCK_SIZE=8 -DVX_CFG_LMEM_NUM_BANKS=2 -DVX_CFG_DCACHE_NUM_BANKS=4
+  configs: -DVX_CFG_MEM_BLOCK_SIZE=8 -DVX_CFG_LMEM_NUM_BANKS=2 -DVX_CFG_DCACHE_NUM_BANKS=4 -DVX_CFG_TCU_WGMMA_DISABLE
   shape:
     threads: 8
 - id: sgemm-13
@@ -117,7 +117,7 @@ tests:
   drivers:
   - simx
   app: sgemm
-  configs: -DVX_CFG_MEM_BLOCK_SIZE=8 -DVX_CFG_LMEM_NUM_BANKS=2 -DVX_CFG_DCACHE_NUM_BANKS=4
+  configs: -DVX_CFG_MEM_BLOCK_SIZE=8 -DVX_CFG_LMEM_NUM_BANKS=2 -DVX_CFG_DCACHE_NUM_BANKS=4 -DVX_CFG_TCU_WGMMA_DISABLE
   shape:
     threads: 8
 - id: sgemm-14

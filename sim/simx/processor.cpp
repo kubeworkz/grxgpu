@@ -224,7 +224,7 @@ void ProcessorImpl::flush_caches() {
 }
 
 int ProcessorImpl::run() {
-  this->reset();
+  this->launch_reset();
   kmu_->start();
   this->forward_delegated_launch();
 
@@ -266,11 +266,21 @@ void ProcessorImpl::reset() {
   for (auto& gbar : gbarriers_) {
     gbar.reset();
   }
-  perf_mem_reads_ = 0;
-  perf_mem_writes_ = 0;
-  perf_mem_latency_ = 0;
+  // Architectural counters clear only with the device; a kernel launch keeps
+  // them, matching the RTL where minstret/mcycle count from reset.
+  if (!preserve_perf_) {
+    perf_mem_reads_ = 0;
+    perf_mem_writes_ = 0;
+    perf_mem_latency_ = 0;
+  }
   perf_mem_pending_reads_ = 0;
   is_cycle_initialized_ = false;
+}
+
+void ProcessorImpl::launch_reset() {
+  preserve_perf_ = true;
+  this->reset();
+  preserve_perf_ = false;
 }
 
 void ProcessorImpl::global_barrier_arrive(uint32_t bar_id, uint32_t count, uint32_t core_id) {
@@ -297,7 +307,7 @@ bool ProcessorImpl::cycle() {
   // separately. reset() clears is_cycle_initialized_ so a back-to-back
   // kernel launch re-dispatches.
   if (!is_cycle_initialized_) {
-    this->reset();
+    this->launch_reset();
     kmu_->start();
     this->forward_delegated_launch();
     is_cycle_initialized_ = true;
