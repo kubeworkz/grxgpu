@@ -85,8 +85,7 @@ def external_names(doc, root, lines):
 def resolve(doc, root, rel, index, link=None):
     if link:
         linked = (doc.parent / link).resolve()
-        if linked.is_file():
-            return linked
+        return linked if linked.is_file() else None
     for base in (doc.parent, root):
         candidate = base / rel
         if candidate.is_file():

@@ -123,6 +123,14 @@ def test_missing_linked_in_repo_source_fails(tmp_path):
     assert "target file does not exist" in result.stdout
 
 
+def test_linked_source_does_not_fall_back_to_basename(tmp_path):
+    write(tmp_path, "docs/other/target.c", "int elsewhere;\n")
+    write(tmp_path, "docs/note.md", "See [`target.c:1`](src/target.c#L1).\n")
+    result = run(tmp_path, "docs/note.md")
+    assert result.returncode == 1, result.stdout
+    assert "target file does not exist" in result.stdout
+
+
 def test_missing_target_fails(tmp_path):
     write(tmp_path, "docs/proposals/missing.md", "See `absent.md:3` for the claim.\n")
     result = run(tmp_path, "docs/proposals/missing.md")
