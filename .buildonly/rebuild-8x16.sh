@@ -3,7 +3,7 @@
 # rebuild-8x16.sh
 #
 # Fresh, user-space rebuild of the 8x16 Vortex GPGPU hierarchical RTLSIM model
-# on the aarch64 build host (i-06c264ace83e4f952).  Nothing here needs root
+# on the aarch64 build host (<instance-id>).  Nothing here needs root
 # except the one-time partition/mount that must already have been done.
 #
 # Prerequisite on the host:
@@ -19,10 +19,10 @@
 #       --exclude=./.git --exclude='*/.git' \
 #       --exclude=./build --exclude=./build32 --exclude=./build64 \
 #       -C /path/to/grxgpu .
-#   ssh -i ~/Downloads/g100.pem ubuntu@ec2-3-22-75-11.us-east-2.compute.amazonaws.com \
+#   ssh -i ~/Downloads/<build-key>.pem ubuntu@<build-host> \
 #       'mkdir -p /home/ubuntu/vx/incoming'
-#   scp -i ~/Downloads/g100.pem vortex-repo.tar.gz* \
-#       ubuntu@ec2-3-22-75-11.us-east-2.compute.amazonaws.com:/home/ubuntu/vx/incoming/
+#   scp -i ~/Downloads/<build-key>.pem vortex-repo.tar.gz* \
+#       ubuntu@<build-host>:/home/ubuntu/vx/incoming/
 #
 # Stages (run one at a time, or `all`):
 #   preflight  toolchain  verilator  stage  configure  generate
@@ -142,7 +142,7 @@ mount_help() {
 partition mounted there first (this is the one privileged step; it is not
 performed by this script):
 
-  ssh -i ~/Downloads/g100.pem ubuntu@ec2-3-22-75-11.us-east-2.compute.amazonaws.com
+  ssh -i ~/Downloads/<build-key>.pem ubuntu@<build-host>
 
   parted /dev/nvme0n1 unit GiB print free
   sudo parted /dev/nvme0n1 --script mkpart primary ext4 9GiB 100%
