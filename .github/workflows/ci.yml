@@ -90,6 +90,8 @@ jobs:
     needs: [pr-coverage]
     # always() because the lookup is advisory: it is skipped on every event
     # that is not a push, and a failed lookup must still plan the full matrix.
+    # The jobs below repeat that guard with !cancelled(), because a skipped
+    # ancestor suppresses every descendant whatever its own condition says.
     if: always()
     runs-on: ubuntu-22.04
     outputs:
@@ -264,7 +266,9 @@ jobs:
   # ---------------------------------------------------------------------------
   setup:
     needs: plan
-    if: needs.plan.outputs.run == 'true'
+    # !cancelled() because the lookup above is skipped off the push path and
+    # would otherwise suppress this whole chain; the run output is the gate.
+    if: ${{ !cancelled() && needs.plan.outputs.run == 'true' }}
     runs-on: ubuntu-22.04
     steps:
       # Self-hosted runners share one workspace across jobs and workflows; a
@@ -288,7 +292,7 @@ jobs:
   # ---------------------------------------------------------------------------
   build:
     needs: [plan, setup]
-    if: needs.plan.outputs.run == 'true'
+    if: ${{ !cancelled() && needs.plan.outputs.run == 'true' && needs.setup.result == 'success' }}
     strategy:
       matrix:
         xlen: [32, 64]
@@ -331,7 +335,7 @@ jobs:
   # ---------------------------------------------------------------------------
   tests:
     needs: [plan, build]
-    if: needs.plan.outputs.run == 'true'
+    if: ${{ !cancelled() && needs.plan.outputs.run == 'true' && needs.build.result == 'success' }}
     strategy:
       fail-fast: false
       matrix:
