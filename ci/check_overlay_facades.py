@@ -15,6 +15,12 @@ elaborates: the request leaves, the response never arrives, and the requester
 waits forever. Nothing shows it until a model build (about three hours) or a
 run that hangs, so check the direction here instead.
 
+Pairs are discovered, not listed: every `*_flat.sv` in the overlay directory
+must be wrapped by exactly one facade, and a facade that names a `*_flat`
+module with no file beside it, or that drives an interface while wrapping no
+flat block at all, is an error. A new facade/flat pair is therefore checked as
+soon as it lands, without editing this file.
+
 Only `assign` statements are checked. A port connection in the instantiation
 (`.mem_bus_req_valid (mem_bus_if[i].req_valid)`) is always consistent, because
 the direction comes from the port declaration itself.
@@ -25,13 +31,6 @@ import re
 import sys
 from pathlib import Path
 
-# Facade file, then the flat block file it wraps. The facade takes the flat
-# block's name, so the pair is what the staging script installs together.
-PAIRS = (
-    ("VX_cluster.sv", "VX_cluster_flat.sv"),
-    ("VX_l3cache_bridge.sv", "VX_l3cache_flat.sv"),
-)
-
 PORT_DECL = re.compile(
     r"^\s*(input|output)\s+(?:wire\s+|reg\s+|logic\s+)?(?:\[[^\]]*\]\s*)*([A-Za-z_]\w*)\s*,?\s*$",
     re.M,
@@ -39,6 +38,8 @@ PORT_DECL = re.compile(
 ASSIGN = re.compile(r"^\s*assign\s+([^=;]+?)\s*=\s*([^;]+?)\s*;\s*$")
 INTERFACE_REF = re.compile(r"^([A-Za-z_]\w*_if)(?:\[[^\]]*\])?\.(.+)$")
 PORT_REF = re.compile(r"^([A-Za-z_]\w*)(?:\[[^\]]*\])?$")
+MODULE_DECL = re.compile(r"^\s*module\s+([A-Za-z_]\w*)", re.M)
+FLAT_REF = re.compile(r"^\s*([A-Za-z_]\w*_flat)\s*(?:#\s*\(|\w+\s*\()", re.M)
 
 
 def read(path):
@@ -46,12 +47,14 @@ def read(path):
         return handle.read()
 
 
+def error(message):
+    print("check_overlay_facades: ERROR: " + message)
+    return 1
+
+
 def flat_port_directions(text):
     """Map each flat port name to 'input' or 'output'."""
-    directions = {}
-    for match in PORT_DECL.finditer(text):
-        directions[match.group(2)] = match.group(1)
-    return directions
+    return {match.group(2): match.group(1) for match in PORT_DECL.finditer(text)}
 
 
 def facade_assignments(text):
@@ -73,22 +76,80 @@ def classify(side):
     return None
 
 
-def check_pair(directory, facade_name, flat_name):
-    facade_path = directory / facade_name
-    flat_path = directory / flat_name
-    for path in (facade_path, flat_path):
-        if not path.exists():
-            raise SystemExit(
-                "check_overlay_facades: ERROR: missing overlay file {}\n"
-                "The facade and its flat block are installed together; a checkout with\n"
-                "one and not the other cannot be checked.".format(path)
+def drives_an_interface(text):
+    """True when the file assigns to an interface member, i.e. it acts as a facade."""
+    for _, destination, _ in facade_assignments(text):
+        if classify(destination) and classify(destination)[0] == "interface":
+            return True
+    return False
+
+
+def instantiates(text, module):
+    return re.search(
+        r"\b" + re.escape(module) + r"\b\s*(?:#\s*\(|\w+\s*\()", text
+    ) is not None
+
+
+def discover(directory):
+    """Return (flats, facades, problems) for the overlay directory.
+
+    flats:    module name -> path of `<module>.sv`
+    facades:  module name -> paths of the files that instantiate it
+    problems: human-readable reasons the overlay is not consistently installed
+    """
+    flat_files = sorted(directory.glob("*_flat.sv"))
+    flats = {}
+    problems = []
+    for path in flat_files:
+        declared = MODULE_DECL.search(read(path))
+        module = declared.group(1) if declared else path.stem
+        if module in flats:
+            problems.append(
+                "{} is declared by both {} and {}; only one of them could be "
+                "checked".format(module, flats[module].name, path.name)
             )
+        flats[module] = path
 
+    facades = {module: [] for module in flats}
+    for path in sorted(directory.glob("*.sv")):
+        if path in flat_files:
+            continue
+        text = read(path)
+        named = sorted({module for module in flats if instantiates(text, module)})
+        absent = sorted({module for module in FLAT_REF.findall(text)} - set(flats))
+        for module in absent:
+            problems.append(
+                "{} instantiates {}, but {}.sv is not in the overlay directory"
+                .format(path.name, module, module)
+            )
+        if not named and not absent and drives_an_interface(text):
+            problems.append(
+                "{} drives an interface but wraps no *_flat block; every facade must "
+                "instantiate one".format(path.name)
+            )
+        for module in named:
+            facades[module].append(path)
+
+    for module, paths in facades.items():
+        if not paths:
+            problems.append(
+                "{}.sv has no facade: nothing in the overlay directory "
+                "instantiates {}".format(module, module)
+            )
+        elif len(paths) > 1:
+            problems.append(
+                "{} is instantiated by more than one file ({}); a flat block has "
+                "exactly one facade".format(
+                    module, ", ".join(path.name for path in paths))
+            )
+    return flats, facades, problems
+
+
+def check_pair(facade_path, flat_path):
+    """Return (failures, checked) for one facade/flat pair."""
     directions = flat_port_directions(read(flat_path))
-    facade_text = read(facade_path)
-
     failures, checked = [], 0
-    for number, destination, source in facade_assignments(facade_text):
+    for number, destination, source in facade_assignments(read(facade_path)):
         ends = (classify(destination), classify(source))
         interfaces = [end for end in ends if end and end[0] == "interface"]
         ports = [end for end in ends if end and end[0] == "port"]
@@ -104,16 +165,10 @@ def check_pair(directory, facade_name, flat_name):
         # facade must drive the port net from the interface.
         expected = "interface" if directions[port_name] == "output" else "port"
         if driven_side != expected:
-            failures.append(
-                (
-                    facade_name,
-                    number,
-                    port_name,
-                    directions[port_name],
-                    destination,
-                    source,
-                )
-            )
+            failures.append((
+                facade_path.name, number, port_name, directions[port_name],
+                destination, source,
+            ))
     return failures, checked
 
 
@@ -124,12 +179,31 @@ def main():
         default=str(Path(__file__).resolve().parent.parent / ".buildonly"),
         help="directory holding the overlay .sv files (default: <repo>/.buildonly)",
     )
-    args = parser.parse_args()
-    directory = Path(args.dir)
+    directory = Path(parser.parse_args().dir).resolve()
+    if not directory.is_dir():
+        return error("{} is not a directory".format(directory))
+
+    flats, facades, problems = discover(directory)
+    if problems:
+        print("ERROR: the overlay facade/flat pairs are inconsistent:")
+        for problem in problems:
+            print("  " + problem)
+        print()
+        print("Each *_flat.sv needs exactly one facade that instantiates it, and a")
+        print("facade needs its flat block beside it. Pairing is by instantiation,")
+        print("not by file name.")
+        return 1
+
+    if not flats:
+        return error(
+            "no *_flat.sv block in {}: the overlay is not installed, or the flat "
+            "blocks were renamed and this check now verifies nothing".format(directory)
+        )
 
     all_failures, total_checked = [], 0
-    for facade_name, flat_name in PAIRS:
-        failures, checked = check_pair(directory, facade_name, flat_name)
+    for module in sorted(facades):
+        facade_path = facades[module][0]
+        failures, checked = check_pair(facade_path, flats[module])
         all_failures.extend(failures)
         total_checked += checked
 
@@ -153,14 +227,16 @@ def main():
         return 1
 
     if total_checked == 0:
-        print("check_overlay_facades: ERROR: no facade assignment matched a flat")
-        print("block port, so nothing was verified. Either the overlay changed")
-        print("shape or this checker no longer parses it; fix the checker rather")
-        print("than letting it pass silently.")
+        print("check_overlay_facades: ERROR: {} pair(s) found, but no facade assignment".format(
+            len(facades)))
+        print("matched a flat block port, so nothing was verified. Either the overlay")
+        print("changed shape or this checker no longer parses it; fix the checker")
+        print("rather than letting it pass silently.")
         return 1
 
-    print("check_overlay_facades: OK - {} pair(s), {} assignment(s) drive the side "
-          "their flat port declares".format(len(PAIRS), total_checked))
+    print("check_overlay_facades: OK - {} pair(s) discovered in {}, {} assignment(s) "
+          "drive the side their flat port declares".format(
+              len(facades), directory.name, total_checked))
     return 0
 
 
