@@ -80,10 +80,10 @@ module VX_tcu_core import VX_gpu_pkg::*, VX_tcu_pkg::*; #(
 
     localparam LG_A_BS    = $clog2(TCU_A_BLOCK_SIZE);
     localparam LG_B_BS    = $clog2(TCU_B_BLOCK_SIZE);
-    localparam OFF_W      = $clog2(TCU_BLOCK_CAP);
+    localparam OFF_W      = (TCU_BLOCK_CAP > 1) ? $clog2(TCU_BLOCK_CAP) : 1;
 `ifdef VX_CFG_TCU_WGMMA_ENABLE
     localparam LG_WG_B_BS = $clog2(TCU_WG_B_BLOCK_SIZE);
-    localparam WG_B_OFF_W = $clog2(TCU_WG_RS2_WIDTH);
+    localparam WG_B_OFF_W = (TCU_WG_RS2_WIDTH > 1) ? $clog2(TCU_WG_RS2_WIDTH) : 1;
 `endif
 
 `ifdef VX_CFG_TCU_SPARSE_ENABLE
