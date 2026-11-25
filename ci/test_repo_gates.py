@@ -9,6 +9,7 @@ the tests drive them through real git state rather than mocking it:
   ci/check_tracked_artifacts.sh  build output and machine binaries
   ci/check_lf_endings.sh         CRLF blobs in scripts and pinned files
   ci/check_docs.py               cited path:line ranges and their text
+  ci/check_overlay_facades.py    overlay facade drives the side its flat port declares
   ci/check_config_boundary.sh    sw/ never includes the hardware config
   ci/check_sw_sim_boundary.sh    sw/ and sim/+hw/ stay isolated
   ci/hooks/pre-commit            the gates above on the staged paths
@@ -37,6 +38,7 @@ COPIED = (
     "ci/check_sw_sim_boundary.sh",
     "ci/binary_magic.py",
     "ci/check_docs.py",
+    "ci/check_overlay_facades.py",
     "ci/hooks/pre-commit",
     "ci/install_hooks.sh",
     ".gitattributes",
@@ -118,6 +120,10 @@ def _config_boundary(repo):
 
 def _sw_sim_boundary(repo):
     return _run([BASH, str(Path(repo) / "ci/check_sw_sim_boundary.sh")], repo)
+
+
+def _overlay(repo, *args):
+    return _run([sys.executable, str(Path(repo) / "ci/check_overlay_facades.py"), *args], repo)
 
 
 # --------------------------------------------------------------------------- #
@@ -470,3 +476,100 @@ def test_sw_sim_boundary_rejects_a_cross_layer_makefile_flag(repo):
 
     assert result.returncode == 1
     assert "Makefile" in result.stderr
+
+
+# The facade owns the interface, so an output of the flat block is driven
+# outward and an input is read inward. Reversing either is the bug the gate
+# exists for, and it still elaborates.
+FLAT_PORTS = """\
+module VX_cluster_flat (
+    input  wire                 clk,
+    output wire [L2_MEM_PORTS-1:0] mem_bus_req_valid,
+    output wire [L2_MEM_PORTS-1:0] mem_bus_rsp_ready,
+    input  wire [L2_MEM_PORTS-1:0] mem_bus_req_ready,
+    input  wire [L2_MEM_PORTS-1:0] mem_bus_rsp_valid
+);
+endmodule
+"""
+
+FACADE_CORRECT = """\
+module VX_cluster ();
+for (genvar i = 0; i < L2_MEM_PORTS; ++i) begin : g_mem_bus
+    assign mem_bus_if[i].req_valid = mem_bus_req_valid[i];
+    assign mem_bus_req_ready[i]    = mem_bus_if[i].req_ready;
+    assign mem_bus_rsp_valid[i]    = mem_bus_if[i].rsp_valid;
+    assign mem_bus_if[i].rsp_ready = mem_bus_rsp_ready[i];
+end
+endmodule
+"""
+
+
+def _overlay_files(repo, facade, flat):
+    """Write both facade/flat pairs, since the gate requires each pair whole."""
+    for name in ("VX_cluster.sv", "VX_l3cache_bridge.sv"):
+        _write(repo, ".buildonly/" + name, facade)
+    for name in ("VX_cluster_flat.sv", "VX_l3cache_flat.sv"):
+        _write(repo, ".buildonly/" + name, flat)
+
+
+def test_overlay_facades_pass_on_matching_directions(repo):
+    _overlay_files(repo, FACADE_CORRECT, FLAT_PORTS)
+
+    result = _overlay(repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "OK" in result.stdout
+    assert "8 assignment(s)" in result.stdout
+
+
+def test_overlay_facades_reject_an_inverted_request(repo):
+    _overlay_files(
+        repo,
+        FACADE_CORRECT.replace(
+            "    assign mem_bus_if[i].req_valid = mem_bus_req_valid[i];",
+            "    assign mem_bus_req_valid[i]    = mem_bus_if[i].req_valid;",
+        ),
+        FLAT_PORTS,
+    )
+
+    result = _overlay(repo)
+
+    assert result.returncode == 1
+    output = result.stdout + result.stderr
+    assert "mem_bus_req_valid is an output" in output
+    assert "VX_cluster.sv:3" in output
+
+
+def test_overlay_facades_reject_an_inverted_response_leg(repo):
+    _overlay_files(
+        repo,
+        FACADE_CORRECT.replace(
+            "    assign mem_bus_req_ready[i]    = mem_bus_if[i].req_ready;",
+            "    assign mem_bus_if[i].req_ready = mem_bus_req_ready[i];",
+        ),
+        FLAT_PORTS,
+    )
+
+    result = _overlay(repo)
+
+    assert result.returncode == 1
+    assert "mem_bus_req_ready is an input" in result.stdout + result.stderr
+
+
+def test_overlay_facades_fail_closed_when_nothing_parses(repo):
+    _overlay_files(repo, "module VX_cluster ();\nendmodule\n", FLAT_PORTS)
+
+    result = _overlay(repo)
+
+    assert result.returncode == 1
+    assert "nothing was verified" in result.stdout + result.stderr
+
+
+def test_overlay_facades_reject_a_half_installed_pair(repo):
+    _overlay_files(repo, FACADE_CORRECT, FLAT_PORTS)
+    (Path(repo) / ".buildonly/VX_l3cache_flat.sv").unlink()
+
+    result = _overlay(repo)
+
+    assert result.returncode == 1
+    assert "missing overlay file" in result.stdout + result.stderr

@@ -184,6 +184,8 @@ jobs:
         run: ./ci/check_tracked_artifacts.sh
       - name: Reject CRLF blobs in scripts and LF-pinned files
         run: ./ci/check_lf_endings.sh
+      - name: Check overlay facade port directions
+        run: python3 ci/check_overlay_facades.py
       - name: Check cited docs path:line ranges
         run: python3 ci/check_docs.py docs
       # The runner's Python is externally managed (PEP 668) and has no
