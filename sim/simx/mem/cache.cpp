@@ -1231,7 +1231,10 @@ private:
       amo_fwd.byteen  = bank_req.byteen;  // carries width info (popcount-derived at LLC)
       amo_fwd.data    = bank_req.data;    // carries rhs (extracted at LLC)
       amo_fwd.flags   = bank_req.flags;   // carry amo_unsigned (signed vs unsigned MIN/MAX)
-      this->mem_req_out.send(amo_fwd);
+      // Queued, not sent: the admission check above reserves a queue slot for
+      // it, and it must follow the probe writeback so the AMO sees the evicted
+      // line already written back.
+      mreq_queue_.push_back(amo_fwd);
       DT(3, this->name() << " amo-probe-fwd: " << amo_fwd);
       ++pending_fill_reqs_; // counts as an outstanding mem-roundtrip for perf
       --pending_amo_probes_; // reservation transferred to the table entry

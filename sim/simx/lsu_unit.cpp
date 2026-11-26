@@ -375,7 +375,10 @@ void LsuUnit::process_request_step(uint32_t b) {
 		// The fence is a memory transaction, not a local drain: issue a flush
 		// request downstream and stall dispatch (fence lock) until the memory
 		// system acknowledges it and every older tracked request retires.
-		if (state.pending_reqs.full()) {
+		// The flush is a normal memory request downstream, so it waits for
+		// the switch like any other: without this the send below overruns a
+		// full ReqIn when older requests are still queued there.
+		if (state.pending_reqs.full() || core_->lmem_switch(b)->ReqIn.full()) {
 			return;
 		}
 		LsuReq lsu_req(VX_CFG_NUM_LSU_LANES);
