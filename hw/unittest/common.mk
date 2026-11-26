@@ -79,10 +79,14 @@ $(MDIR)/$(VL_MK): $(SRCS) $(RTL_SRCS)
 verilate: $(MDIR)/$(VL_MK)
 
 # Relink from the objects every time: a link killed mid-write leaves a
-# truncated artifact whose fresh mtime would otherwise look up to date.
+# truncated artifact whose fresh mtime would otherwise look up to date. The
+# model's makefile writes the executable to ../$(PROJECT) with .. on its VPATH,
+# so a deleted artifact resolves to the sibling directory of the same name and
+# make calls it up to date; marking the archive new forces the link. Only once
+# the archive exists, since -W on a missing file would also skip building it.
 $(DESTDIR)/$(PROJECT): $(MDIR)/$(VL_MK) force
-	rm -f ../$(DESTDIR)/$(PROJECT)
-	$(MAKE) -C $(MDIR) -f $(VL_MK) -j $(THREADS)
+	rm -f $(DESTDIR)/$(PROJECT)
+	$(MAKE) -C $(MDIR) -f $(VL_MK) -j $(THREADS) $(if $(wildcard $(MDIR)/V$(TOP)__ALL.a),-W V$(TOP)__ALL.a)
 
 run: $(DESTDIR)/$(PROJECT)
 	$(DESTDIR)/$(PROJECT) $(OPTS)
