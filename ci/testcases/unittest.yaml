@@ -15,6 +15,15 @@ tests:
   # builds the unit tests; this lane executes them so a softfloat-divergent
   # regression actually fails CI (each driver checks bit-exact result+fflags over
   # millions of vectors across all RISC-V rounding modes, default + lean configs).
+  # Reservation hold deadline (VX_amo_unit): a hart that leaves the LR/SC
+  # sequence with its reservation installed must release the station within the
+  # derived bound, and other harts must be refused before it. The `hw` lane
+  # above only builds this bench; this lane executes it, so losing the deadline
+  # fails CI instead of leaving the assertion unread.
+  - id: hw-amo
+    via: script
+    run: "make -C hw/unittest/amo_unit run"
+    touches: [hw/rtl/cache, hw/rtl/VX_gpu_pkg.sv, hw/rtl/libs, hw/unittest/amo_unit]
   - id: hw-fpu
     via: script
     run: "make -C hw/unittest run-fpu"
