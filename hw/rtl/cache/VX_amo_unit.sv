@@ -23,18 +23,28 @@
 // registered output lands the same cycle the SC commit decision is made; the
 // valid bits live in resettable flops (BRAM contents are not reset).
 //
-//   LR  : claim the slot for {hart, line}  (overwrites any prior occupant).
+//   LR  : claim the slot for {hart, line} if it is free or already ours; an
+//         occupied slot stays with its owner until that owner's SC, a write,
+//         or the hold deadline (see rs_busy).
 //   SC  : succeeds iff the slot still holds {hart, line}; the success store
 //         then clears it through the write path below.
 //   write: a committed store/RMW to a line clears the slot iff it holds that
 //          line (tag match) — breaks the reserver, any hart.
 //
-// A bounded set with conflict/capacity eviction is RISC-V-legal: SC may fail
-// spuriously for any reason, and forward progress is a system property (some
-// hart's SC wins each round). This is how real GPUs/CPUs implement LR/SC, and
-// it removes the per-hart table's O(NUM_HARTS) storage and CAM.
+// A bounded set is RISC-V-legal: SC may fail spuriously for any reason. What a
+// bounded set cannot do is let one hart's LR evict another hart's live
+// reservation: the set would then hold only the newest LR, and with enough
+// harts contending on one line every SC would find a stranger's tag and fail,
+// so the retry loop would livelock instead of converging. An occupied station
+// therefore stays with its owner until that owner's SC resolves it; harts that
+// cannot get a station simply fail their SC and retry. Nor may a station be
+// held forever by a reservation that is never retired, since that bars every
+// other hart from the index with no store coming to break it -- hence the
+// hold deadline. This keeps the per-hart table's O(NUM_HARTS) storage and CAM
+// off the critical path while still guaranteeing that every station retires.
 module VX_amo_unit import VX_gpu_pkg::*; #(
     parameter NUM_RES_ENTRIES = 4,   // reservation stations per bank (NUM_RS)
+    parameter AMO_TURNAROUND  = 64,  // cycles one AMO round trip adds to another hart's wait
     parameter LINE_ADDR_BITS  = 32,
     parameter DATA_WIDTH      = 64   // ALU operand width (cache word, capped at 64)
 ) (
@@ -138,14 +148,59 @@ module VX_amo_unit import VX_gpu_pkg::*; #(
     wire [HART_ID_WIDTH-1:0] e_hart  = rs_data[RS_TAG_BITS +: HART_ID_WIDTH];
     wire [RS_TAG_BITS-1:0]   e_tag   = rs_data[RS_TAG_BITS-1:0];
 
-    wire line_match = e_valid && (e_tag == rs_tag);            // slot holds this line
-    wire own_match  = line_match && (e_hart == res_hart_id);   // ...reserved by this hart
+    // Hold deadline. A station is only ever retired by its owner's SC or by a
+    // committed write to the line, so a reservation whose SC never arrives --
+    // the hart left the LR/SC sequence, or the SC pairs with another address --
+    // would hold its index for the rest of the run. Every LR to that index is
+    // then refused, and no store to the line is coming to break it, so other
+    // harts' loops could never win: the ISA's eventuality guarantee forbids
+    // exactly that, because loads and load-reserved instructions of one hart
+    // may not impede another hart's LR/SC loop indefinitely. Lapsing an
+    // unclaimed station only turns an SC that would have won into a spurious
+    // failure, which SC permits, and it keeps every station re-acquirable.
+    //
+    // The bound is one AMO_TURNAROUND per hart that can queue ahead of the SC,
+    // plus the requester's own trip, so it scales with the config instead of
+    // being a literal. Measured LR install -> that hart's SC commit
+    // (lrsc_counter -n32), average/worst: 57/73 cycles at 16 harts, 62/103 at
+    // 32 and 79/214 at 64. The 32- and 64-hart machines were built both by
+    // adding cores and by adding warps, and the two agreed within ~10%, so the
+    // growth is the hart count and not the depth of the AMO queue or of this
+    // station table. The per-hart share rises with contention in the shared
+    // L2 AMO path (1.4 to 2.6 cycles) but stays far under AMO_TURNAROUND, so
+    // AMO_TURNAROUND x (NUM_HARTS + 1) clears the worst case by 15-21x at
+    // every size while a small machine keeps a floor above its own trip. A
+    // bound under the gap is what fails every SC, so the floor matters as much
+    // as the hart term.
+    //
+    // Lapsing is safe: expiry only *removes* a station, so line_match and
+    // own_match go false and an SC that would have won fails spuriously --
+    // permitted by Zalrsc, and the retry loop re-establishes the reservation.
+    // It can never make an SC succeed that should fail, because forgetting a
+    // reservation never invents one.
+    localparam NUM_HARTS       = 1 << HART_ID_WIDTH;   // hart-id space of the config
+    localparam RES_HOLD_CYCLES = AMO_TURNAROUND * (NUM_HARTS + 1);
+    localparam RES_HOLD_BITS   = `CLOG2(RES_HOLD_CYCLES + 1);
+    reg  [RES_HOLD_BITS-1:0] rs_age [RS_DEPTH];
+    wire                     e_expired = e_valid && (rs_age[rs_idx] >= RES_HOLD_CYCLES);
+
+    wire line_match = e_valid && ~e_expired && (e_tag == rs_tag);  // slot holds this line
+    wire own_match  = line_match && (e_hart == res_hart_id);      // ...reserved by this hart
 
     // SC outcome: this hart's reservation on this line is still live.
     assign res_check = own_match;
 
-    // LR installs the payload; a matching SC/store clears the valid bit.
-    assign rs_we = res_reserve && en;
+    // A station belongs to exactly one reservation until that holder's SC
+    // retires it or a committed write breaks it. A younger LR from another
+    // hart must leave it alone: letting LR steal the station makes it track
+    // only the most recent LR, so as soon as LRs arrive faster than one hart's
+    // LR->SC gap every SC reads someone else's tag and fails, the retry loop
+    // re-issues LR+SC, and no SC ever retires. Refusing the install costs the
+    // blocked hart one spurious SC failure (legal, and it retries), while the
+    // holder always reaches its own SC and frees the station -- so each
+    // station retires in bounded time and the LR/SC loop makes progress.
+    wire rs_busy = e_valid && ~e_expired && ~own_match;
+    assign rs_we = res_reserve && en && ~rs_busy;
     wire   rs_clr = en && ((res_invalidate && line_match)      // any write breaks the reserver
                         || (res_clear && own_match));          // SC clears its own
 
@@ -155,8 +210,26 @@ module VX_amo_unit import VX_gpu_pkg::*; #(
         end else begin
             if (rs_we) begin
                 rs_valid[rs_idx] <= 1'b1;
-            end else if (rs_clr) begin
+            end else if (rs_clr || e_expired) begin
                 rs_valid[rs_idx] <= 1'b0;
+            end
+        end
+    end
+
+    // Age runs from install (or clear) to the deadline; a lapsed station stops
+    // answering for its old owner and stops refusing other harts' LRs.
+    always @(posedge clk) begin
+        if (reset) begin
+            for (int i = 0; i < RS_DEPTH; ++i) begin
+                rs_age[i] <= '0;
+            end
+        end else begin
+            for (int i = 0; i < RS_DEPTH; ++i) begin
+                if ((rs_we || rs_clr) && (rs_idx == RS_ADDRW'(i))) begin
+                    rs_age[i] <= '0;
+                end else if (rs_valid[i] && ~(&rs_age[i])) begin
+                    rs_age[i] <= rs_age[i] + 1'b1;
+                end
             end
         end
     end
