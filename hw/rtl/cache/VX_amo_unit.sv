@@ -181,8 +181,9 @@ module VX_amo_unit import VX_gpu_pkg::*; #(
     localparam NUM_HARTS       = 1 << HART_ID_WIDTH;   // hart-id space of the config
     localparam RES_HOLD_CYCLES = AMO_TURNAROUND * (NUM_HARTS + 1);
     localparam RES_HOLD_BITS   = `CLOG2(RES_HOLD_CYCLES + 1);
+    localparam [RES_HOLD_BITS-1:0] RES_HOLD_TICKS = RES_HOLD_BITS'(RES_HOLD_CYCLES);
     reg  [RES_HOLD_BITS-1:0] rs_age [RS_DEPTH];
-    wire                     e_expired = e_valid && (rs_age[rs_idx] >= RES_HOLD_CYCLES);
+    wire                     e_expired = e_valid && (rs_age[rs_idx] >= RES_HOLD_TICKS);
 
     wire line_match = e_valid && ~e_expired && (e_tag == rs_tag);  // slot holds this line
     wire own_match  = line_match && (e_hart == res_hart_id);      // ...reserved by this hart

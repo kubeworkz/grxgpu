@@ -25,6 +25,7 @@ all:
 	$(MAKE) -C fsqrt_unit
 	$(MAKE) -C fcvt_unit
 	$(MAKE) -C fdivsqrt_unit
+	$(MAKE) -C amo_unit
 
 run:
 	$(MAKE) -C generic_queue run
@@ -53,6 +54,7 @@ run:
 	$(MAKE) -C fsqrt_unit run
 	$(MAKE) -C fcvt_unit run
 	$(MAKE) -C fdivsqrt_unit run
+	$(MAKE) -C amo_unit run
 
 # T0 JTAG debug path. RV32-only: the boot image is RV32 and the SRAM/result
 # map assumes 32-bit addressing, so the catalog lane that runs it is pinned to
@@ -149,4 +151,5 @@ clean:
 	$(MAKE) -C fsqrt_unit clean
 	$(MAKE) -C fcvt_unit clean
 	$(MAKE) -C fdivsqrt_unit clean
+	$(MAKE) -C amo_unit clean
 	$(MAKE) -C t0_dbg clean
