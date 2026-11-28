@@ -23,7 +23,7 @@ tests:
   - id: hw-amo
     via: script
     run: "make -C hw/unittest/amo_unit run"
-    touches: [hw/rtl/cache, hw/rtl/VX_gpu_pkg.sv, hw/rtl/libs, hw/unittest/amo_unit]
+    touches: [VX_config.toml, hw/rtl/cache, hw/rtl/VX_gpu_pkg.sv, hw/rtl/libs, hw/unittest/Makefile, hw/unittest/common.mk, hw/unittest/amo_unit]
   - id: hw-fpu
     via: script
     run: "make -C hw/unittest run-fpu"
