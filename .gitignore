@@ -3,6 +3,15 @@
 !/.github/
 !/.github/**
 !/.gitattributes
+
+# The hierarchical-build overlay - the facade over VX_cluster, the flat
+# block it compiles, and the script that stages both - is source, not build
+# output. Git will not re-include a path inside an excluded directory, so
+# open the directory and leave only its restore payload ignored.
+!/.buildonly/
+/.buildonly/*
+!/.buildonly/*.sv
+!/.buildonly/*.sh
 # Archived/superseded docs — kept on disk, never tracked
 docs/archives/
 

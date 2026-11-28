@@ -499,6 +499,7 @@ extern "C" vx_result_t vx_device_dump_perf(vx_device_h hdevice, FILE *stream) {
         if (rep_core >= num_cores)
           continue;
         uint64_t r = 0, w = 0, mr = 0, mw = 0, ev = 0, bst = 0, mst = 0;
+        uint64_t fc = 0, flt = 0, fwt = 0, fclt = 0;
         CHECK_ERR(vx_device_mpm_query(hdevice, mpm_class, VX_CSR_MPM_DCACHE_READS, rep_core, &r), { return err; });
         CHECK_ERR(vx_device_mpm_query(hdevice, mpm_class, VX_CSR_MPM_DCACHE_WRITES, rep_core, &w), { return err; });
         CHECK_ERR(vx_device_mpm_query(hdevice, mpm_class, VX_CSR_MPM_DCACHE_MISS_R, rep_core, &mr), { return err; });
@@ -506,8 +507,14 @@ extern "C" vx_result_t vx_device_dump_perf(vx_device_h hdevice, FILE *stream) {
         CHECK_ERR(vx_device_mpm_query(hdevice, mpm_class, VX_CSR_MPM_DCACHE_EVICTS, rep_core, &ev), { return err; });
         CHECK_ERR(vx_device_mpm_query(hdevice, mpm_class, VX_CSR_MPM_DCACHE_BANK_ST, rep_core, &bst), { return err; });
         CHECK_ERR(vx_device_mpm_query(hdevice, mpm_class, VX_CSR_MPM_DCACHE_MSHR_ST, rep_core, &mst), { return err; });
+        CHECK_ERR(vx_device_mpm_query(hdevice, mpm_class, VX_CSR_MPM_DCACHE_FENCES, rep_core, &fc), { return err; });
+        CHECK_ERR(vx_device_mpm_query(hdevice, mpm_class, VX_CSR_MPM_DCACHE_FLUSH_LT, rep_core, &flt), { return err; });
+        CHECK_ERR(vx_device_mpm_query(hdevice, mpm_class, VX_CSR_MPM_DCACHE_FLUSH_WALK_LT, rep_core, &fwt), { return err; });
+        CHECK_ERR(vx_device_mpm_query(hdevice, mpm_class, VX_CSR_MPM_DCACHE_FENCE_LT, rep_core, &fclt), { return err; });
         perf_print_core(stream, rep_core, "dcache: reqs=%" PRIu64 ", miss_r=%" PRIu64 " (hit=%d%%), miss_w=%" PRIu64 " (hit=%d%%), evicts=%" PRIu64 ", bank_st=%" PRIu64 " (utility=%d%%)",
                         r + w, mr, calc_ratio(mr, r), mw, calc_ratio(mw, w), ev, bst, calc_utility(r + w, bst));
+        perf_print_core(stream, rep_core, "dcache: fences=%" PRIu64 " (fence_lt=%" PRIu64 ", avg=%" PRIu64 "), flush_lt=%" PRIu64 ", walk_lt=%" PRIu64,
+                        fc, fclt, fc ? fclt / fc : 0, flt, fwt);
       }
     } else {
       perf_print(stream, "dcache: disabled");

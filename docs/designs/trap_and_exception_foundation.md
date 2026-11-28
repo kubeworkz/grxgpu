@@ -44,7 +44,7 @@ only the read mux and routes writes back via `sched_csr_if`
 SimX mirrors this exactly:
 [`scheduler.cpp:271-298`](../../sim/simx/scheduler.cpp#L271) defines
 `raise_trap`, `mret`, `trigger_ecall(wid,pc)`, `trigger_ebreak(wid,pc)`;
-[`alu_unit.cpp:363-366`](../../sim/simx/alu_unit.cpp#L363) dispatches
+[`alu_unit.cpp:375-379`](../../sim/simx/alu_unit.cpp#L375) dispatches
 ecall/ebreak/mret per warp. The old "kill all warps"
 (`active_warps_.reset()`) hack is gone.
 

@@ -19,6 +19,63 @@ When excuting, Blackbox needs to recompile the driver if the desired architectur
 It tracks the latest configuration in a file under the current directory blackbox.<driver>.cache.
 To avoid having to rebuild the driver all the time, Blackbox checks if the latest cached configuration matches the current.
 
+## Building the Verilator Drivers
+
+The Verilator-based builds — `rtlsim`, `opaesim`, `xrtsim`, and each block test
+under `hw/unittest/` — run in two separate steps:
+
+1. **Verilate.** Verilator parses the RTL and writes the C++ model, plus its own
+   makefile `V<top>.mk`, into an object directory: `rtlsim.obj_dir` and
+   `librtlsim.so.obj_dir` for rtlsim, `libopae-c-sim.so.obj_dir` and
+   `libxrtsim.so.obj_dir` for the FPGA shims, and `obj_dir` for a block test.
+2. **Compile and link.** make runs that generated makefile inside the object
+   directory to compile the model and link the driver or simulator library.
+
+`make` runs both steps. To run only the first, which is the expensive one, use
+the `verilate` target:
+
+    $ make -C sim/rtlsim verilate
+    $ make -C sim/opaesim verilate
+    $ make -C hw/unittest/generic_queue verilate
+
+This prepares a model once per configuration, so a later build or a test loop
+does not pay for verilation again. `verilate` never compiles or links.
+
+### Resuming an Interrupted Build
+
+The two steps are deliberately kept apart so that a build that is killed
+resumes where it stopped. Do not invoke `verilator --build` by hand: it
+re-verilates on every run and drops the objects of the previous one.
+
+- Verilation is skipped while `V<top>.mk` is newer than the inputs it was
+  generated from: the RTL, the host sources, and, for the sim drivers, the
+  flag stamp.
+- Compilation is driven by make inside the object directory, so only
+  translation units that are missing or older than their sources are rebuilt.
+- The link is redone from those objects on every build, and the artifact is
+  deleted first, so a binary truncated by a killed link is never kept.
+
+Re-run the same command after an interruption and it continues from the
+surviving objects. `blackbox.sh` builds its drivers through the same targets
+(the runtime Makefiles under `sw/runtime/` call into `sim/`), so an interrupted
+blackbox run resumes the same way.
+
+### Forcing a Rebuild
+
+Prefer changing the request over deleting files:
+
+- For `rtlsim`, `opaesim`, and `xrtsim`, a changed flag set updates the
+  configuration stamp (`rtlsim_config.stamp` and friends), which discards the
+  object directory before re-verilating. The stamp is compared by content, so
+  passing the same flags again does not trigger a rebuild.
+- Block tests under `hw/unittest/` have no flag stamp; run `make clean` there
+  before changing `CONFIGS` or `PARAMS`.
+- Deleting only the linked artifact does not recompile anything: the objects
+  are current, so the next build just links them again.
+
+`THREADS=<n>` caps the parallelism of both steps, which matters on machines
+with many cores but little RAM (see [simulation.md](simulation.md)).
+
 ## Running Benchmarks
 
 The Vortex test suite is located under the /test/ folder

@@ -24,6 +24,13 @@ def ambient_xlen():
     return int(os.environ.get("VX_XLEN", "32"))
 
 
+def _default_command_timeout():
+    try:
+        return int(os.environ.get("VX_CI_COMMAND_TIMEOUT", "3600"))
+    except ValueError:
+        return 3600
+
+
 def pytest_addoption(parser):
     # perf_gate record-mode: measure and rewrite the golden cycle
     # baselines instead of asserting against them. Human-run + reviewed; CI
@@ -31,6 +38,12 @@ def pytest_addoption(parser):
     parser.addoption("--update-baselines", action="store_true", default=False,
                      help="perf_gate: record measured cycles into "
                           "ci/perf/baselines/ instead of comparing")
+    parser.addoption("--command-timeout", type=int,
+                     default=_default_command_timeout(),
+                     help="per-command wall-clock limit in seconds (0 disables); "
+                          "each run, parity/perf leg, and fixture "
+                          "clean/build command gets its own budget; default "
+                          "3600 or $VX_CI_COMMAND_TIMEOUT")
 
 
 def pytest_sessionfinish(session):
@@ -75,7 +88,7 @@ _BUILT = set()
 
 
 @pytest.fixture
-def sim_build(case):
+def sim_build(case, request):
     if not case.needs_sim:        # driverless via:script cases self-build
         return None
     # blackbox cases build their own sim at run time with the FULL flag set
@@ -90,12 +103,21 @@ def sim_build(case):
         return None
     key = case.build_key()
     if key not in _BUILT:
+        command_timeout = request.config.getoption("--command-timeout")
+        if command_timeout <= 0:
+            command_timeout = None
         # Clean first: a new CONFIGS must not reuse the previous config's obj_dir
         # (stale Verilator state -> spurious lint errors). Legacy does the same:
         # `make -C sim/<d> clean && CONFIGS=… make -C sim/<d>`.
-        tc.execute(["make", "-C", case.sim_dir, "clean"])
-        argv, env = case.build_command(ambient_xlen())
-        rc = tc.execute(argv, env)
+        cmd = ["make", "-C", case.sim_dir, "clean"]
+        try:
+            tc.execute(cmd, timeout=command_timeout)
+            argv, env = case.build_command(ambient_xlen())
+            cmd = argv
+            rc = tc.execute(argv, env, timeout=command_timeout)
+        except tc.CommandTimeout:
+            pytest.fail("sim build timed out after {}s: {}".format(
+                command_timeout, " ".join(cmd)))
         if rc != 0:
             pytest.fail("sim build failed (exit {}): {}".format(rc, " ".join(argv)))
         _BUILT.add(key)

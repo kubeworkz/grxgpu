@@ -30,8 +30,10 @@ interface VX_warp_ctl_if import VX_gpu_pkg::*; ();
     join_t    sjoin;
     barrier_t bar;
 
-    // Per-warp pipeline drain status (from scheduler)
-    wire [`VX_CFG_NUM_WARPS-1:0] warp_pending_alm_empty;
+    // Per-warp count of issued-but-uncommitted instructions. WSYNC needs the count
+    // rather than the almost-empty flag, because the count covers the WSYNCs
+    // themselves, which must be discounted when testing that the warp has drained.
+    wire [`VX_CFG_NUM_WARPS-1:0][15:0] warp_pending_size;
 
     // LSU memory-scheduler drained signal (AND-reduced across all LSU blocks).
     // Used by VX_wctl_unit to gate BAR (both vx_barrier and vx_barrier_arrive)
@@ -67,7 +69,7 @@ interface VX_warp_ctl_if import VX_gpu_pkg::*; ();
         output bar_addr,
         input  bar_phase,
 
-        input  warp_pending_alm_empty,
+        input  warp_pending_size,
         input  lsu_sched_drained,
 
         output dvstack_wid,
@@ -93,7 +95,7 @@ interface VX_warp_ctl_if import VX_gpu_pkg::*; ();
         input  bar_addr,
         output bar_phase,
 
-        output warp_pending_alm_empty,
+        output warp_pending_size,
         output lsu_sched_drained,
 
         input dvstack_wid,

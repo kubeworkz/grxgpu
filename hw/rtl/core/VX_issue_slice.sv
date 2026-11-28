@@ -22,6 +22,9 @@ module VX_issue_slice import VX_gpu_pkg::*; #(
     input wire              clk,
     input wire              reset,
 
+    input wire [`VX_CFG_NUM_WARPS-1:0][`VX_CFG_NUM_THREADS-1:0] thread_masks,
+    input wire [`VX_CFG_NUM_WARPS-1:0][MASK_TAG_W-1:0] mask_op_gen,
+
 `ifdef PERF_ENABLE
     output issue_perf_t     issue_perf,
 `endif
@@ -90,6 +93,8 @@ module VX_issue_slice import VX_gpu_pkg::*; #(
         .perf_stalls    (issue_perf.dispatch_stalls),
         .perf_instrs    (issue_perf.dispatch_instrs),
     `endif
+        .thread_masks   (thread_masks),
+        .mask_op_gen    (mask_op_gen),
         .operands_if    (operands_if),
         .fu_release     (fu_release),
         .dispatch_if    (dispatch_if)

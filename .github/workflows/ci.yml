@@ -41,11 +41,58 @@ env:
   CCACHE_DISABLE: 1
 
 jobs:
+  # A push to a branch that already has an open pull request validates the same
+  # content twice: the PR run covers the merge ref and is the check that gates
+  # the merge, so the push matrix only duplicates it. Each run schedules the
+  # whole cell matrix and the account runs 20 jobs at a time, so the duplicates
+  # never run in parallel - whichever queues its cells first holds every slot for
+  # hours while the other never schedules a single test cell. A fork PR is not
+  # counted: its own workflow needs maintainer approval and may never run.
+  #
+  # The lookup is a job of its own so that reading pull requests does not widen
+  # the token of the setup/build/test cells, which need nothing beyond checkout.
+  pr-coverage:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-22.04
+    permissions:
+      pull-requests: read
+    outputs:
+      number: ${{ steps.lookup.outputs.number }}
+    steps:
+      - name: Find an open pull request for this branch
+        id: lookup
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Fail-open: an API hiccup must schedule the matrix, not skip it.
+          PR=$(python3 - "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME" "$GITHUB_API_URL" <<'PY'
+          import json, os, sys, urllib.request
+          repo, branch, api = sys.argv[1:4]
+          try:
+              req = urllib.request.Request("%s/repos/%s/pulls?state=open&per_page=100" % (api.rstrip("/"), repo))
+              req.add_header("Authorization", "Bearer " + os.environ["GH_TOKEN"])
+              req.add_header("Accept", "application/vnd.github+json")
+              for pr in json.load(urllib.request.urlopen(req, timeout=30)):
+                  head = pr["head"]
+                  if head["ref"] == branch and (head.get("repo") or {}).get("full_name") == repo:
+                      print(pr["number"])
+                      break
+          except Exception:
+              pass
+          PY
+          ) || true
+          echo "number=$PR" >> "$GITHUB_OUTPUT"
   # ---------------------------------------------------------------------------
   # plan — read the test cases and emit the (category x driver x xlen) matrix
   # for this event. No build env; just PyYAML.
   # ---------------------------------------------------------------------------
   plan:
+    needs: [pr-coverage]
+    # always() because the lookup is advisory: it is skipped on every event
+    # that is not a push, and a failed lookup must still plan the full matrix.
+    # The jobs below repeat that guard with !cancelled(), because a skipped
+    # ancestor suppresses every descendant whatever its own condition says.
+    if: always()
     runs-on: ubuntu-22.04
     outputs:
       cells: ${{ steps.q.outputs.cells }}
@@ -98,8 +145,24 @@ jobs:
           TOOLCHAIN_CACHE_HIT: ${{ steps.tc.outputs.cache-hit }}
           PUSH_BEFORE: ${{ github.event.before }}
           PR_BASE: ${{ github.event.pull_request.base.sha }}
+          COVERED_PR: ${{ needs.pr-coverage.outputs.number }}
         run: |
           set -euo pipefail
+          # pr-coverage only reports a number when a push is already covered by an
+          # open same-repository pull request; that run is the check that gates the
+          # merge, so this matrix would only duplicate it. Empty means "schedule".
+          if [ -n "${COVERED_PR:-}" ]; then
+            echo "::notice title=CI test matrix skipped::PR #$COVERED_PR already validates $GITHUB_REF_NAME"
+            echo "### CI: test matrix skipped" >> "$GITHUB_STEP_SUMMARY"
+            echo "PR #$COVERED_PR covers this branch; its pull_request run owns the checks." >> "$GITHUB_STEP_SUMMARY"
+            {
+              echo "cells=[]"
+              echo "run=false"
+              echo "profile=lite"
+              echo "sims="
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           # Driver/tier policy by event (workflow_dispatch overrides).
           case "$EVENT" in
             schedule)          DRIVERS=""; TIER="" ;;                        # everything
@@ -184,13 +247,17 @@ jobs:
         run: ./ci/check_tracked_artifacts.sh
       - name: Reject CRLF blobs in scripts and LF-pinned files
         run: ./ci/check_lf_endings.sh
+      - name: Check overlay facade port directions
+        run: python3 ci/check_overlay_facades.py
+      - name: Check cited docs path:line ranges
+        run: python3 ci/check_docs.py docs
       # The runner's Python is externally managed (PEP 668) and has no
       # ensurepip, so both a system install and `python3 -m venv` fail. A
       # throwaway --target directory needs neither root nor a venv.
       - name: Test the repo gates
         run: |
           python3 -m pip install --quiet --target "$RUNNER_TEMP/pytest" pytest
-          PYTHONPATH="$RUNNER_TEMP/pytest" python3 -m pytest ci/test_repo_gates.py -q
+          PYTHONPATH="$RUNNER_TEMP/pytest" python3 -m pytest ci/test_repo_gates.py ci/test_check_docs.py -q
 
   # ---------------------------------------------------------------------------
   # setup — warm the shared toolchain + third_party caches ONCE (prepare=true),
@@ -199,7 +266,9 @@ jobs:
   # ---------------------------------------------------------------------------
   setup:
     needs: plan
-    if: needs.plan.outputs.run == 'true'
+    # !cancelled() because the lookup above is skipped off the push path and
+    # would otherwise suppress this whole chain; the run output is the gate.
+    if: ${{ !cancelled() && needs.plan.outputs.run == 'true' }}
     runs-on: ubuntu-22.04
     steps:
       # Self-hosted runners share one workspace across jobs and workflows; a
@@ -223,7 +292,7 @@ jobs:
   # ---------------------------------------------------------------------------
   build:
     needs: [plan, setup]
-    if: needs.plan.outputs.run == 'true'
+    if: ${{ !cancelled() && needs.plan.outputs.run == 'true' && needs.setup.result == 'success' }}
     strategy:
       matrix:
         xlen: [32, 64]
@@ -266,7 +335,7 @@ jobs:
   # ---------------------------------------------------------------------------
   tests:
     needs: [plan, build]
-    if: needs.plan.outputs.run == 'true'
+    if: ${{ !cancelled() && needs.plan.outputs.run == 'true' && needs.build.result == 'success' }}
     strategy:
       fail-fast: false
       matrix:
@@ -333,7 +402,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: junit-${{ matrix.category }}-${{ matrix.driver }}-${{ matrix.xlen }}
+          name: junit-${{ matrix.category }}-${{ matrix.driver }}-${{ matrix.xlen }}${{ matrix.shards && format('-shard{0}of{1}', matrix.shard, matrix.shards) || '' }}
           path: junit-*.xml
 
   complete:

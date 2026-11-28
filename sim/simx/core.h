@@ -68,6 +68,7 @@ public:
     uint64_t stores = 0;
     uint64_t ifetch_latency = 0;
     uint64_t load_latency = 0;
+    uint64_t fence_cycles = 0;
   };
 
   std::vector<SimChannel<MemReq>> icache_req_out;

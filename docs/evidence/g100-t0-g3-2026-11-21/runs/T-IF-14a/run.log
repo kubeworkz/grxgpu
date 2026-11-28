@@ -1,0 +1,45 @@
+T-IF-14a corpus regeneration
+date: 2026-11-21T01:17:38Z
+tier: L0
+seed: 50
+workload source pin: ff550c27570f17b0c8242be42257043d3de4ffa7
+workload tree: cf6b2f8657fcba985dd9007fa403231c3d800301
+T0 config hash: cd5336232fa98454009574121e0b25cc98feb3530a50675874ba98738c154cda
+generator: /mnt/c/Users/kubew/.freebuff/worktrees/47822b9e/grxgpu/docs/evidence/g100-t0-g2-2026-11-21/golden/gen_golden.cpp
+8ae98a8c455dabc5e58f6354bff60c2f39e1103194adf07a045e3bfef5a54dc6  /mnt/c/Users/kubew/.freebuff/worktrees/47822b9e/grxgpu/docs/evidence/g100-t0-g2-2026-11-21/golden/gen_golden.cpp
+g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+ldd (Ubuntu GLIBC 2.39-0ubuntu8.12) 2.39
+6.18.33.2-microsoft-standard-WSL2
+--- build ---
+--- generate ---
+M=64 N=64 K=64 A=4096 B=4096 C=4096 words
+M=64 N=64 K=512 A=32768 B=32768 C=4096 words
+--- compare to frozen hashes ---
+g100t0_sgemm_m64n64k64_A.fp16: OK
+g100t0_sgemm_m64n64k64_B.fp16: OK
+g100t0_sgemm_m64n64k64_C.fp32: OK
+g100t0_sgemm_m64n64k512_A.fp16: OK
+g100t0_sgemm_m64n64k512_B.fp16: OK
+g100t0_sgemm_m64n64k512_C.fp32: OK
+--- byte compare ---
+cmp A.fp16: identical
+cmp B.fp16: identical
+cmp C.fp32: identical
+--- regenerated hashes ---
+985ef83fe0802e90a08fe2023822dc0b31e83aeb66df9051f688c3e694b468a8  /tmp/t-if-14a.06MKFo/g100t0_sgemm_m64n64k64_A.fp16
+ad975434b9327b5dfe37f36e7e09e703253dce2bb80ece322797a17ff9356270  /tmp/t-if-14a.06MKFo/g100t0_sgemm_m64n64k64_B.fp16
+73a1a0eacd81d64cd451919493da3d9187f418b563e4c52b1f6a8ba68b5ad240  /tmp/t-if-14a.06MKFo/g100t0_sgemm_m64n64k64_C.fp32
+70dcc14a134e620c9b5d4be7dbbd01a64e6bb5efdf4fa8b6f432533bd735cfac  /tmp/t-if-14a.06MKFo/g100t0_sgemm_m64n64k512_A.fp16
+59fb1324bbfcff9c943fa7ab25b4a2ce0db7be7dec2787eb41c71d4552759cb9  /tmp/t-if-14a.06MKFo/g100t0_sgemm_m64n64k512_B.fp16
+d07043551fa7efeae970533f5e86c02af8062ab5bed82e38c68e161fe67628c9  /tmp/t-if-14a.06MKFo/g100t0_sgemm_m64n64k512_C.fp32
+--- frozen corpus check ---
+g100t0_sgemm_m64n64k64_A.fp16: OK
+g100t0_sgemm_m64n64k64_B.fp16: OK
+g100t0_sgemm_m64n64k64_C.fp32: OK
+g100t0_sgemm_m64n64k512_A.fp16: OK
+g100t0_sgemm_m64n64k512_B.fp16: OK
+g100t0_sgemm_m64n64k512_C.fp32: OK
+gen_golden.cpp: OK
+verify_golden.py: OK
+verify.log: OK
+T-IF-14a regeneration and hash match: PASS

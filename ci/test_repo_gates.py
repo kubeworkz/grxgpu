@@ -8,9 +8,11 @@ the tests drive them through real git state rather than mocking it:
 
   ci/check_tracked_artifacts.sh  build output and machine binaries
   ci/check_lf_endings.sh         CRLF blobs in scripts and pinned files
+  ci/check_docs.py               cited path:line ranges and their text
+  ci/check_overlay_facades.py    overlay facade drives the side its flat port declares
   ci/check_config_boundary.sh    sw/ never includes the hardware config
   ci/check_sw_sim_boundary.sh    sw/ and sim/+hw/ stay isolated
-  ci/hooks/pre-commit            both hygiene gates on the staged paths
+  ci/hooks/pre-commit            the gates above on the staged paths
   ci/install_hooks.sh            core.hooksPath enablement
   ci/binary_magic.py             the batch parser behind the staged scan
 
@@ -35,6 +37,8 @@ COPIED = (
     "ci/check_config_boundary.sh",
     "ci/check_sw_sim_boundary.sh",
     "ci/binary_magic.py",
+    "ci/check_docs.py",
+    "ci/check_overlay_facades.py",
     "ci/hooks/pre-commit",
     "ci/install_hooks.sh",
     ".gitattributes",
@@ -116,6 +120,10 @@ def _config_boundary(repo):
 
 def _sw_sim_boundary(repo):
     return _run([BASH, str(Path(repo) / "ci/check_sw_sim_boundary.sh")], repo)
+
+
+def _overlay(repo, *args):
+    return _run([sys.executable, str(Path(repo) / "ci/check_overlay_facades.py"), *args], repo)
 
 
 # --------------------------------------------------------------------------- #
@@ -281,6 +289,41 @@ def test_hook_passes_a_clean_tree(repo):
     assert result.returncode == 0, result.stdout + result.stderr
 
 
+def _stale_citation(repo, line):
+    _write(repo, "docs/target.md", "first line\nsecond line has the phrase\n")
+    _write(repo, "docs/note.md", 'See `target.md:{}` (label, "the phrase").\n'.format(line))
+    _git(repo, "add", "docs")
+
+
+def test_hook_blocks_a_staged_stale_citation(repo):
+    _stale_citation(repo, 1)
+
+    result = _hook(repo)
+
+    assert result.returncode == 1
+    assert "range does not contain the quoted text" in result.stdout
+
+
+def test_hook_passes_a_staged_valid_citation(repo):
+    _stale_citation(repo, 2)
+
+    result = _hook(repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_hook_full_scan_checks_docs_citations(repo):
+    _stale_citation(repo, 1)
+    _write(repo, ".gitattributes", (ROOT / ".gitattributes").read_text() + "# trigger\n")
+    _git(repo, "add", ".gitattributes")
+
+    result = _hook(repo)
+
+    assert result.returncode == 1
+    assert "scanning the full tree" in result.stdout
+    assert "range does not contain the quoted text" in result.stdout
+
+
 def test_install_hooks_is_idempotent(repo):
     first = _run([BASH, str(Path(repo) / "ci/install_hooks.sh")], repo)
     assert first.returncode == 0
@@ -433,3 +476,175 @@ def test_sw_sim_boundary_rejects_a_cross_layer_makefile_flag(repo):
 
     assert result.returncode == 1
     assert "Makefile" in result.stderr
+
+
+# A facade owns the interface, so an output of the flat block is driven outward
+# and an input is read inward. Reversing either is the bug the gate exists for,
+# and it still elaborates.
+FLAT_MODULE = """module {block}_flat (
+    output wire [L2_MEM_PORTS-1:0] mem_bus_req_valid,
+    output wire [L2_MEM_PORTS-1:0] mem_bus_rsp_ready,
+    input  wire [L2_MEM_PORTS-1:0] mem_bus_req_ready,
+    input  wire [L2_MEM_PORTS-1:0] mem_bus_rsp_valid
+);
+endmodule
+"""
+
+CORRECT_ASSIGNS = """    assign mem_bus_if[i].req_valid = mem_bus_req_valid[i];
+    assign mem_bus_req_ready[i]    = mem_bus_if[i].req_ready;
+    assign mem_bus_rsp_valid[i]    = mem_bus_if[i].rsp_valid;
+    assign mem_bus_if[i].rsp_ready = mem_bus_rsp_ready[i];
+"""
+
+FACADE_MODULE = """module {facade} ();
+for (genvar i = 0; i < L2_MEM_PORTS; ++i) begin : g_mem_bus
+{assigns}end
+{block}_flat #(.CLUSTER_ID(0)) flat ();
+endmodule
+"""
+
+
+def _pair(repo, block, facade, assigns=CORRECT_ASSIGNS):
+    """Install one overlay pair; the facade is found by its flat instantiation."""
+    _write(repo, ".buildonly/{}_flat.sv".format(block), FLAT_MODULE.format(block=block))
+    _write(
+        repo,
+        ".buildonly/{}.sv".format(facade),
+        FACADE_MODULE.format(facade=facade, block=block, assigns=assigns),
+    )
+
+
+def _two_pairs(repo, assigns=CORRECT_ASSIGNS):
+    _pair(repo, "VX_cluster", "VX_cluster", assigns)
+    _pair(repo, "VX_l3cache", "VX_l3cache_bridge", assigns)
+
+
+def test_overlay_facades_pass_on_matching_directions(repo):
+    _two_pairs(repo)
+
+    result = _overlay(repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "OK" in result.stdout
+    assert "2 pair(s)" in result.stdout
+    assert "8 assignment(s)" in result.stdout
+
+
+def test_overlay_facades_discover_a_third_pair(repo):
+    _two_pairs(repo)
+    _pair(repo, "VX_third", "VX_third")
+
+    result = _overlay(repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "3 pair(s)" in result.stdout
+    assert "12 assignment(s)" in result.stdout
+
+
+def test_overlay_facades_reject_an_inverted_request(repo):
+    _pair(
+        repo,
+        "VX_third",
+        "VX_third",
+        CORRECT_ASSIGNS.replace(
+            "    assign mem_bus_if[i].req_valid = mem_bus_req_valid[i];",
+            "    assign mem_bus_req_valid[i]    = mem_bus_if[i].req_valid;",
+        ),
+    )
+
+    result = _overlay(repo)
+
+    assert result.returncode == 1
+    output = result.stdout + result.stderr
+    assert "mem_bus_req_valid is an output" in output
+    assert "VX_third.sv:3" in output
+
+
+def test_overlay_facades_reject_an_inverted_response_leg(repo):
+    _pair(
+        repo,
+        "VX_third",
+        "VX_third",
+        CORRECT_ASSIGNS.replace(
+            "    assign mem_bus_req_ready[i]    = mem_bus_if[i].req_ready;",
+            "    assign mem_bus_if[i].req_ready = mem_bus_req_ready[i];",
+        ),
+    )
+
+    result = _overlay(repo)
+
+    assert result.returncode == 1
+    assert "mem_bus_req_ready is an input" in result.stdout + result.stderr
+
+
+def test_overlay_facades_reject_a_flat_without_a_facade(repo):
+    _two_pairs(repo)
+    _write(repo, ".buildonly/VX_orphan_flat.sv", FLAT_MODULE.format(block="VX_orphan"))
+
+    result = _overlay(repo)
+
+    assert result.returncode == 1
+    assert "has no facade" in result.stdout + result.stderr
+
+
+def test_overlay_facades_reject_two_flats_with_the_same_module(repo):
+    _two_pairs(repo)
+    _write(
+        repo,
+        ".buildonly/VX_cluster_copy_flat.sv",
+        FLAT_MODULE.format(block="VX_cluster"),
+    )
+
+    result = _overlay(repo)
+
+    assert result.returncode == 1
+    assert "only one of them could be checked" in result.stdout + result.stderr
+
+
+def test_overlay_facades_reject_a_facade_without_its_flat(repo):
+    _write(
+        repo,
+        ".buildonly/VX_ghost.sv",
+        "module VX_ghost ();\n"
+        "assign mem_bus_if[i].req_valid = mem_bus_req_valid[i];\n"
+        "VX_ghost_flat #(.CLUSTER_ID(0)) flat ();\n"
+        "endmodule\n",
+    )
+
+    result = _overlay(repo)
+
+    assert result.returncode == 1
+    assert "VX_ghost_flat.sv is not in the overlay directory" in result.stdout + result.stderr
+
+
+def test_overlay_facades_reject_a_facade_that_wraps_nothing(repo):
+    _write(
+        repo,
+        ".buildonly/VX_cluster.sv",
+        "module VX_cluster ();\n"
+        "assign mem_bus_if[i].req_valid = mem_bus_req_valid[i];\n"
+        "endmodule\n",
+    )
+
+    result = _overlay(repo)
+
+    assert result.returncode == 1
+    assert "wraps no *_flat block" in result.stdout + result.stderr
+
+
+def test_overlay_facades_fail_closed_when_nothing_parses(repo):
+    _two_pairs(repo, assigns="")
+
+    result = _overlay(repo)
+
+    assert result.returncode == 1
+    assert "nothing was verified" in result.stdout + result.stderr
+
+
+def test_overlay_facades_fail_closed_without_a_flat_block(repo):
+    _write(repo, ".buildonly/VX_cluster.sv", "module VX_cluster ();\nendmodule\n")
+
+    result = _overlay(repo)
+
+    assert result.returncode == 1
+    assert "no *_flat.sv block" in result.stdout + result.stderr

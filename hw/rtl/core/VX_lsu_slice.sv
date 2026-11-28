@@ -28,6 +28,10 @@ module VX_lsu_slice import VX_gpu_pkg::*; #(
     // Outputs
     VX_result_if.master     result_if,
 
+`ifdef PERF_ENABLE
+    output wire [PERF_CTR_BITS-1:0] perf_fence_cycles,
+`endif
+
     // The slice exposes the memory-client side as a VX_lsu_sched_if master;
     // the parent wires it into VX_lsu_scheduler.
     VX_lsu_sched_if.master  client_if
@@ -160,6 +164,20 @@ module VX_lsu_slice import VX_gpu_pkg::*; #(
             end
         end
     end
+
+`ifdef PERF_ENABLE
+    // The lock spans from the fence request leaving this slice to the fence
+    // response returning, so it measures the block stall a fence causes.
+    reg [PERF_CTR_BITS-1:0] perf_fence_cycles_r;
+    always @(posedge clk) begin
+        if (reset) begin
+            perf_fence_cycles_r <= '0;
+        end else if (fence_lock) begin
+            perf_fence_cycles_r <= perf_fence_cycles_r + PERF_CTR_BITS'(1);
+        end
+    end
+    assign perf_fence_cycles = perf_fence_cycles_r;
+`endif
 
     wire req_skip = req_is_fence && ~execute_if.data.header.eop;
     wire no_rsp_buf_enable = (mem_req_rw && ~execute_if.data.header.wb) || req_skip;

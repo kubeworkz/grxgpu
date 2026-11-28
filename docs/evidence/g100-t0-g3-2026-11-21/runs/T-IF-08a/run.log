@@ -1,0 +1,30 @@
+T-IF-08a host DXA encoder evidence
+utc: 2026-11-21T01:28:47Z
+--- compiler ---
+g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+--- source hashes ---
+9275008fe148dc4d2926c7891af1acd340fd1a8d58858568b1d832311e1eb0d5  main.cpp
+981a8b306367f9ad3650a5c162500214adbd6caf8442a70523a9739761cd0b27  stub/vortex.h
+349f9e1e9309705cd209d4263edad21ff9ef1e73c9677740a560d94b113f7543  sw/runtime/include/dxa.h
+b172820148530228a925d96252141e55c6ba3d84a9c7375fb0bc49f46d93089d  sw/common/dxa_meta.h
+1647fdc48564b48b06adde771ea9c6039ef49a759801726819855447d1730ac8  sw/VX_types.h
+efc15a7873a1244e8fd93088e5e21a2cedad7e48dc311046143e20210f8bf37b  hw/rtl/dxa/VX_dxa_pkg.sv
+--- build ---
+--- run ---
+PASS K descriptor A (row-major): 10 writes
+PASS K descriptor A decode: decoded base/sizes/stride/meta/tiles/cfill
+PASS K descriptor B (base words): 10 writes
+PASS K descriptor B decode: decoded base/sizes/stride/meta/tiles/cfill
+PASS K descriptor B (BlockMajor meta): 1 writes
+PASS K descriptor B layout decode: rank/elem/layout
+PASS K descriptor B (tile geometry): 1 writes
+PASS K descriptor B tile geometry decode: tcN
+PASS K descriptor A (row-major): 10 writes
+PASS K descriptor A decode: decoded base/sizes/stride/meta/tiles/cfill
+PASS K descriptor B (base words): 10 writes
+PASS K descriptor B decode: decoded base/sizes/stride/meta/tiles/cfill
+PASS K descriptor B (BlockMajor meta): 1 writes
+PASS K descriptor B layout decode: rank/elem/layout
+PASS K descriptor B (tile geometry): 1 writes
+PASS K descriptor B tile geometry decode: tcN
+PASS T-IF-08a: frozen A/B descriptors at K=64 and K=512; 44 expected DCR writes, 8 decoded descriptor checks, 0 mismatches

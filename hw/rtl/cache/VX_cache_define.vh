@@ -88,6 +88,9 @@
     `PERF_COUNTER_ADD (dst, src, bank_stalls, PERF_CTR_BITS, count, (count > 1)) \
     `PERF_COUNTER_ADD (dst, src, mshr_stalls, PERF_CTR_BITS, count, (count > 1)) \
     `PERF_COUNTER_ADD (dst, src, mem_stalls, PERF_CTR_BITS, count, (count > 1)) \
+    `PERF_COUNTER_ADD (dst, src, fences, PERF_CTR_BITS, count, (count > 1)) \
+    `PERF_COUNTER_ADD (dst, src, flush_lt, PERF_CTR_BITS, count, (count > 1)) \
+    `PERF_COUNTER_ADD (dst, src, flush_walk_lt, PERF_CTR_BITS, count, (count > 1)) \
     `PERF_COUNTER_ADD (dst, src, crsp_stalls, PERF_CTR_BITS, count, (count > 1))
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -202,11 +202,15 @@ fi
 
 copy_files "$SOURCE_DIR" "$CURRENT_DIR"
 
-# The YAML test cases are a subdirectory under ci/, which copy_files' file-level
-# ci/ copy doesn't recurse into (the harness .py files ride along with it).
+# The YAML test cases and the pre-commit hooks are subdirectories under ci/,
+# and .gitattributes is a root dotfile the file glob skips; the gate self-tests
+# run from the build tree and copy all three into a scratch repo, so they have
+# to be present there.
 if [ "$(realpath "$SOURCE_DIR")" != "$(realpath "$CURRENT_DIR")" ]; then
-    mkdir -p "$CURRENT_DIR/ci/testcases"
+    mkdir -p "$CURRENT_DIR/ci/testcases" "$CURRENT_DIR/ci/hooks"
     cp -p "$SOURCE_DIR"/ci/testcases/*.yaml "$CURRENT_DIR/ci/testcases/" 2>/dev/null || true
+    cp -p "$SOURCE_DIR"/ci/hooks/* "$CURRENT_DIR/ci/hooks/" 2>/dev/null || true
+    cp -p "$SOURCE_DIR"/.gitattributes "$CURRENT_DIR/" 2>/dev/null || true
 fi
 
 # generate header files from toml configs:

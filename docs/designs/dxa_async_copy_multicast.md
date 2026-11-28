@@ -142,7 +142,7 @@ SimObject: NoC-only (GMEM via `MemReq`/`MemRsp`, LMEM via real `MemReq`
 with `mem_block_t` payload and `flags.dxa_notify_done`/`dxa_notify_bar_id`),
 with K-major and serial multicast replay modeled. The SimX worker is a
 **flat two-step** engine over a pre-enumerated `work_list`
-([`enumerate_work_list`, `dxa_core.cpp:332`](../../sim/simx/dxa/dxa_core.cpp#L332)),
+([`enumerate_work_list`, `dxa_core.cpp:497`](../../sim/simx/dxa/dxa_core.cpp#L497)),
 not the RTL's per-stage objects — it matches RTL behavior and the three
 SimX design rules, but not module-by-module structure (see §7).
 

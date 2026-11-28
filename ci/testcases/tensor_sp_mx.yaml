@@ -35,3 +35,15 @@ tests:
   app: sgemm_tcu_sp_mx
   configs: -DVX_CFG_NUM_THREADS=8 -DVX_CFG_EXT_TCU_ENABLE -DVX_CFG_TCU_SPARSE_ENABLE -DVX_CFG_TCU_MX_ENABLE -DVX_CFG_TCU_FP8_ENABLE -DITYPE=mxfp8 -DOTYPE=fp32 -DVX_CFG_TCU_TYPE_DPI
   args: "-k32"
+
+# Symmetric sparse MX WMMA (TC_M == TC_N): the same per-uop K-half lane mask
+# must survive dispatch, so a live-mask substitution shows up as doubled
+# output columns. Sized into steady state to keep the cycle gap under 5%.
+- id: model_parity-sparse-mx-sym
+  check: model_parity
+  shape: {clusters: 1, cores: 4}
+  via: blackbox
+  touches: [hw/rtl/tcu, hw/rtl/core, sim/simx/tcu, sw/kernel/include/vx_tensor.h]
+  app: sgemm_tcu_sp_mx
+  args: -m128 -n128 -k128
+  configs: -DVX_CFG_NUM_THREADS=4 -DVX_CFG_EXT_TCU_ENABLE -DVX_CFG_TCU_SPARSE_ENABLE -DVX_CFG_TCU_MX_ENABLE -DVX_CFG_TCU_FP8_ENABLE -DITYPE=mxfp8 -DOTYPE=fp32 -DVX_CFG_TCU_TYPE_DPI

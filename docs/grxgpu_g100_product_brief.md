@@ -1,7 +1,7 @@
 # G100 Product Brief and Evidence Ledger — Discovery Scope Decision
 
-**Status:** Sponsor-approved discovery scope only; not funding approval, final SKU approval, or a production specification.
-**Version:** 0.5 — 2026-10-13
+**Status:** Discovery scope approved 2026-10-13; G0 engineering authorization recorded 2026-11-20. Not a commercial SKU approval, funding commitment, or production specification. **G0 record:** [G100 G0 Engineering Authorization](grxgpu_g100_g0_authorization.md) (commercial G0 remains on HOLD).
+**Version:** 0.6 — 2026-11-20
 **Portfolio context:** [GRXGPU Production Readiness Plan](grxgpu_production_plan.md) · [Engineering Task List, E-301/E-302](grxgpu_engineering_task_list.md)
 **System of record:** GRXGPU/Vortex source and its canonical engineering evidence workflow. This portfolio brief records scope and evidence disposition; it is not a copy of RTL, raw logs, or build outputs.
 
@@ -88,4 +88,4 @@ E-302 remains in progress: independently review/reproduce the local correctness 
 | Obtain current restricted supplier/PDK/IP/package facts if ASIC work is funded | Sourcing/legal + physical-design leads | Not assessed; controlled records required |
 | Decide whether to allocate resources beyond the approved discovery baseline; record next gate | Named sponsor | Pending; no funding or tapeout implied |
 
-**Current disposition:** The sponsor-approved discovery boundary is recorded, but E-301 remains **in progress** pending named technical owners, completion of the evidence review, and a separate resource/fund-defer decision. Eight local 1×4 host-reference correctness runs are recorded as pending independent review, including a same-kernel comparison whose cycle counts differ; E-302 reproduction/acceptance, generated input/golden hashes, parity, complete FPGA closure, supplier confirmation and production gates remain open or unverified. This brief records scope approval only; it is not final SKU approval, funding, tapeout authorization, or an external product claim.
+**Current disposition:** The sponsor-approved discovery boundary is recorded, but E-301 remains **in progress** pending named technical owners, completion of the evidence review, and a separate resource/fund-defer decision. Eight local 1×4 host-reference correctness runs are recorded as pending independent review, including a same-kernel comparison whose cycle counts differ; E-302 reproduction/acceptance, generated input/golden hashes, parity, complete FPGA closure, supplier confirmation and production gates remain open or unverified. This brief records the discovery scope and G0 engineering authorization; it is not commercial SKU approval, funding commitment, tapeout authorization, or an external product claim.

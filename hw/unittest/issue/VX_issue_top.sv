@@ -148,12 +148,19 @@ module VX_issue_top import VX_gpu_pkg::*; #(
     `UNUSED_VAR (scope_bus_out_w)
 `endif
 
+    // The bench has no scheduler: every thread is live and no live-mask
+    // generation tag has been issued.
+    wire [`VX_CFG_NUM_WARPS-1:0][`VX_CFG_NUM_THREADS-1:0] thread_masks = '1;
+    wire [`VX_CFG_NUM_WARPS-1:0][MASK_TAG_W-1:0] mask_op_gen = '0;
+
     VX_issue #(
         .INSTANCE_ID (INSTANCE_ID)
     ) issue (
         `SCOPE_IO_BIND (0)
         .clk            (clk),
         .reset          (reset),
+        .thread_masks   (thread_masks),
+        .mask_op_gen    (mask_op_gen),
 
     `ifdef PERF_ENABLE
         .issue_perf     (issue_perf),

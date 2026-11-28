@@ -319,6 +319,10 @@ import VX_fpu_pkg::*;
                         `CSR_READ_64(`VX_CSR_MPM_DCACHE_EVICTS, read_data_ro_w, sysmem_perf.dcache.evictions);
                         `CSR_READ_64(`VX_CSR_MPM_DCACHE_BANK_ST, read_data_ro_w, sysmem_perf.dcache.bank_stalls);
                         `CSR_READ_64(`VX_CSR_MPM_DCACHE_MSHR_ST, read_data_ro_w, sysmem_perf.dcache.mshr_stalls);
+                        `CSR_READ_64(`VX_CSR_MPM_DCACHE_FENCES, read_data_ro_w, sysmem_perf.dcache.fences);
+                        `CSR_READ_64(`VX_CSR_MPM_DCACHE_FLUSH_LT, read_data_ro_w, sysmem_perf.dcache.flush_lt);
+                        `CSR_READ_64(`VX_CSR_MPM_DCACHE_FLUSH_WALK_LT, read_data_ro_w, sysmem_perf.dcache.flush_walk_lt);
+                        `CSR_READ_64(`VX_CSR_MPM_DCACHE_FENCE_LT, read_data_ro_w, pipeline_perf.fence_lt);
                         default:;
                         endcase
                     end

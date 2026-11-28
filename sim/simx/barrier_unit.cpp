@@ -47,7 +47,7 @@ void BarrierUnit::arrive(uint32_t bar_id, uint32_t count, uint32_t wid, bool is_
   auto& barrier = barriers_.at(bar_index);
   const auto& active_warps = scheduler_->active_warps();
 
-  DP(4, "*** Barrier arrive: core #" << core_->id() << ", warp #" << wid << " at barrier #" << bar_id << ", phase=" << barrier.phase << ", wait_mask=" << barrier.wait_mask << ", count=" << barrier.count << ", events=" << barrier.events);
+  DT(4, "*** Barrier arrive: core #" << core_->id() << ", warp #" << wid << " at barrier #" << bar_id << ", phase=" << barrier.phase << ", wait_mask=" << barrier.wait_mask << ", count=" << barrier.count << ", events=" << barrier.events);
 
   if (is_global) {
     barrier.count = count;
@@ -76,7 +76,7 @@ void BarrierUnit::arrive(uint32_t bar_id, uint32_t count, uint32_t wid, bool is_
       // resume waiting warps
       for (uint32_t i = 0; i < VX_CFG_NUM_WARPS; ++i) {
         if (barrier.wait_mask.test(i)) {
-          DP(3, "*** Resume core #" << core_->id() << ", warp #" << i << " at barrier #" << bar_id);
+          DT(3, "*** Resume core #" << core_->id() << ", warp #" << i << " at barrier #" << bar_id);
           scheduler_->resume(i);
         }
       }
@@ -99,12 +99,12 @@ bool BarrierUnit::wait(uint32_t bar_id, uint32_t phase, uint32_t wid) {
   auto& barrier = barriers_.at(bar_index);
   bool wait = (barrier.phase == phase);
 
-  DP(4, "*** Barrier wait: core #" << core_->id() << ", warp #" << wid << " at barrier #" << bar_id << ", wait=" << wait);
+  DT(4, "*** Barrier wait: core #" << core_->id() << ", warp #" << wid << " at barrier #" << bar_id << ", wait=" << wait);
 
   if (wait) {
     // add warp to wait list
     barrier.wait_mask.set(wid);
-    DP(3, "*** Suspend core #" << core_->id() << ", warp #" << wid << " at barrier #" << bar_id);
+    DT(3, "*** Suspend core #" << core_->id() << ", warp #" << wid << " at barrier #" << bar_id);
   }
 
   return wait;
@@ -118,7 +118,7 @@ void BarrierUnit::global_resume(uint32_t bar_id) {
   // which is the correct semantics for fire-and-forget global barriers.
   for (uint32_t i = 0; i < VX_CFG_NUM_WARPS; ++i) {
     if (barrier.wait_mask.test(i)) {
-      DP(3, "*** Resume core #" << core_->id() << ", warp #" << i << " at barrier #" << bar_id);
+      DT(3, "*** Resume core #" << core_->id() << ", warp #" << i << " at barrier #" << bar_id);
       scheduler_->resume(i);
     }
   }
@@ -154,7 +154,7 @@ void BarrierUnit::event_release(uint32_t bar_id) {
         // resume waiting warps
         for (uint32_t i = 0; i < VX_CFG_NUM_WARPS; ++i) {
           if (barrier.wait_mask.test(i)) {
-            DP(3, "*** Resume core #" << core_->id() << ", warp #" << i << " at barrier #" << bar_id);
+            DT(3, "*** Resume core #" << core_->id() << ", warp #" << i << " at barrier #" << bar_id);
             scheduler_->resume(i);
           }
         }

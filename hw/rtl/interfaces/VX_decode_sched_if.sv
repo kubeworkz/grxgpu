@@ -17,6 +17,9 @@ interface VX_decode_sched_if import VX_gpu_pkg::*; ();
 
     wire                valid;
     wire                unlock;
+    wire                wstall_br;
+    wire                mask_op;
+    wire [MASK_TAG_W-1:0] mgen;
 `ifdef VX_CFG_EXT_C_ENABLE
     wire                is_rvc;
 `endif
@@ -25,6 +28,9 @@ interface VX_decode_sched_if import VX_gpu_pkg::*; ();
     modport master (
         output valid,
         output unlock,
+        output wstall_br,
+        output mask_op,
+        output mgen,
     `ifdef VX_CFG_EXT_C_ENABLE
         output is_rvc,
     `endif
@@ -34,6 +40,9 @@ interface VX_decode_sched_if import VX_gpu_pkg::*; ();
     modport slave (
         input valid,
         input unlock,
+        input wstall_br,
+        input mask_op,
+        input mgen,
     `ifdef VX_CFG_EXT_C_ENABLE
         input is_rvc,
     `endif

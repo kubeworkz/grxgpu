@@ -15,6 +15,15 @@ tests:
   # builds the unit tests; this lane executes them so a softfloat-divergent
   # regression actually fails CI (each driver checks bit-exact result+fflags over
   # millions of vectors across all RISC-V rounding modes, default + lean configs).
+  # Reservation hold deadline (VX_amo_unit): a hart that leaves the LR/SC
+  # sequence with its reservation installed must release the station within the
+  # derived bound, and other harts must be refused before it. The `hw` lane
+  # above only builds this bench; this lane executes it, so losing the deadline
+  # fails CI instead of leaving the assertion unread.
+  - id: hw-amo
+    via: script
+    run: "make -C hw/unittest/amo_unit run"
+    touches: [VX_config.toml, hw/rtl/cache, hw/rtl/VX_gpu_pkg.sv, hw/rtl/libs, hw/unittest/Makefile, hw/unittest/common.mk, hw/unittest/amo_unit]
   - id: hw-fpu
     via: script
     run: "make -C hw/unittest run-fpu"
@@ -31,6 +40,8 @@ tests:
     via: script
     run: "make -C hw/unittest run-tcu-dsp"
     touches: [hw/rtl/tcu, hw/unittest/tcu_fedp]
+  # No ECC lanes are defined: the tree has no SECDED RTL or ECC benches
+  # (see docs/grxgpu_g100_t0_tapeout_checklist.md section 3).
   # T0 JTAG debug path: executes the test-SRAM walking and restart/recovery
   # bench. RV32-only — the boot image and the SRAM/result map assume 32-bit
   # addressing — so this lane is pinned to xlen 32; the 64-bit cell's generic
